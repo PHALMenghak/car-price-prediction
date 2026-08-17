@@ -31,13 +31,13 @@ class AdListingModel(BaseModel):
     Validated record for a single Khmer24 car listing.
 
     All fields needed for downstream ML modeling are captured here.
-    The `specs` dict stores the raw highlight_specs payload so future
+    The `raw_specs` dict stores the raw highlight_specs payload so future
     feature engineering can extract additional structured fields without
     re-scraping.
     """
 
-    id: str
-    title: str
+    listing_id: str
+    listing_title: str
     price: Optional[float] = None
     currency: str = "USD"
     discount_price: Optional[float] = None
@@ -51,7 +51,7 @@ class AdListingModel(BaseModel):
     province: Optional[str] = None
     province_slug: Optional[str] = None
     district: Optional[str] = None
-    full_location: Optional[str] = None
+    location_full: Optional[str] = None
 
     # ── Seller ────────────────────────────────────────────────────────────────
     seller_id: Optional[str] = None
@@ -60,31 +60,31 @@ class AdListingModel(BaseModel):
     seller_username: Optional[str] = None
 
     # ── Contact ───────────────────────────────────────────────────────────────
-    phone_numbers: List[str] = Field(default_factory=list)
+    seller_phones: List[str] = Field(default_factory=list)
 
     # ── Listing metadata ──────────────────────────────────────────────────────
-    views: int = 0
-    posted_date: Optional[str] = None
-    renew_date: Optional[str] = None
+    view_count: int = 0
+    posted_at: Optional[str] = None
+    renewed_at: Optional[str] = None
     thumbnail_url: Optional[str] = None
-    product_link: Optional[str] = None
+    listing_url: Optional[str] = None
 
     # ── Vehicle-specific fields (parsed from highlight_specs) ─────────────────
-    car_year: Optional[int] = None
-    car_condition: Optional[str] = None   # "used" | "new"
-    tax_type: Optional[str] = None        # "Imported" | "Local" | ...
+    vehicle_model_year: Optional[int] = None
+    vehicle_condition: Optional[str] = None   # "used" | "new"
+    vehicle_tax_type: Optional[str] = None    # "Imported" | "Local" | ...
     vehicle_brand: Optional[str] = None
     vehicle_model: Optional[str] = None
 
     # ── Extra specs extracted from highlight_specs blob ───────────────────────
-    mileage_km: Optional[int] = None      # odometer reading in km
-    fuel_type: Optional[str] = None       # "Petrol" | "Diesel" | "Electric" | ...
-    transmission: Optional[str] = None    # "Automatic" | "Manual"
-    engine_cc: Optional[int] = None       # engine displacement in cc
-    color: Optional[str] = None           # exterior color
+    vehicle_mileage_km: Optional[int] = None      # odometer reading in km
+    vehicle_fuel_type: Optional[str] = None       # "Petrol" | "Diesel" | "Electric" | ...
+    vehicle_transmission: Optional[str] = None    # "Automatic" | "Manual"
+    vehicle_engine_cc: Optional[int] = None       # engine displacement in cc
+    vehicle_color: Optional[str] = None           # exterior color
 
     # ── Raw specs dict — full API payload for future extension ────────────────
-    specs: Optional[Dict[str, Any]] = Field(default=None)
+    raw_specs: Optional[Dict[str, Any]] = Field(default=None)
 
     # ── Scrape timestamp (Fix #5) ─────────────────────────────────────────────
     scraped_at: str = Field(
@@ -108,7 +108,7 @@ class AdListingModel(BaseModel):
         except ValueError:
             return None
 
-    @field_validator("car_year", mode="before")
+    @field_validator("vehicle_model_year", mode="before")
     @classmethod
     def clean_year(cls, v):
         """Coerce year strings to int; reject implausible values."""
@@ -120,7 +120,7 @@ class AdListingModel(BaseModel):
         except (ValueError, TypeError):
             return None
 
-    @field_validator("mileage_km", "engine_cc", mode="before")
+    @field_validator("vehicle_mileage_km", "vehicle_engine_cc", mode="before")
     @classmethod
     def clean_int_spec(cls, v):
         """Coerce integer spec values; return None on failure."""

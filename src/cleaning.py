@@ -7,12 +7,12 @@
 import logging
 from typing import Optional
 
+from datetime import datetime
 import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-CURRENT_YEAR = 2026
-
+CURRENT_YEAR = datetime.now().year
 
 def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -23,13 +23,13 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     1. Drop rows with no price (target variable is required for modeling).
     2. Remove price outliers outside $500 – $300,000.
     3. Drop rows with impossible car years (keep 1990 – current_year + 1).
-    4. Standardize ``car_condition`` to lowercase & fill missing → "used".
-    5. Fill missing ``tax_type``      → "Unknown".
-    6. Fill missing ``vehicle_brand`` → "Unknown".
-    7. Fill missing ``province``      → "Unknown".
-    8. Fill missing ``transmission``  → "Unknown".
-    9. Fill missing ``fuel_type``     → "Unknown".
-    10. Deduplicate by listing ``id`` (keep first occurrence).
+    4. Standardize ``vehicle_condition`` to lowercase & fill missing → "used".
+    5. Fill missing ``vehicle_tax_type``      → "Unknown".
+    6. Fill missing ``vehicle_brand``         → "Unknown".
+    7. Fill missing ``province``              → "Unknown".
+    8. Fill missing ``vehicle_transmission``  → "Unknown".
+    9. Fill missing ``vehicle_fuel_type``     → "Unknown".
+    10. Deduplicate by ``listing_id`` (keep first occurrence).
 
     Parameters
     ----------
@@ -54,26 +54,29 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     logger.info(f"Rule 2 (price bounds) : removed {before - len(df):>4}  | remaining {len(df)}")
 
     # Rule 3 — car year sanity bounds (allow null years to pass through)
-    if "car_year" in df.columns:
+    year_col = "vehicle_model_year" if "vehicle_model_year" in df.columns else ("car_year" if "car_year" in df.columns else None)
+    if year_col:
         before = len(df)
         df = df[
-            df["car_year"].between(1990, CURRENT_YEAR + 1, inclusive="both")
-            | df["car_year"].isna()
+            df[year_col].between(1990, CURRENT_YEAR + 1, inclusive="both")
+            | df[year_col].isna()
         ]
         logger.info(f"Rule 3 (year bounds)  : removed {before - len(df):>4}  | remaining {len(df)}")
 
     # Rules 4-9 — standardize / fill string fields
-    _fill_str(df, "car_condition", default="used", lower=True)
-    _fill_str(df, "tax_type",      default="Unknown")
+    _fill_str(df, "vehicle_condition" if "vehicle_condition" in df.columns else "car_condition", default="used", lower=True)
+    _fill_str(df, "vehicle_tax_type" if "vehicle_tax_type" in df.columns else "tax_type", default="Unknown")
     _fill_str(df, "vehicle_brand", default="Unknown")
-    _fill_str(df, "province",      default="Unknown")
-    _fill_str(df, "transmission",  default="Unknown")
-    _fill_str(df, "fuel_type",     default="Unknown")
+    _fill_str(df, "province", default="Unknown")
+    _fill_str(df, "vehicle_transmission" if "vehicle_transmission" in df.columns else "transmission", default="Unknown")
+    _fill_str(df, "vehicle_fuel_type" if "vehicle_fuel_type" in df.columns else "fuel_type", default="Unknown")
 
     # Rule 10 — remove duplicates
-    before = len(df)
-    df = df.drop_duplicates(subset=["id"])
-    logger.info(f"Rule 10 (duplicates)  : removed {before - len(df):>4}  | remaining {len(df)}")
+    id_col = "listing_id" if "listing_id" in df.columns else ("id" if "id" in df.columns else None)
+    if id_col:
+        before = len(df)
+        df = df.drop_duplicates(subset=[id_col])
+        logger.info(f"Rule 10 (duplicates)  : removed {before - len(df):>4}  | remaining {len(df)}")
 
     logger.info(f"Cleaning complete: {initial} -> {len(df)} rows ({initial - len(df)} removed total)")
     return df.reset_index(drop=True)

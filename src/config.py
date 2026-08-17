@@ -39,7 +39,34 @@ DEFAULT_RETRIES       = 3        # Max HTTP retry attempts per request
 RAW_DATA_DIR       = os.path.join("data", "raw")
 PROCESSED_DATA_DIR = os.path.join("data", "processed")
 
-PARQUET_FILENAME   = "khmer24_cars.parquet"
+import glob
+import re
+from datetime import datetime
+
+def get_daily_parquet_filename(date: datetime | None = None, version: int = 1) -> str:
+    """Return the versioned daily raw parquet filename: cars_YYYY-MM-DD_v01.parquet"""
+    d = date or datetime.now()
+    return f"cars_{d.strftime('%Y-%m-%d')}_v{version:02d}.parquet"
+
+def get_next_daily_version_filename(directory: str = RAW_DATA_DIR, date: datetime | None = None) -> str:
+    """
+    Find the next available version number (v01, v02, ...) for today's scrape in `directory`.
+    Example: if cars_2026-08-17_v01.parquet exists, returns cars_2026-08-17_v02.parquet.
+    """
+    d = date or datetime.now()
+    date_str = d.strftime('%Y-%m-%d')
+    pattern = os.path.join(directory, f"cars_{date_str}_v*.parquet")
+    existing_files = glob.glob(pattern)
+
+    max_v = 0
+    for file_path in existing_files:
+        match = re.search(r"_v(\d+)\.parquet$", os.path.basename(file_path))
+        if match:
+            max_v = max(max_v, int(match.group(1)))
+
+    return get_daily_parquet_filename(d, version=max_v + 1)
+
+PARQUET_FILENAME   = get_daily_parquet_filename(version=1)
 
 # ── Scrape Target ──────────────────────────────────────────────────────────────
 # Override via environment variables for CI/CD flexibility.

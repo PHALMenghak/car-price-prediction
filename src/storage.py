@@ -63,7 +63,7 @@ def load_from_parquet(
     df = pd.read_parquet(path)
 
     # Restore list/dict columns from JSON strings
-    for col in ("phone_numbers", "specs"):
+    for col in ("seller_phones", "raw_specs", "phone_numbers", "specs"):
         if col in df.columns:
             df[col] = df[col].apply(
                 lambda x: json.loads(x)
@@ -77,28 +77,28 @@ def load_from_parquet(
 
 # Columns written to the CSV sample — human-readable subset, no raw blobs
 _CSV_COLUMNS = [
-    "id",
-    "title",
+    "listing_id",
+    "listing_title",
     "price",
     "currency",
-    "car_year",
-    "car_condition",
-    "tax_type",
+    "vehicle_model_year",
+    "vehicle_condition",
+    "vehicle_tax_type",
     "vehicle_brand",
     "vehicle_model",
-    "mileage_km",
-    "fuel_type",
-    "transmission",
-    "engine_cc",
-    "color",
+    "vehicle_mileage_km",
+    "vehicle_fuel_type",
+    "vehicle_transmission",
+    "vehicle_engine_cc",
+    "vehicle_color",
     "province",
     "district",
     "seller_type",
-    "views",
-    "posted_date",
+    "view_count",
+    "posted_at",
     "scraped_at",
     "is_premium",
-    "product_link",
+    "listing_url",
 ]
 
 

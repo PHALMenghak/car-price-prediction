@@ -1,0 +1,59 @@
+name: Daily Car Scraper Pipeline
+
+on:
+  schedule:
+    # Runs daily at 02:00 UTC (09:00 AM Cambodia Time)
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      max_pages:
+        description: 'Max pages to scrape'
+        required: false
+        default: '20'
+        type: string
+      target_category:
+        description: 'Category slug'
+        required: false
+        default: 'cars-for-sale'
+        type: string
+
+jobs:
+  scrape:
+    name: Scrape Khmer24 Cars
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+          python-version: "3.11"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: |
+          uv sync --frozen
+
+      - name: Run Scraper
+        env:
+          MAX_PAGES: ${{ github.event.inputs.max_pages || '20' }}
+          TARGET_CATEGORY: ${{ github.event.inputs.target_category || 'cars-for-sale' }}
+        run: |
+          uv run python main.py
+
+      - name: Upload Raw & Processed Parquet Data
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: car-data-${{ github.run_id }}
+          path: |
+            data/raw/cars_*.parquet
+            data/raw/*.csv
+            data/processed/*.parquet
+            data/processed/*.csv
+            logs/scraper.log
+          retention-days: 30

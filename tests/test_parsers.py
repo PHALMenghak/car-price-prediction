@@ -29,15 +29,31 @@ class TestExtractBrandModel:
         assert brand == "Honda"
         assert model == "Civic"
 
+    def test_khmer_brand_name(self):
+        """Khmer script brand names like តូយ៉ូតា should map to canonical English names."""
+        brand, model = extract_brand_model("ឡានតូយ៉ូតា Prius 2010 ពណ៌ស")
+        assert brand == "Toyota"
+        assert model == "Prius"
+
     def test_multi_word_brand(self):
         brand, model = extract_brand_model("Mercedes-Benz E300 2020 for sale")
         assert brand == "Mercedes-Benz"
         assert model == "E300"
 
+    def test_benz_alias(self):
+        brand, model = extract_brand_model("Benz C300 2018 full option")
+        assert brand == "Mercedes-Benz"
+        assert model == "C300"
+
     def test_land_rover(self):
         brand, model = extract_brand_model("Land Rover Defender 2022")
         assert brand == "Land Rover"
         assert model == "Defender"
+
+    def test_range_rover(self):
+        brand, model = extract_brand_model("Range Rover Sport 2021 HSE")
+        assert brand == "Land Rover"
+        assert model == "Range Rover Sport"
 
     def test_stop_word_halts_model(self):
         brand, model = extract_brand_model("Kia for sale cheap")
@@ -67,7 +83,7 @@ class TestExtractBrandModel:
     def test_case_insensitive(self):
         brand, model = extract_brand_model("TOYOTA CAMRY 2020")
         assert brand == "Toyota"         # canonical casing preserved
-        assert model == "CAMRY"
+        assert model == "Camry"
 
     def test_multi_word_model(self):
         brand, model = extract_brand_model("Toyota Land Cruiser 2022 used")
@@ -78,6 +94,20 @@ class TestExtractBrandModel:
         brand, model = extract_brand_model("BYD Atto 3 2023 new")
         assert brand == "BYD"
         assert model == "Atto 3"         # "Atto 3" is the full model name
+
+    def test_inferred_brand_from_distinct_model(self):
+        """When brand is omitted in title, infer from famous model name."""
+        brand, model = extract_brand_model("Prius 2010 Option 4 Solar ក្រដាសពន្ធ")
+        assert brand == "Toyota"
+        assert model == "Prius"
+
+        brand2, model2 = extract_brand_model("RX350 2016 F-Sport full option")
+        assert brand2 == "Lexus"
+        assert model2 == "RX350"
+
+        brand3, model3 = extract_brand_model("Wildtrak 2022 Bi-Turbo Diesel")
+        assert brand3 == "Ford"
+        assert model3 == "Ranger Wildtrak"
 
 
 class TestParseMileage:

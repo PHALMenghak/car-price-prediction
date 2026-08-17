@@ -19,7 +19,7 @@ import pandas as pd
 
 from src.config import (
     TARGET_CATEGORY, TARGET_PROVINCE, MAX_PAGES,
-    PARQUET_FILENAME,
+    PARQUET_FILENAME, get_next_daily_version_filename,
     RAW_DATA_DIR, PROCESSED_DATA_DIR,
 )
 from src.client import Khmer24Client
@@ -49,17 +49,27 @@ def main() -> None:
     logger.info("=" * 65)
 
     # ── Step 1: Load existing IDs for incremental scraping (Fix #3) ──────────
-    existing_parquet = os.path.join(RAW_DATA_DIR, PARQUET_FILENAME)
+    import glob
+    raw_files = glob.glob(os.path.join(RAW_DATA_DIR, "cars_*.parquet")) + glob.glob(os.path.join(RAW_DATA_DIR, "khmer24_cars.parquet"))
     seen_ids: set = set()
     existing_count = 0
-    if os.path.exists(existing_parquet):
+    df_existing_list = []
+
+    for fpath in raw_files:
         try:
-            df_existing = pd.read_parquet(existing_parquet, columns=["id"])
-            seen_ids = set(df_existing["id"].astype(str))
-            existing_count = len(seen_ids)
-            logger.info(f"  Found {existing_count} existing listings — running incremental sync.")
+            df_part = pd.read_parquet(fpath)
+            id_col = "listing_id" if "listing_id" in df_part.columns else "id"
+            if id_col in df_part.columns:
+                seen_ids.update(df_part[id_col].astype(str))
+            df_existing_list.append(df_part)
         except Exception as e:
-            logger.warning(f"  Could not load existing data ({e}) — running full scrape.")
+            logger.warning(f"  Could not read {fpath} ({e})")
+
+    existing_count = len(seen_ids)
+    if existing_count > 0:
+        logger.info(f"  Found {existing_count} existing unique listings across {len(raw_files)} files — running incremental sync.")
+    else:
+        logger.info("  No prior raw files found — running fresh scrape.")
 
     # ── Step 2: Scrape ─────────────────────────────────────────────────────
     with Khmer24Client(lang="en") as client:
@@ -77,31 +87,9 @@ def main() -> None:
     logger.info(f"Collected {len(new_listings)} new listings (had {existing_count} before).")
 
     # ── Step 3: Save raw data ──────────────────────────────────────────────────
-    # Merge new listings with existing ones before saving.
-    import json as _json
-
-    def _serialize_df(df: pd.DataFrame) -> pd.DataFrame:
-        """JSON-encode all list/dict cells so Parquet schema stays flat."""
-        df = df.copy()
-        for col in df.columns:
-            if df[col].dtype == object:
-                df[col] = df[col].apply(
-                    lambda x: _json.dumps(x) if isinstance(x, (list, dict)) else x
-                )
-        return df
-
-    if existing_count > 0:
-        df_old = pd.read_parquet(existing_parquet)  # raw strings
-        df_new = _serialize_df(pd.DataFrame([item.model_dump() for item in new_listings]))
-        df_merged = (
-            pd.concat([df_old, df_new], ignore_index=True)
-            .drop_duplicates(subset=["id"])
-        )
-        df_merged.to_parquet(existing_parquet, index=False)
-        logger.info(f"Merged Parquet: {len(df_merged)} total rows -> {existing_parquet}")
-    else:
-        parquet_path = save_to_parquet(new_listings, PARQUET_FILENAME, RAW_DATA_DIR)
-        logger.info(f"Raw data  -> Parquet : {parquet_path}")
+    target_parquet_filename = get_next_daily_version_filename(directory=RAW_DATA_DIR)
+    parquet_path = save_to_parquet(new_listings, target_parquet_filename, RAW_DATA_DIR)
+    logger.info(f"Raw data  -> Parquet : {parquet_path}")
 
     csv_30_path = save_sample_csv(new_listings, n=30, directory=RAW_DATA_DIR)
     csv_60_path = save_sample_csv(new_listings, n=60, directory=RAW_DATA_DIR)
@@ -110,15 +98,16 @@ def main() -> None:
 
     # ── Step 4: Data quality check ──────────────────────────────────────────────────
     df_raw_new = pd.DataFrame([item.model_dump() for item in new_listings])
+    year_col = "vehicle_model_year" if "vehicle_model_year" in df_raw_new.columns else "car_year"
     n_with_price = df_raw_new["price"].notna().sum()
-    n_with_year  = df_raw_new["car_year"].notna().sum()
+    n_with_year  = df_raw_new[year_col].notna().sum() if year_col in df_raw_new.columns else 0
     n_with_brand = df_raw_new["vehicle_brand"].notna().sum()
     n_with_prov  = df_raw_new["province"].notna().sum()
 
     logger.info("── Data Quality Summary (New Scraping Batch) ───────────")
     logger.info(f"  Total listings   : {len(df_raw_new)}")
     logger.info(f"  With price       : {n_with_price}  ({n_with_price/len(df_raw_new)*100:.1f}%)")
-    logger.info(f"  With car_year    : {n_with_year}   ({n_with_year/len(df_raw_new)*100:.1f}%)")
+    logger.info(f"  With model_year  : {n_with_year}   ({n_with_year/len(df_raw_new)*100:.1f}%)")
     logger.info(f"  With brand       : {n_with_brand}  ({n_with_brand/len(df_raw_new)*100:.1f}%)")
     logger.info(f"  With province    : {n_with_prov}   ({n_with_prov/len(df_raw_new)*100:.1f}%)")
 
@@ -134,15 +123,24 @@ def main() -> None:
         logger.info("  ✅ Phase 1 data requirements met!")
 
     # ── Step 5: Clean & save processed data ─────────────────────────────────
-    logger.info("Running data cleaning...")
-    # Load full raw dataset for cleaning
-    df_raw_full = pd.read_parquet(existing_parquet)
-    df_clean    = clean_data(df_raw_full)
+    logger.info("Running data cleaning across all collected raw files...")
+    # Load all raw datasets for consolidated cleaning
+    all_raw_files = glob.glob(os.path.join(RAW_DATA_DIR, "cars_*.parquet")) + glob.glob(os.path.join(RAW_DATA_DIR, "khmer24_cars.parquet"))
+    df_raw_all_list = [pd.read_parquet(fp) for fp in all_raw_files if os.path.exists(fp)]
+    if df_raw_all_list:
+        df_raw_full = pd.concat(df_raw_all_list, ignore_index=True)
+        id_col = "listing_id" if "listing_id" in df_raw_full.columns else "id"
+        if id_col in df_raw_full.columns:
+            df_raw_full = df_raw_full.drop_duplicates(subset=[id_col])
+    else:
+        df_raw_full = df_raw_new
+
+    df_clean = clean_data(df_raw_full)
 
     os.makedirs(PROCESSED_DATA_DIR, exist_ok=True)
     clean_parquet_path = os.path.join(PROCESSED_DATA_DIR, "cars_clean.parquet")
     df_clean.to_parquet(clean_parquet_path, index=False)
-    logger.info(f"Cleaned data -> {clean_parquet_path}")
+    logger.info(f"Cleaned data -> {clean_parquet_path} ({len(df_clean)} unique rows)")
 
     clean_csv_path = os.path.join(PROCESSED_DATA_DIR, "cars_clean_sample.csv")
     df_clean.head(60).to_csv(clean_csv_path, index=False, encoding="utf-8-sig")

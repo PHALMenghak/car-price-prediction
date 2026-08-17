@@ -15,7 +15,9 @@ env/
 .env
 
 # Scraped data output (generated at runtime)
-data/*.db
+data/**/*.db
+data/**/*.parquet
+data/**/*.csv
 data/*.parquet
 data/*.csv
 
