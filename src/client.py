@@ -2,6 +2,7 @@
 # Uses curl_cffi to impersonate Chrome's TLS fingerprint,
 # bypassing Cloudflare Bot Management without Playwright/Selenium.
 
+import os
 import time
 import logging
 from typing import Any, Dict, List, Optional
@@ -45,10 +46,25 @@ class Khmer24Client:
         self,
         lang: str = DEFAULT_LANG,
         delay: float = DEFAULT_DELAY_SECONDS,
+        proxy: Optional[str] = None,
     ):
         self.lang = lang
         self.delay = delay
-        self._session = cf_requests.Session(impersonate=_IMPERSONATE, timeout=20)
+        
+        # Check proxy settings (env or parameter)
+        proxy_url = (
+            proxy
+            or os.getenv("KHMER24_PROXY")
+            or os.getenv("HTTPS_PROXY")
+            or os.getenv("HTTP_PROXY")
+        )
+        proxies = {"http": proxy_url, "https": proxy_url} if proxy_url else None
+        
+        self._session = cf_requests.Session(
+            impersonate=_IMPERSONATE,
+            timeout=20,
+            proxies=proxies,
+        )
         self._session.headers.update(DEFAULT_HEADERS)
 
     # ── Internal HTTP helper ───────────────────────────────────────────────────
@@ -268,7 +284,13 @@ class Khmer24Client:
             car_year = None
             tax_type = None
 
-            for spec in item.get("highlight_specs", []):
+            highlight_specs = item.get("highlight_specs") or []
+            if isinstance(highlight_specs, dict):
+                highlight_specs = highlight_specs.values()
+
+            for spec in highlight_specs:
+                if not isinstance(spec, dict):
+                    continue
                 field = spec.get("field", "")
                 val   = spec.get("value")
                 specs[field] = val

@@ -46,6 +46,9 @@ jobs:
         env:
           MAX_PAGES: ${{ github.event.inputs.max_pages || '20' }}
           TARGET_CATEGORY: ${{ github.event.inputs.target_category || 'cars-for-sale' }}
+          HTTPS_PROXY: ${{ secrets.HTTPS_PROXY }}
+          HTTP_PROXY: ${{ secrets.HTTP_PROXY }}
+          KHMER24_PROXY: ${{ secrets.KHMER24_PROXY }}
         run: |
           uv run python main.py
 
