@@ -40,9 +40,11 @@ def save_to_parquet(
     rows = [item.model_dump() for item in listings]
     df = pd.DataFrame(rows)
 
-    # Parquet cannot store arbitrary Python objects — serialize them to JSON
-    for col in df.columns:
-        if df[col].dtype == object:
+    # Parquet cannot store arbitrary Python objects — serialize known complex columns to JSON.
+    # Only target columns that are expected to hold lists or dicts (avoids scanning all columns).
+    _COMPLEX_COLS = {"seller_phones", "raw_specs"}
+    for col in _COMPLEX_COLS:
+        if col in df.columns:
             df[col] = df[col].apply(
                 lambda x: json.dumps(x) if isinstance(x, (list, dict)) else x
             )

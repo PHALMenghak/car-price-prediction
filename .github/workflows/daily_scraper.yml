@@ -22,10 +22,14 @@ jobs:
     name: Scrape Khmer24 Cars
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: write   # required to git-push scraped data back to the repo
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history needed for incremental ID tracking
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -39,18 +43,27 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        run: |
-          uv sync --frozen
+        run: uv sync --frozen
 
       - name: Run Scraper
         env:
           MAX_PAGES: ${{ github.event.inputs.max_pages || '20' }}
           TARGET_CATEGORY: ${{ github.event.inputs.target_category || 'cars-for-sale' }}
+          PYTHONUTF8: "1"
+          KHMER24_DEVICE_ID: ${{ secrets.KHMER24_DEVICE_ID }}
           HTTPS_PROXY: ${{ secrets.HTTPS_PROXY }}
           HTTP_PROXY: ${{ secrets.HTTP_PROXY }}
           KHMER24_PROXY: ${{ secrets.KHMER24_PROXY }}
+        run: uv run python main.py
+
+      - name: Commit & push scraped data back to repository
         run: |
-          uv run python main.py
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/raw/ data/processed/ logs/
+          git diff --cached --quiet || git commit -m "chore: daily scrape $(date -u +%Y-%m-%d)"
+          git push
+        continue-on-error: true   # do not fail the pipeline if there is nothing new to commit
 
       - name: Upload Raw & Processed Parquet Data
         uses: actions/upload-artifact@v4

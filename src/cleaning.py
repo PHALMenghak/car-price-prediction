@@ -54,7 +54,12 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     logger.info(f"Rule 2 (price bounds) : removed {before - len(df):>4}  | remaining {len(df)}")
 
     # Rule 3 — car year sanity bounds (allow null years to pass through)
-    year_col = "vehicle_model_year" if "vehicle_model_year" in df.columns else ("car_year" if "car_year" in df.columns else None)
+    if "vehicle_model_year" in df.columns:
+        year_col = "vehicle_model_year"
+    elif "car_year" in df.columns:
+        year_col = "car_year"
+    else:
+        year_col = None
     if year_col:
         before = len(df)
         df = df[

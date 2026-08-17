@@ -11,77 +11,89 @@ logger = logging.getLogger(__name__)
 # Maps alias/regex pattern string to canonical brand name.
 # Ordered from most specific to least specific.
 _BRAND_ALIASES: List[Tuple[str, str]] = [
-    ("mercedes-benz", "Mercedes-Benz"),
-    ("mercedes benz", "Mercedes-Benz"),
-    ("mercedes", "Mercedes-Benz"),
-    ("benz", "Mercedes-Benz"),
-    ("មែរសឺដេស", "Mercedes-Benz"),
-    ("land rover", "Land Rover"),
-    ("range rover", "Land Rover"),
-    ("rolls-royce", "Rolls-Royce"),
-    ("rolls royce", "Rolls-Royce"),
-    ("aston martin", "Aston Martin"),
-    ("alfa romeo", "Alfa Romeo"),
-    ("great wall", "Great Wall"),
-    ("vinfast", "VinFast"),
-    ("toyota", "Toyota"),
-    ("តូយ៉ូតា", "Toyota"),
-    ("lexus", "Lexus"),
-    ("ឡិចស៊ីស", "Lexus"),
-    ("ford", "Ford"),
-    ("ហ្វត", "Ford"),
-    ("honda", "Honda"),
-    ("ហុងដា", "Honda"),
-    ("bmw", "BMW"),
-    ("ប៊ីអឹម", "BMW"),
-    ("hyundai", "Hyundai"),
-    ("ហ៊ីយ៉ាន់ដាយ", "Hyundai"),
-    ("kia", "Kia"),
-    ("គា", "Kia"),
-    ("mazda", "Mazda"),
-    ("ម៉ាសដា", "Mazda"),
-    ("mitsubishi", "Mitsubishi"),
-    ("មីស៊ូប៊ីស៊ី", "Mitsubishi"),
-    ("nissan", "Nissan"),
-    ("នីសាន់", "Nissan"),
-    ("isuzu", "Isuzu"),
-    ("អ៊ីស៊ូហ្ស៊ុ", "Isuzu"),
-    ("suzuki", "Suzuki"),
-    ("ស៊ុយស៊ូគី", "Suzuki"),
-    ("subaru", "Subaru"),
-    ("volkswagen", "Volkswagen"),
-    ("chevrolet", "Chevrolet"),
-    ("chevy", "Chevrolet"),
-    ("jeep", "Jeep"),
-    ("dodge", "Dodge"),
-    ("cadillac", "Cadillac"),
-    ("lincoln", "Lincoln"),
-    ("audi", "Audi"),
-    ("porsche", "Porsche"),
-    ("volvo", "Volvo"),
-    ("peugeot", "Peugeot"),
-    ("renault", "Renault"),
-    ("citroën", "Citroën"),
-    ("citroen", "Citroën"),
-    ("acura", "Acura"),
-    ("infiniti", "Infiniti"),
-    ("genesis", "Genesis"),
-    ("haval", "Haval"),
-    ("mg", "MG"),
-    ("byd", "BYD"),
-    ("geely", "Geely"),
-    ("chery", "Chery"),
-    ("jac", "JAC"),
-    ("foton", "Foton"),
-    ("dfsk", "DFSK"),
-    ("dongfeng", "Dongfeng"),
-    ("baic", "BAIC"),
-    ("gac", "GAC"),
-    ("jetour", "Jetour"),
-    ("changan", "Changan"),
-    ("tank", "Tank"),
-    ("tesla", "Tesla"),
-    ("gmc", "GMC"),
+    (r"mercedes-benz", "Mercedes-Benz"),
+    (r"mercedes benz", "Mercedes-Benz"),
+    (r"mercedes", "Mercedes-Benz"),
+    (r"benz", "Mercedes-Benz"),
+    (r"មែរសឺដេស", "Mercedes-Benz"),
+    (r"land rover", "Land Rover"),
+    (r"range rover", "Land Rover"),
+    (r"rolls-royce", "Rolls-Royce"),
+    (r"rolls royce", "Rolls-Royce"),
+    (r"aston martin", "Aston Martin"),
+    (r"alfa romeo", "Alfa Romeo"),
+    (r"great wall", "Great Wall"),
+    (r"vinfast", "VinFast"),
+    (r"toyota", "Toyota"),
+    (r"តូយ៉ូតា", "Toyota"),
+    (r"lexus", "Lexus"),
+    (r"ឡិចស៊ីស", "Lexus"),
+    (r"ford", "Ford"),
+    (r"ហ្វត", "Ford"),
+    (r"honda", "Honda"),
+    (r"ហុងដា", "Honda"),
+    (r"bmw", "BMW"),
+    (r"ប៊ីអឹម", "BMW"),
+    (r"hyundai", "Hyundai"),
+    (r"ហ៊ីយ៉ាន់ដាយ", "Hyundai"),
+    (r"kia", "Kia"),
+    (r"គា", "Kia"),
+    (r"mazda", "Mazda"),
+    (r"ម៉ាសដា", "Mazda"),
+    (r"mitsubishi", "Mitsubishi"),
+    (r"មីស៊ូប៊ីស៊ី", "Mitsubishi"),
+    (r"nissan", "Nissan"),
+    (r"នីសាន់", "Nissan"),
+    (r"isuzu", "Isuzu"),
+    (r"អ៊ីស៊ូហ្ស៊ុ", "Isuzu"),
+    (r"suzuki", "Suzuki"),
+    (r"ស៊ុយស៊ូគី", "Suzuki"),
+    (r"subaru", "Subaru"),
+    (r"volkswagen", "Volkswagen"),
+    (r"chevrolet", "Chevrolet"),
+    (r"chevy", "Chevrolet"),
+    (r"jeep", "Jeep"),
+    (r"dodge", "Dodge"),
+    (r"cadillac", "Cadillac"),
+    (r"lincoln", "Lincoln"),
+    (r"audi", "Audi"),
+    (r"porsche", "Porsche"),
+    (r"volvo", "Volvo"),
+    (r"peugeot", "Peugeot"),
+    (r"renault", "Renault"),
+    (r"citroën", "Citroën"),
+    (r"citroen", "Citroën"),
+    (r"acura", "Acura"),
+    (r"infiniti", "Infiniti"),
+    (r"genesis", "Genesis"),
+    (r"haval", "Haval"),
+    (r"mg", "MG"),
+    (r"byd", "BYD"),
+    (r"geely", "Geely"),
+    (r"chery", "Chery"),
+    (r"jac", "JAC"),
+    (r"foton", "Foton"),
+    (r"dfsk", "DFSK"),
+    (r"dongfeng", "Dongfeng"),
+    (r"baic", "BAIC"),
+    (r"gac", "GAC"),
+    (r"jetour", "Jetour"),
+    (r"changan", "Changan"),
+    (r"tank", "Tank"),
+    (r"tesla", "Tesla"),
+    (r"gmc", "GMC"),
+]
+
+# Pre-compiled brand alias patterns: (compiled_re, canonical_brand)
+_BRAND_PATTERNS = [
+    (
+        re.compile(
+            r'(?:\b|(?<=[' + r'\u1780-\u17FF' + r']))' + re.escape(alias) + r'(?:\b|(?=[\u1780-\u17FF\s]|$))',
+            re.IGNORECASE,
+        ),
+        canonical,
+    )
+    for alias, canonical in _BRAND_ALIASES
 ]
 
 # ── Known Models Dictionary per Brand (sorted longest-first per brand) ────────
@@ -257,6 +269,21 @@ for _brand, _models in KNOWN_MODELS_BY_BRAND.items():
             _DISTINCT_MODELS.append((_m.lower(), _brand, _m))
 _DISTINCT_MODELS.sort(key=lambda x: len(x[0]), reverse=True)
 
+# Pre-compiled distinct model patterns: (compiled_re, brand, canonical_model)
+_DISTINCT_MODEL_PATTERNS: List[Tuple[re.Pattern, str, str]] = [
+    (re.compile(r'\b' + re.escape(model_lower) + r'\b', re.IGNORECASE), brand, canonical)
+    for model_lower, brand, canonical in _DISTINCT_MODELS
+]
+
+# Pre-compiled known model patterns per brand: {brand: [(compiled_re, canonical_model), ...]}
+_KNOWN_MODEL_PATTERNS: Dict[str, List[Tuple[re.Pattern, str]]] = {
+    brand: [
+        (re.compile(r'\b' + re.escape(model) + r'\b', re.IGNORECASE), model)
+        for model in models
+    ]
+    for brand, models in KNOWN_MODELS_BY_BRAND.items()
+}
+
 # Year pattern — used to strip year digits leaking into model tokens
 _YEAR_RE = re.compile(r'^(?:19|20)\d{2}$')
 
@@ -293,12 +320,11 @@ def extract_brand_model(title: Optional[str]) -> Tuple[Optional[str], Optional[s
     if not title_clean:
         return None, None
 
-    # ── Stage 1: Search for Known Brand / Alias ────────────────────────────────
+    # ── Stage 1: Search for Known Brand / Alias (using pre-compiled patterns) ──
     detected_brand: Optional[str] = None
     brand_match_end: int = -1
 
-    for alias, canonical_brand in _BRAND_ALIASES:
-        pattern = re.compile(r'(?:\b|(?<=[\u1780-\u17FF]))' + re.escape(alias) + r'(?:\b|(?=[\u1780-\u17FF\s]|$))', re.IGNORECASE)
+    for pattern, canonical_brand in _BRAND_PATTERNS:
         m = pattern.search(title_clean)
         if m:
             detected_brand = canonical_brand
@@ -308,13 +334,8 @@ def extract_brand_model(title: Optional[str]) -> Tuple[Optional[str], Optional[s
     # ── Stage 2: If Brand is found, extract Model ─────────────────────────────
     if detected_brand:
         # 2a. Check known curated models for this brand (longest-match first)
-        known_models = KNOWN_MODELS_BY_BRAND.get(detected_brand, [])
-        for model_candidate in known_models:
-            # Case-insensitive substring match with boundary checks
-            m_pat = re.compile(r'\b' + re.escape(model_candidate) + r'\b', re.IGNORECASE)
-            m_found = m_pat.search(title_clean)
-            if m_found:
-                # If exact casing matched in title, or canonical casing from dictionary
+        for model_pat, model_candidate in _KNOWN_MODEL_PATTERNS.get(detected_brand, []):
+            if model_pat.search(title_clean):
                 return detected_brand, model_candidate
 
         # 2b. Heuristic fallback: tokens immediately after the brand occurrence
@@ -334,9 +355,8 @@ def extract_brand_model(title: Optional[str]) -> Tuple[Optional[str], Optional[s
         return detected_brand, model
 
     # ── Stage 3: No direct brand found — Search for Distinct Models ───────────
-    for model_lower, inferred_brand, canonical_model in _DISTINCT_MODELS:
-        m_pat = re.compile(r'\b' + re.escape(model_lower) + r'\b', re.IGNORECASE)
-        if m_pat.search(title_clean):
+    for model_pat, inferred_brand, canonical_model in _DISTINCT_MODEL_PATTERNS:
+        if model_pat.search(title_clean):
             return inferred_brand, canonical_model
 
     return None, None

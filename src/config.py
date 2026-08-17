@@ -1,7 +1,12 @@
 # src/config.py — Settings, API base URLs, and scraper constants
 # Loads sensitive values from .env; all other values have safe defaults.
 
+import glob
 import os
+import re
+import uuid
+from datetime import datetime
+
 from dotenv import load_dotenv
 
 load_dotenv()  # Reads .env file from the project root
@@ -10,8 +15,6 @@ load_dotenv()  # Reads .env file from the project root
 CORE_API_BASE   = "https://api.khmer24.com"
 POSTS_API_BASE  = "https://api-posts.khmer24.com"
 IMAGES_CDN_BASE = "https://images.khmer24.co"
-
-import uuid
 
 # Device-Id is generated uniquely per session or read from env
 DEVICE_ID = os.getenv("KHMER24_DEVICE_ID") or f"web-{uuid.uuid4().hex[:16]}"
@@ -46,14 +49,12 @@ DEFAULT_RETRIES       = 3        # Max HTTP retry attempts per request
 RAW_DATA_DIR       = os.path.join("data", "raw")
 PROCESSED_DATA_DIR = os.path.join("data", "processed")
 
-import glob
-import re
-from datetime import datetime
 
 def get_daily_parquet_filename(date: datetime | None = None, version: int = 1) -> str:
     """Return the versioned daily raw parquet filename: cars_YYYY-MM-DD_v01.parquet"""
     d = date or datetime.now()
     return f"cars_{d.strftime('%Y-%m-%d')}_v{version:02d}.parquet"
+
 
 def get_next_daily_version_filename(directory: str = RAW_DATA_DIR, date: datetime | None = None) -> str:
     """
@@ -73,7 +74,8 @@ def get_next_daily_version_filename(directory: str = RAW_DATA_DIR, date: datetim
 
     return get_daily_parquet_filename(d, version=max_v + 1)
 
-PARQUET_FILENAME   = get_daily_parquet_filename(version=1)
+
+PARQUET_FILENAME = get_daily_parquet_filename(version=1)
 
 # ── Scrape Target ──────────────────────────────────────────────────────────────
 # Override via environment variables for CI/CD flexibility.

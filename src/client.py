@@ -97,6 +97,13 @@ class Khmer24Client:
                     logger.error(
                         f"HTTP {res.status_code} for {url} — non-recoverable, stopping."
                     )
+                    if res.status_code == 403:
+                        logger.error(
+                            "  [Hint] HTTP 403 Forbidden usually indicates that Khmer24/Cloudflare blocked the hosting environment's Datacenter IP (e.g. GitHub Actions Azure runner). "
+                            "Consider providing a proxy (KHMER24_PROXY / HTTPS_PROXY) or running via a self-hosted runner."
+                        )
+                        if res.text:
+                            logger.debug(f"Response preview: {res.text[:300]}")
                     break
                 else:
                     logger.warning(

@@ -14,17 +14,15 @@ env/
 # Environment secrets — NEVER commit this
 .env
 
-# Scraped data output (generated at runtime)
+# Scraped data output — tracked by git so GitHub Actions can push results back.
+# Exclude only local DB files which are never needed in the repo.
 data/**/*.db
-data/**/*.parquet
-data/**/*.csv
-data/*.parquet
-data/*.csv
 
-# Log files
-logs/
+# Log files — broad exclusion first, then allow scraper.log (order matters in .gitignore)
 *.log
-scraper.log
+logs/*
+!logs/.gitkeep
+!logs/scraper.log
 
 # Jupyter notebook checkpoints
 .ipynb_checkpoints/
