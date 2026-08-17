@@ -11,17 +11,24 @@ CORE_API_BASE   = "https://api.khmer24.com"
 POSTS_API_BASE  = "https://api-posts.khmer24.com"
 IMAGES_CDN_BASE = "https://images.khmer24.co"
 
-# ── Default HTTP Headers ───────────────────────────────────────────────────────
-# Device-Id is read from .env so it can be rotated without code changes.
-DEVICE_ID = os.getenv("KHMER24_DEVICE_ID", "ds-intern-device-f4b8c10a")
+import uuid
+
+# Device-Id is generated uniquely per session or read from env
+DEVICE_ID = os.getenv("KHMER24_DEVICE_ID") or f"web-{uuid.uuid4().hex[:16]}"
 
 DEFAULT_HEADERS = {
     "Accept": "application/json, text/plain, */*",
-    "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Language": "en-US,en;q=0.9,km;q=0.8",
     "Device-Id": DEVICE_ID,
     "display-type": "desktop",
     "Origin": "https://www.khmer24.com",
     "Referer": "https://www.khmer24.com/",
+    "Sec-Ch-Ua": '"Not/A)Brand";v="8", "Chromium";v="126", "Google Chrome";v="126"',
+    "Sec-Ch-Ua-Mobile": "?0",
+    "Sec-Ch-Ua-Platform": '"Windows"',
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-site",
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
