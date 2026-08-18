@@ -145,6 +145,7 @@ class Khmer24Client:
         province_slug: Optional[str] = None,
         max_pages: int = 10,
         seen_ids: Optional[set] = None,
+        stop_on_seen: bool = False,
     ) -> List[AdListingModel]:
         """
         Paginate through the Posts API feed for a given category.
@@ -156,16 +157,20 @@ class Khmer24Client:
             category_slug:  e.g. ``'cars-for-sale'``
             province_slug:  e.g. ``'phnom-penh'``; ``None`` = all provinces
             max_pages:      Maximum number of pages to fetch (30 items each)
-            seen_ids:       Set of listing IDs already in storage. When provided,
-                            pagination stops as soon as a full page of already-seen
-                            IDs is encountered (incremental / delta scraping).
+            seen_ids:       Set of listing IDs from historical storage.
+            stop_on_seen:   If True (delta_only mode), skips historical seen_ids
+                            and stops pagination as soon as a full page of already-seen
+                            IDs is encountered. If False (default, feed_window mode),
+                            scrapes the active feed to capture new listings and
+                            updated snapshots (prices, views, renewals) for SCD tracking.
 
         Returns:
-            List of validated ``AdListingModel`` records (new ones only).
+            List of validated ``AdListingModel`` records collected in this run.
         """
         url = f"{POSTS_API_BASE}/feed"
         records: List[AdListingModel] = []
-        seen_ids = seen_ids or set()
+        historical_seen = seen_ids or set()
+        seen_in_batch: set = set()
         offset = 0
         limit = DEFAULT_PAGE_LIMIT
         total_available: Optional[int] = None
@@ -206,16 +211,25 @@ class Khmer24Client:
             for wrapper in raw_items:
                 item = wrapper.get("data", wrapper) if isinstance(wrapper, dict) else wrapper
                 item_id = str(item.get("id", ""))
-                if item_id in seen_ids:
-                    continue          # skip already-stored listing
+                if not item_id:
+                    continue
+
+                # 1. Always prevent duplicate items inside the current batch
+                if item_id in seen_in_batch:
+                    continue
+
+                # 2. If running in strict delta_only mode, skip historical listings
+                if stop_on_seen and item_id in historical_seen:
+                    continue
+
                 parsed = self._parse_item(item)
                 if parsed:
                     records.append(parsed)
-                    seen_ids.add(item_id)
+                    seen_in_batch.add(item_id)
                     new_on_page += 1
 
-            # If the entire page was already known, we've caught up — stop.
-            if seen_ids and new_on_page == 0:
+            # If running in strict delta_only mode and the entire page was already known, stop.
+            if stop_on_seen and historical_seen and new_on_page == 0:
                 logger.info("Full page already in storage — incremental sync complete.")
                 break
 
@@ -227,7 +241,7 @@ class Khmer24Client:
             offset += limit
             time.sleep(self.delay)
 
-        logger.info(f"Scrape complete. New records: {len(records)}")
+        logger.info(f"Scrape complete. Collected {len(records)} records in this batch.")
         return records
 
     # ── Item parser ───────────────────────────────────────────────────────────

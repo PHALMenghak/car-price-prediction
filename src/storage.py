@@ -75,6 +75,45 @@ def load_from_parquet(
     return df
 
 
+def load_all_parquet(directory: str = RAW_DATA_DIR) -> pd.DataFrame:
+    """
+    Load and concatenate all raw Parquet files from `directory` (including subdirectories).
+    Restores serialized complex columns (JSON strings -> python objects).
+    """
+    import glob
+    files = sorted(
+        set(
+            glob.glob(os.path.join(directory, "**", "*.parquet"), recursive=True)
+            + glob.glob(os.path.join(directory, "*.parquet"))
+        )
+    )
+    if not files:
+        logger.warning(f"No Parquet files found in {directory}")
+        return pd.DataFrame()
+
+    dfs = []
+    for f in files:
+        try:
+            df = pd.read_parquet(f)
+            dfs.append(df)
+        except Exception as exc:
+            logger.warning(f"Could not load {f}: {exc}")
+
+    if not dfs:
+        return pd.DataFrame()
+
+    combined = pd.concat(dfs, ignore_index=True)
+    for col in ("seller_phones", "raw_specs", "phone_numbers", "specs"):
+        if col in combined.columns:
+            combined[col] = combined[col].apply(
+                lambda x: json.loads(x)
+                if isinstance(x, str) and x.startswith(("[", "{"))
+                else x
+            )
+    return combined
+
+
+
 # ── CSV sample ─────────────────────────────────────────────────────────────────
 
 # Columns written to the CSV sample — human-readable subset, no raw blobs
