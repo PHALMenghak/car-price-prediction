@@ -16,6 +16,14 @@ on:
         required: false
         default: 'cars-for-sale'
         type: string
+      scrape_mode:
+        description: 'Scrape mode'
+        required: false
+        default: 'feed_window'
+        type: choice
+        options:
+          - feed_window
+          - delta_only
 
 jobs:
   scrape:
@@ -45,15 +53,53 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen
 
+      - name: Pre-flight connectivity check
+        env:
+          POSTS_API_BASE: ${{ secrets.POSTS_API_BASE }}
+          RELAY_KEY:      ${{ secrets.RELAY_KEY }}
+        run: |
+          if [ -n "${POSTS_API_BASE}" ] && [ -n "${RELAY_KEY}" ]; then
+            echo "Cloudflare Worker relay is configured."
+            echo "Testing Worker at: ${POSTS_API_BASE}"
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+              --max-time 15 \
+              -H "X-Relay-Key: ${RELAY_KEY}" \
+              "${POSTS_API_BASE}?target=https://api-posts.khmer24.com/feed&category=cars-for-sale&limit=1&lang=en" \
+              || echo "000")
+            echo "Worker HTTP status: $HTTP_CODE"
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✅ Worker relay is reachable and working."
+            else
+              echo "::warning::Worker returned HTTP $HTTP_CODE — check your Worker deployment and RELAY_KEY secret."
+            fi
+          else
+            echo "No Worker relay configured — testing direct API access."
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+              --max-time 15 \
+              "https://api-posts.khmer24.com/feed?category=cars-for-sale&limit=1&lang=en" \
+              || echo "000")
+            echo "Direct API HTTP status: $HTTP_CODE"
+            if [ "$HTTP_CODE" = "403" ]; then
+              echo "::warning::HTTP 403 — Cloudflare is blocking this runner's IP."
+              echo "::warning::Set POSTS_API_BASE and RELAY_KEY secrets to enable the Worker relay."
+            elif [ "$HTTP_CODE" = "200" ]; then
+              echo "✅ Direct access is working."
+            fi
+          fi
+
       - name: Run Scraper
         env:
-          MAX_PAGES: ${{ github.event.inputs.max_pages || '20' }}
-          TARGET_CATEGORY: ${{ github.event.inputs.target_category || 'cars-for-sale' }}
-          PYTHONUTF8: "1"
+          MAX_PAGES:         ${{ github.event.inputs.max_pages || '20' }}
+          TARGET_CATEGORY:   ${{ github.event.inputs.target_category || 'cars-for-sale' }}
+          SCRAPE_MODE:       ${{ github.event.inputs.scrape_mode || 'feed_window' }}
+          PYTHONUTF8:        "1"
           KHMER24_DEVICE_ID: ${{ secrets.KHMER24_DEVICE_ID }}
-          HTTPS_PROXY: ${{ secrets.HTTPS_PROXY }}
-          HTTP_PROXY: ${{ secrets.HTTP_PROXY }}
-          KHMER24_PROXY: ${{ secrets.KHMER24_PROXY }}
+          HTTPS_PROXY:       ${{ secrets.HTTPS_PROXY }}
+          HTTP_PROXY:        ${{ secrets.HTTP_PROXY }}
+          KHMER24_PROXY:     ${{ secrets.KHMER24_PROXY }}
+          # Cloudflare Worker relay — set these to bypass Cloudflare IP blocking
+          POSTS_API_BASE:    ${{ secrets.POSTS_API_BASE }}
+          RELAY_KEY:         ${{ secrets.RELAY_KEY }}
         run: uv run python main.py
 
       - name: Commit & push scraped data back to repository
@@ -77,3 +123,4 @@ jobs:
             data/processed/*.csv
             logs/scraper.log
           retention-days: 30
+

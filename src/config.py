@@ -1,9 +1,7 @@
 # src/config.py — Settings, API base URLs, and scraper constants
 # Loads sensitive values from .env; all other values have safe defaults.
 
-import glob
 import os
-import re
 import uuid
 from datetime import datetime
 
@@ -12,9 +10,18 @@ from dotenv import load_dotenv
 load_dotenv()  # Reads .env file from the project root
 
 # ── API Base URLs ──────────────────────────────────────────────────────────────
+# POSTS_API_BASE can be overridden via env var to route through a
+# Cloudflare Worker relay (bypasses Cloudflare Bot Management on GitHub Actions).
+# Local dev: leave unset → uses the real Khmer24 API directly.
+# GitHub Actions: set to https://khmer24-relay.<yourname>.workers.dev
 CORE_API_BASE   = "https://api.khmer24.com"
-POSTS_API_BASE  = "https://api-posts.khmer24.com"
+POSTS_API_BASE  = os.getenv("POSTS_API_BASE", "https://api-posts.khmer24.com")
 IMAGES_CDN_BASE = "https://images.khmer24.co"
+
+# Cloudflare Worker relay auth key — must match RELAY_KEY set in Worker Settings.
+# Leave empty when not using the Worker relay (local dev).
+RELAY_KEY = os.getenv("RELAY_KEY", "")
+
 
 # Device-Id is generated uniquely per session or read from env
 DEVICE_ID = os.getenv("KHMER24_DEVICE_ID") or f"web-{uuid.uuid4().hex[:16]}"

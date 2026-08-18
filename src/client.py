@@ -13,6 +13,7 @@ from src.config import (
     POSTS_API_BASE, CORE_API_BASE,
     DEFAULT_HEADERS,
     DEFAULT_LANG, DEFAULT_DELAY_SECONDS, DEFAULT_RETRIES, DEFAULT_PAGE_LIMIT,
+    RELAY_KEY,
 )
 from src.schemas import AdListingModel
 from src.parsers import extract_brand_model, extract_spec_value, parse_mileage
@@ -66,6 +67,13 @@ class Khmer24Client:
             proxies=proxies,
         )
         self._session.headers.update(DEFAULT_HEADERS)
+
+        # Inject Cloudflare Worker relay auth header when relay is active.
+        # When RELAY_KEY is empty (local dev), this is a no-op.
+        if RELAY_KEY:
+            self._session.headers["X-Relay-Key"] = RELAY_KEY
+            logger.info("Cloudflare Worker relay enabled (POSTS_API_BASE overridden).")
+
 
     # ── Internal HTTP helper ───────────────────────────────────────────────────
 
@@ -167,7 +175,14 @@ class Khmer24Client:
         Returns:
             List of validated ``AdListingModel`` records collected in this run.
         """
-        url = f"{POSTS_API_BASE}/feed"
+        # When the Cloudflare Worker relay is active, the Worker URL is used as
+        # the base and the real Khmer24 feed URL is passed as ?target=.
+        # When relay is off (local/direct), the real Khmer24 URL is used directly.
+        _khmer24_feed_url = "https://api-posts.khmer24.com/feed"
+        if RELAY_KEY:
+            url = POSTS_API_BASE   # points to your Worker
+        else:
+            url = _khmer24_feed_url
         records: List[AdListingModel] = []
         historical_seen = seen_ids or set()
         seen_in_batch: set = set()
@@ -186,6 +201,11 @@ class Khmer24Client:
             }
             if province_slug:
                 params["province"] = province_slug
+
+            # Worker relay mode: pass the real Khmer24 URL as ?target=
+            if RELAY_KEY:
+                params["target"] = _khmer24_feed_url
+
 
             logger.info(
                 f"[{category_slug}] Page {page}/{max_pages}  "
