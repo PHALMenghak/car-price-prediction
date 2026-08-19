@@ -10,6 +10,8 @@ from typing import Optional
 from datetime import datetime
 import pandas as pd
 
+from src.storage import reorder_columns
+
 logger = logging.getLogger(__name__)
 
 CURRENT_YEAR = datetime.now().year
@@ -82,6 +84,9 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
         before = len(df)
         df = df.drop_duplicates(subset=[id_col])
         logger.info(f"Rule 10 (duplicates)  : removed {before - len(df):>4}  | remaining {len(df)}")
+
+    # Reorder columns into standardized logical order
+    df = reorder_columns(df)
 
     logger.info(f"Cleaning complete: {initial} -> {len(df)} rows ({initial - len(df)} removed total)")
     return df.reset_index(drop=True)

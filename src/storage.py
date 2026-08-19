@@ -19,6 +19,60 @@ def _ensure_dir(path: str) -> None:
     os.makedirs(path, exist_ok=True)
 
 
+# ── Column Ordering (Logical grouping with zero renaming) ──────────────────────
+
+REORDERED_COLUMNS: List[str] = [
+    # 1. Identity & Title
+    "listing_id",
+    "listing_title",
+    # 2. Target Variable & Pricing
+    "price",
+    "currency",
+    "discount_price",
+    # 3. Core Car Specs (ML Features)
+    "vehicle_brand",
+    "vehicle_model",
+    "vehicle_model_year",
+    "vehicle_condition",
+    "vehicle_tax_type",
+    "vehicle_transmission",
+    "vehicle_fuel_type",
+    "vehicle_mileage_km",
+    "vehicle_engine_cc",
+    "vehicle_color",
+    # 4. Location & Category
+    "province",
+    "district",
+    "location_full",
+    "category",
+    "category_slug",
+    "province_slug",
+    # 5. Seller & Engagement
+    "seller_id",
+    "seller_name",
+    "seller_type",
+    "seller_username",
+    "seller_phones",
+    "view_count",
+    "is_premium",
+    # 6. Timestamps
+    "posted_at",
+    "renewed_at",
+    "scraped_at",
+    # 7. URLs & Raw Payloads
+    "thumbnail_url",
+    "listing_url",
+    "raw_specs",
+]
+
+
+def reorder_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Reorder DataFrame columns logically without renaming any column."""
+    ordered = [c for c in REORDERED_COLUMNS if c in df.columns]
+    extra = [c for c in df.columns if c not in REORDERED_COLUMNS]
+    return df[ordered + extra]
+
+
 # ── Parquet ────────────────────────────────────────────────────────────────────
 
 def save_to_parquet(
@@ -27,7 +81,7 @@ def save_to_parquet(
     directory: str = RAW_DATA_DIR,
 ) -> str:
     """
-    Serialize all ``AdListingModel`` records to a Parquet file.
+    Serialize all ``AdListingModel`` records to a Parquet file with logical column ordering.
 
     List/dict columns (``phone_numbers``, ``specs``) are JSON-encoded so the
     Parquet schema stays flat and portable across tools.
@@ -39,6 +93,9 @@ def save_to_parquet(
 
     rows = [item.model_dump() for item in listings]
     df = pd.DataFrame(rows)
+
+    # Reorder columns into logical groups
+    df = reorder_columns(df)
 
     # Parquet cannot store arbitrary Python objects — serialize known complex columns to JSON.
     # Only target columns that are expected to hold lists or dicts (avoids scanning all columns).
@@ -112,37 +169,6 @@ def load_all_parquet(directory: str = RAW_DATA_DIR) -> pd.DataFrame:
             )
     return combined
 
-
-
-# ── CSV sample ─────────────────────────────────────────────────────────────────
-
-# Columns written to the CSV sample — human-readable subset, no raw blobs
-_CSV_COLUMNS = [
-    "listing_id",
-    "listing_title",
-    "price",
-    "currency",
-    "vehicle_model_year",
-    "vehicle_condition",
-    "vehicle_tax_type",
-    "vehicle_brand",
-    "vehicle_model",
-    "vehicle_mileage_km",
-    "vehicle_fuel_type",
-    "vehicle_transmission",
-    "vehicle_engine_cc",
-    "vehicle_color",
-    "province",
-    "district",
-    "seller_type",
-    "view_count",
-    "posted_at",
-    "scraped_at",
-    "is_premium",
-    "listing_url",
-]
-
-
 def save_sample_csv(
     listings: List[AdListingModel],
     n: SampleSize = 30,
@@ -171,14 +197,11 @@ def save_sample_csv(
     path = os.path.join(directory, filename)
 
     df = pd.DataFrame([item.model_dump() for item in listings])
-
-    # Keep only columns that exist in this DataFrame
-    cols = [c for c in _CSV_COLUMNS if c in df.columns]
-    df_sample = df[cols]
+    df = reorder_columns(df)
 
     # Random sample (seed fixed for reproducibility); cap at total available
-    sample_size = min(n, len(df_sample))
-    df_sample = df_sample.sample(n=sample_size, random_state=42).reset_index(drop=True)
+    sample_size = min(n, len(df))
+    df_sample = df.sample(n=sample_size, random_state=42).reset_index(drop=True)
 
     df_sample.to_csv(path, index=False, encoding="utf-8-sig")  # utf-8-sig for Excel compat
     logger.info(f"Saved {sample_size}-row CSV sample -> {path}")
