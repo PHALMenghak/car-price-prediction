@@ -431,3 +431,55 @@
 2026-08-20 02:47:39  [INFO    ]    Total Cumulative Unique IDs : 1,559
 2026-08-20 02:47:39  [INFO    ]    Progress toward Phase 1 goal (2,000 unique listings): 1,559/2,000
 2026-08-20 02:47:39  [INFO    ]  Pipeline complete. 477 new listings loaded.
+2026-08-20 08:37:21  [INFO    ]  =================================================================
+2026-08-20 08:37:21  [INFO    ]  EL Pipeline  --  Extract & Load (Time-Series & Change Tracking)
+2026-08-20 08:37:21  [INFO    ]    Category       : cars-for-sale
+2026-08-20 08:37:21  [INFO    ]    Province       : ALL
+2026-08-20 08:37:21  [INFO    ]    Max pages      : 20  (600 listings max)
+2026-08-20 08:37:21  [INFO    ]    Scrape mode    : feed_window
+2026-08-20 08:37:21  [INFO    ]    Enrich details : False
+2026-08-20 08:37:21  [INFO    ]    Output dir     : data/raw
+2026-08-20 08:37:21  [INFO    ]  =================================================================
+2026-08-20 08:37:21  [INFO    ]    Found 1,559 historical unique listing IDs in raw storage.
+2026-08-20 08:37:21  [INFO    ]  Cloudflare Worker relay enabled (POSTS_API_BASE overridden).
+2026-08-20 08:37:21  [INFO    ]  [cars-for-sale] Page 1/20  offset=0  collected=0
+2026-08-20 08:37:24  [INFO    ]  [cars-for-sale] Page 2/20  offset=30  collected=40  total=20565
+2026-08-20 08:37:25  [INFO    ]  [cars-for-sale] Page 3/20  offset=60  collected=61  total=20565
+2026-08-20 08:37:27  [INFO    ]  [cars-for-sale] Page 4/20  offset=90  collected=77  total=20565
+2026-08-20 08:37:28  [INFO    ]  [cars-for-sale] Page 5/20  offset=120  collected=100  total=20565
+2026-08-20 08:37:30  [INFO    ]  [cars-for-sale] Page 6/20  offset=150  collected=130  total=20565
+2026-08-20 08:37:31  [INFO    ]  [cars-for-sale] Page 7/20  offset=180  collected=140  total=20565
+2026-08-20 08:37:33  [INFO    ]  [cars-for-sale] Page 8/20  offset=210  collected=171  total=20565
+2026-08-20 08:37:34  [INFO    ]  [cars-for-sale] Page 9/20  offset=240  collected=201  total=20565
+2026-08-20 08:37:36  [INFO    ]  [cars-for-sale] Page 10/20  offset=270  collected=223  total=20565
+2026-08-20 08:37:37  [INFO    ]  [cars-for-sale] Page 11/20  offset=300  collected=224  total=20565
+2026-08-20 08:37:38  [INFO    ]  [cars-for-sale] Page 12/20  offset=330  collected=235  total=20565
+2026-08-20 08:37:40  [INFO    ]  [cars-for-sale] Page 13/20  offset=360  collected=265  total=20565
+2026-08-20 08:37:41  [INFO    ]  [cars-for-sale] Page 14/20  offset=390  collected=297  total=20565
+2026-08-20 08:37:43  [INFO    ]  [cars-for-sale] Page 15/20  offset=420  collected=314  total=20565
+2026-08-20 08:37:44  [INFO    ]  [cars-for-sale] Page 16/20  offset=450  collected=346  total=20565
+2026-08-20 08:37:46  [INFO    ]  [cars-for-sale] Page 17/20  offset=480  collected=349  total=20565
+2026-08-20 08:37:47  [INFO    ]  [cars-for-sale] Page 18/20  offset=510  collected=381  total=20565
+2026-08-20 08:37:49  [INFO    ]  [cars-for-sale] Page 19/20  offset=540  collected=387  total=20565
+2026-08-20 08:37:50  [INFO    ]  [cars-for-sale] Page 20/20  offset=570  collected=410  total=20565
+2026-08-20 08:37:52  [INFO    ]  Scrape complete. Collected 441 records in this batch.
+2026-08-20 08:37:52  [INFO    ]  Batch summary: 441 total listings collected (249 new IDs, 192 recurring/tracked IDs).
+2026-08-20 08:37:52  [INFO    ]  Saved 441 records to Parquet -> data/raw/cars_2026-08-20.parquet
+2026-08-20 08:37:52  [INFO    ]  Saved 60-row CSV sample -> data/raw/khmer24_cars_sample_60.csv
+2026-08-20 08:37:52  [INFO    ]  Saved ingestion run manifest -> data/raw/ingestion_manifest.json
+2026-08-20 08:37:52  [INFO    ]  Raw Parquet -> data/raw/cars_2026-08-20.parquet
+2026-08-20 08:37:52  [INFO    ]  CSV sample  -> 60 rows : data/raw/khmer24_cars_sample_60.csv
+2026-08-20 08:37:52  [INFO    ]  Manifest    -> data/raw/ingestion_manifest.json
+2026-08-20 08:37:52  [INFO    ]  -- Data Quality (current batch) ---------------------------------
+2026-08-20 08:37:52  [INFO    ]    Batch listings      : 441
+2026-08-20 08:37:52  [INFO    ]    With price          : 100.0%
+2026-08-20 08:37:52  [INFO    ]    With model year     : 100.0%
+2026-08-20 08:37:52  [INFO    ]    With brand          : 71.4%
+2026-08-20 08:37:52  [INFO    ]    With model name     : 71.4%
+2026-08-20 08:37:52  [INFO    ]    With province       : 100.0%
+2026-08-20 08:37:52  [INFO    ]    With mileage (km)   : 0.0%
+2026-08-20 08:37:52  [INFO    ]    With fuel type      : 0.0%
+2026-08-20 08:37:52  [INFO    ]    With transmission   : 0.0%
+2026-08-20 08:37:52  [INFO    ]    Total Cumulative Unique IDs : 1,808
+2026-08-20 08:37:52  [INFO    ]    Progress toward Phase 1 goal (2,000 unique listings): 1,808/2,000
+2026-08-20 08:37:52  [INFO    ]  Pipeline complete. 441 listings processed in this batch.

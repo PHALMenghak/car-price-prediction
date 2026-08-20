@@ -1,0 +1,27 @@
+{
+  "timestamp": "2026-08-20T08:37:21.870064+00:00",
+  "duration_seconds": 30.31,
+  "category": "cars-for-sale",
+  "province": null,
+  "scrape_mode": "feed_window",
+  "max_pages": 20,
+  "enrich_details": false,
+  "batch_total": 441,
+  "new_ids_count": 249,
+  "recurring_ids_count": 192,
+  "cumulative_unique_ids": 1808,
+  "parquet_file": "data/raw/cars_2026-08-20.parquet",
+  "csv_sample_file": "data/raw/khmer24_cars_sample_60.csv",
+  "quality_metrics": {
+    "batch_size": 441,
+    "price_coverage_pct": 100.0,
+    "year_coverage_pct": 100.0,
+    "brand_coverage_pct": 71.4,
+    "model_coverage_pct": 71.4,
+    "province_coverage_pct": 100.0,
+    "mileage_coverage_pct": 0.0,
+    "fuel_coverage_pct": 0.0,
+    "transmission_coverage_pct": 0.0,
+    "cumulative_unique_ids": 1808
+  }
+}
