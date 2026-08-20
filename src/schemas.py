@@ -156,6 +156,37 @@ class AdListingModel(BaseModel):
         except (ValueError, TypeError):
             return 0
 
+    @field_validator("seller_avatar", "thumbnail_url", mode="before")
+    @classmethod
+    def clean_url(cls, v):
+        if not v:
+            return None
+        if isinstance(v, dict):
+            url = v.get("url") or v.get("src") or v.get("link")
+            return str(url).strip() if url else None
+        if isinstance(v, str):
+            return v.strip() or None
+        return str(v).strip() if v is not None else None
+
+    @field_validator("images", mode="before")
+    @classmethod
+    def clean_images(cls, v):
+        if not v:
+            return []
+        if isinstance(v, list):
+            cleaned = []
+            for item in v:
+                if isinstance(item, dict):
+                    url = item.get("url") or item.get("src") or item.get("link")
+                    if url:
+                        cleaned.append(str(url).strip())
+                elif isinstance(item, str) and item.strip():
+                    cleaned.append(item.strip())
+            return cleaned
+        if isinstance(v, str) and v.strip():
+            return [v.strip()]
+        return []
+
     @field_validator("seller_phones", mode="before")
     @classmethod
     def clean_seller_phones(cls, v):

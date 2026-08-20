@@ -90,6 +90,7 @@ class Khmer24Client:
         url: str,
         params: Optional[Dict[str, Any]] = None,
         retries: int = DEFAULT_RETRIES,
+        silent_404: bool = False,
     ) -> Optional[Any]:
         """
         Perform a GET request with exponential back-off and jitter on transient failures.
@@ -111,9 +112,10 @@ class Khmer24Client:
                     )
                     time.sleep(wait)
                 elif res.status_code in (403, 404):
-                    logger.error(
-                        f"HTTP {res.status_code} for {url} — non-recoverable, stopping."
-                    )
+                    if not (res.status_code == 404 and silent_404):
+                        logger.error(
+                            f"HTTP {res.status_code} for {url} — non-recoverable, stopping."
+                        )
                     if res.status_code == 403:
                         logger.error(
                             "  [Hint] HTTP 403 Forbidden usually indicates that Khmer24/Cloudflare blocked the hosting environment's Datacenter IP. "
@@ -170,9 +172,9 @@ class Khmer24Client:
         url = f"{POSTS_API_BASE}/post/{listing_id}"
         if RELAY_KEY:
             params = {"target": f"https://api-posts.khmer24.com/post/{listing_id}", "lang": self.lang}
-            res = self._get(POSTS_API_BASE, params=params)
+            res = self._get(POSTS_API_BASE, params=params, silent_404=True)
         else:
-            res = self._get(url, params={"lang": self.lang})
+            res = self._get(url, params={"lang": self.lang}, silent_404=True)
 
         if res and res.status_code == 200:
             try:
@@ -186,7 +188,7 @@ class Khmer24Client:
         # 2. Fallback: Nuxt server-rendered HTML page
         page_slug = slug or f"post-adid-{listing_id}"
         page_url = f"https://www.khmer24.com/{self.lang}/{page_slug}.html"
-        html_res = self._get(page_url)
+        html_res = self._get(page_url, silent_404=True)
         if html_res and html_res.status_code == 200:
             nuxt_data = extract_nuxt_hydration_data(html_res.text)
             if isinstance(nuxt_data, dict):
@@ -351,7 +353,13 @@ class Khmer24Client:
             seller_id     = str(user.get("id", "")) if isinstance(user, dict) else str(item.get("userid", ""))
             seller_name   = user.get("name") if isinstance(user, dict) else None
             seller_uname  = user.get("username") if isinstance(user, dict) else None
-            seller_avatar = user.get("avatar") or user.get("photo") if isinstance(user, dict) else None
+            
+            raw_avatar    = user.get("avatar") or user.get("photo") if isinstance(user, dict) else None
+            if isinstance(raw_avatar, dict):
+                seller_avatar = raw_avatar.get("url") or raw_avatar.get("src") or raw_avatar.get("link")
+            else:
+                seller_avatar = str(raw_avatar).strip() if raw_avatar else None
+
             raw_type      = user.get("user_type", "1") if isinstance(user, dict) else "1"
             seller_type   = "store" if str(raw_type) == "2" else "individual"
 
@@ -427,11 +435,22 @@ class Khmer24Client:
             vehicle_brand, vehicle_model = extract_brand_model(title)
 
             # ── Thumbnail, Images & link ──────────────────────────────────────
-            thumbnail = item.get("thumbnail") or item.get("photo")
+            raw_thumb = item.get("thumbnail") or item.get("photo")
+            if isinstance(raw_thumb, dict):
+                thumbnail = raw_thumb.get("url") or raw_thumb.get("src") or raw_thumb.get("link")
+            else:
+                thumbnail = str(raw_thumb).strip() if raw_thumb else None
+
             images_raw = item.get("images") or item.get("photos") or []
             images: List[str] = []
             if isinstance(images_raw, list):
-                images = [str(img).strip() for img in images_raw if str(img).strip()]
+                for img in images_raw:
+                    if isinstance(img, dict):
+                        u = img.get("url") or img.get("src") or img.get("link")
+                        if u:
+                            images.append(str(u).strip())
+                    elif isinstance(img, str) and img.strip():
+                        images.append(img.strip())
 
             link = (
                 item.get("link")
