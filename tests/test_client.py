@@ -133,16 +133,15 @@ def test_scrape_category_feed_deduplicates_in_batch(monkeypatch):
 
     class MockResponse:
         status_code = 200
+        text = ""
         def json(self):
             return mock_payload
 
     monkeypatch.setattr(client, "_get", lambda *args, **kwargs: MockResponse())
     
-    results = client.scrape_category_feed(category_slug="cars-for-sale", max_pages=1)
+    results = client.scrape_category_feed(category_slug="cars-for-sale", max_pages=1, enrich_details=False)
     client.close()
 
     assert len(results) == 2
     assert results[0].listing_id == "1001"
     assert results[1].listing_id == "1002"
-
-

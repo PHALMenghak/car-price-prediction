@@ -18,11 +18,12 @@ env/
 # Exclude only local DB files which are never needed in the repo.
 data/**/*.db
 
-# Log files — broad exclusion first, then allow scraper.log (order matters in .gitignore)
+# Log files — broad exclusion first, then allow daily and latest scraper logs
 *.log
 logs/*
 !logs/.gitkeep
 !logs/scraper.log
+!logs/scraper_*.log
 
 # Jupyter notebook checkpoints
 .ipynb_checkpoints/
@@ -40,3 +41,4 @@ PROJECT_PLAN.md
 DBT_TRANSFORMATION_PLAYBOOK.md
 Architecture.drawio
 DATA_PREPROCESSING_METHODOLOGY.md
+ROADMAP.md
