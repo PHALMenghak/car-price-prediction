@@ -3,9 +3,11 @@
 import json
 import logging
 import os
-from typing import List, Literal
+import glob
+from typing import Any, Dict, List, Literal, Optional, Set
 
 import pandas as pd
+import pyarrow.parquet as pq
 
 from src.config import RAW_DATA_DIR, PARQUET_FILENAME
 from src.schemas import AdListingModel
@@ -52,18 +54,24 @@ REORDERED_COLUMNS: List[str] = [
     "seller_name",
     "seller_type",
     "seller_username",
+    "seller_avatar",
     "seller_phones",
     "view_count",
     "is_premium",
+    "is_saved",
     # 6. Timestamps
     "posted_at",
     "renewed_at",
     "scraped_at",
-    # 7. URLs & Raw Payloads
+    # 7. URLs, Media & Raw Payloads
     "thumbnail_url",
     "listing_url",
+    "images",
+    "description",
     "raw_specs",
 ]
+
+_COMPLEX_COLS = {"seller_phones", "raw_specs", "images"}
 
 
 def reorder_columns(df: pd.DataFrame) -> pd.DataFrame:
@@ -71,6 +79,44 @@ def reorder_columns(df: pd.DataFrame) -> pd.DataFrame:
     ordered = [c for c in REORDERED_COLUMNS if c in df.columns]
     extra = [c for c in df.columns if c not in REORDERED_COLUMNS]
     return df[ordered + extra]
+
+
+# ── Fast Historical ID Discovery ───────────────────────────────────────────────
+
+def get_historical_ids(directory: str = RAW_DATA_DIR) -> Set[str]:
+    """
+    Fast discovery of all historical unique listing IDs across all Parquet files.
+    Reads only the ID column (zero full-data loading) for optimal performance.
+    """
+    files = sorted(
+        set(
+            glob.glob(os.path.join(directory, "**", "*.parquet"), recursive=True)
+            + glob.glob(os.path.join(directory, "*.parquet"))
+        )
+    )
+    historical_ids: Set[str] = set()
+
+    for fpath in files:
+        try:
+            schema = pq.read_schema(fpath)
+            target_col = None
+            for col in ("listing_id", "id"):
+                if col in schema.names:
+                    target_col = col
+                    break
+            if target_col:
+                df_part = pd.read_parquet(fpath, columns=[target_col])
+                historical_ids.update(df_part[target_col].dropna().astype(str).tolist())
+            else:
+                df_part = pd.read_parquet(fpath)
+                for col in ("listing_id", "id"):
+                    if col in df_part.columns:
+                        historical_ids.update(df_part[col].dropna().astype(str).tolist())
+                        break
+        except Exception as exc:
+            logger.warning(f"Could not read IDs from {fpath}: {exc}")
+
+    return historical_ids
 
 
 # ── Parquet ────────────────────────────────────────────────────────────────────
@@ -83,8 +129,8 @@ def save_to_parquet(
     """
     Serialize all ``AdListingModel`` records to a Parquet file with logical column ordering.
 
-    List/dict columns (``phone_numbers``, ``specs``) are JSON-encoded so the
-    Parquet schema stays flat and portable across tools.
+    List/dict columns (``seller_phones``, ``raw_specs``, ``images``) are JSON-encoded so the
+    Parquet schema stays flat, consistent, and portable across tools.
 
     Returns the path to the written file.
     """
@@ -98,8 +144,6 @@ def save_to_parquet(
     df = reorder_columns(df)
 
     # Parquet cannot store arbitrary Python objects — serialize known complex columns to JSON.
-    # Only target columns that are expected to hold lists or dicts (avoids scanning all columns).
-    _COMPLEX_COLS = {"seller_phones", "raw_specs"}
     for col in _COMPLEX_COLS:
         if col in df.columns:
             df[col] = df[col].apply(
@@ -122,7 +166,7 @@ def load_from_parquet(
     df = pd.read_parquet(path)
 
     # Restore list/dict columns from JSON strings
-    for col in ("seller_phones", "raw_specs", "phone_numbers", "specs"):
+    for col in ("seller_phones", "raw_specs", "images", "phone_numbers", "specs"):
         if col in df.columns:
             df[col] = df[col].apply(
                 lambda x: json.loads(x)
@@ -137,7 +181,6 @@ def load_all_parquet(directory: str = RAW_DATA_DIR) -> pd.DataFrame:
     Load and concatenate all raw Parquet files from `directory` (including subdirectories).
     Restores serialized complex columns (JSON strings -> python objects).
     """
-    import glob
     files = sorted(
         set(
             glob.glob(os.path.join(directory, "**", "*.parquet"), recursive=True)
@@ -160,7 +203,7 @@ def load_all_parquet(directory: str = RAW_DATA_DIR) -> pd.DataFrame:
         return pd.DataFrame()
 
     combined = pd.concat(dfs, ignore_index=True)
-    for col in ("seller_phones", "raw_specs", "phone_numbers", "specs"):
+    for col in ("seller_phones", "raw_specs", "images", "phone_numbers", "specs"):
         if col in combined.columns:
             combined[col] = combined[col].apply(
                 lambda x: json.loads(x)
@@ -168,6 +211,7 @@ def load_all_parquet(directory: str = RAW_DATA_DIR) -> pd.DataFrame:
                 else x
             )
     return combined
+
 
 def save_sample_csv(
     listings: List[AdListingModel],
@@ -178,7 +222,7 @@ def save_sample_csv(
     Save a random sample of ``n`` listings (30 or 60) to a CSV file.
 
     Only the human-readable columns are included — large blobs like ``specs``
-    and ``phone_numbers`` are omitted to keep the CSV clean and easy to open
+    and ``raw_specs`` are omitted to keep the CSV clean and easy to open
     in Excel / Google Sheets.
 
     Args:
@@ -206,3 +250,20 @@ def save_sample_csv(
     df_sample.to_csv(path, index=False, encoding="utf-8-sig")  # utf-8-sig for Excel compat
     logger.info(f"Saved {sample_size}-row CSV sample -> {path}")
     return path
+
+
+def save_run_manifest(
+    manifest_data: Dict[str, Any],
+    filename: str = "ingestion_manifest.json",
+    directory: str = RAW_DATA_DIR,
+) -> str:
+    """
+    Save run metadata and metrics to a JSON manifest for auditability and observability.
+    """
+    _ensure_dir(directory)
+    path = os.path.join(directory, filename)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(manifest_data, f, indent=2, ensure_ascii=False)
+    logger.info(f"Saved ingestion run manifest -> {path}")
+    return path
+

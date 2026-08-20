@@ -14,14 +14,13 @@ load_dotenv()  # Reads .env file from the project root
 # Cloudflare Worker relay (bypasses Cloudflare Bot Management on GitHub Actions).
 # Local dev: leave unset → uses the real Khmer24 API directly.
 # GitHub Actions: set to https://khmer24-relay.<yourname>.workers.dev
-CORE_API_BASE   = "https://api.khmer24.com"
+CORE_API_BASE   = os.getenv("CORE_API_BASE", "https://api.khmer24.com")
 POSTS_API_BASE  = os.getenv("POSTS_API_BASE", "https://api-posts.khmer24.com")
-IMAGES_CDN_BASE = "https://images.khmer24.co"
+IMAGES_CDN_BASE = os.getenv("IMAGES_CDN_BASE", "https://images.khmer24.co")
 
 # Cloudflare Worker relay auth key — must match RELAY_KEY set in Worker Settings.
 # Leave empty when not using the Worker relay (local dev).
 RELAY_KEY = os.getenv("RELAY_KEY", "")
-
 
 # Device-Id is generated uniquely per session or read from env
 DEVICE_ID = os.getenv("KHMER24_DEVICE_ID") or f"web-{uuid.uuid4().hex[:16]}"
@@ -51,14 +50,16 @@ DEFAULT_LANG          = "en"
 DEFAULT_PAGE_LIMIT    = 30       # Items returned per API page
 DEFAULT_DELAY_SECONDS = 0.75     # Polite delay between requests (seconds)
 DEFAULT_RETRIES       = 3        # Max HTTP retry attempts per request
+DEFAULT_TIMEOUT       = 25       # HTTP request timeout in seconds
 
 # ── Storage Paths ──────────────────────────────────────────────────────────────
 RAW_DATA_DIR       = os.path.join("data", "raw")
 PROCESSED_DATA_DIR = os.path.join("data", "processed")
+LOGS_DIR           = "logs"
 
 
 def get_daily_parquet_filename(date: datetime | None = None) -> str:
-    """Return the daily raw parquet filename: cars_YYYY-MM-DD.parquet (without version suffix)."""
+    """Return the daily raw parquet filename: cars_YYYY-MM-DD.parquet."""
     d = date or datetime.now()
     return f"cars_{d.strftime('%Y-%m-%d')}.parquet"
 
@@ -79,4 +80,9 @@ MAX_PAGES       = int(os.getenv("MAX_PAGES", "20"))       # 30 items/page → up
 #   Captures new listings + updated/renewed listings for multi-day change tracking.
 # - 'delta_only': Stops scraping as soon as an entire page of previously known IDs is hit.
 SCRAPE_MODE     = os.getenv("SCRAPE_MODE", "feed_window")
+
+# ENRICH_DETAILS:
+# If True, scrapes individual post detail endpoints for listings missing key specs.
+ENRICH_DETAILS  = os.getenv("ENRICH_DETAILS", "false").lower() in ("true", "1", "yes")
+
 

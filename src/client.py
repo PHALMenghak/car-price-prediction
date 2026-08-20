@@ -4,6 +4,7 @@
 
 import os
 import time
+import random
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -13,10 +14,16 @@ from src.config import (
     POSTS_API_BASE, CORE_API_BASE,
     DEFAULT_HEADERS,
     DEFAULT_LANG, DEFAULT_DELAY_SECONDS, DEFAULT_RETRIES, DEFAULT_PAGE_LIMIT,
-    RELAY_KEY,
+    DEFAULT_TIMEOUT, RELAY_KEY, ENRICH_DETAILS,
 )
 from src.schemas import AdListingModel
-from src.parsers import extract_brand_model, extract_spec_value, parse_mileage
+from src.parsers import (
+    extract_brand_model,
+    extract_spec_value,
+    parse_mileage,
+    parse_engine_cc,
+    extract_nuxt_hydration_data,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +38,9 @@ class Khmer24Client:
     Responsibilities:
     - Paginate the Posts API feed for the ``cars-for-sale`` category.
     - Parse each raw API item into a validated ``AdListingModel``.
-    - Handle rate-limiting (HTTP 429) with exponential back-off.
+    - Handle rate-limiting (HTTP 429) with exponential backoff and jitter.
     - Extract brand & model from listing titles for ML feature use.
+    - Optionally enrich listings with detailed specs via individual post endpoints.
 
     Usage::
 
@@ -47,10 +55,12 @@ class Khmer24Client:
         self,
         lang: str = DEFAULT_LANG,
         delay: float = DEFAULT_DELAY_SECONDS,
+        timeout: int = DEFAULT_TIMEOUT,
         proxy: Optional[str] = None,
     ):
         self.lang = lang
         self.delay = delay
+        self.timeout = timeout
         
         # Check proxy settings (env or parameter)
         proxy_url = (
@@ -63,41 +73,40 @@ class Khmer24Client:
         
         self._session = cf_requests.Session(
             impersonate=_IMPERSONATE,
-            timeout=20,
+            timeout=self.timeout,
             proxies=proxies,
         )
         self._session.headers.update(DEFAULT_HEADERS)
 
         # Inject Cloudflare Worker relay auth header when relay is active.
-        # When RELAY_KEY is empty (local dev), this is a no-op.
         if RELAY_KEY:
             self._session.headers["X-Relay-Key"] = RELAY_KEY
             logger.info("Cloudflare Worker relay enabled (POSTS_API_BASE overridden).")
-
 
     # ── Internal HTTP helper ───────────────────────────────────────────────────
 
     def _get(
         self,
         url: str,
-        params: Dict[str, Any],
+        params: Optional[Dict[str, Any]] = None,
         retries: int = DEFAULT_RETRIES,
     ) -> Optional[Any]:
         """
-        Perform a GET request with exponential back-off on transient failures.
+        Perform a GET request with exponential back-off and jitter on transient failures.
 
         Returns the ``curl_cffi`` response object on HTTP 200, or None if all
         retries are exhausted or a non-recoverable status code is received.
         """
         for attempt in range(1, retries + 1):
             try:
-                res = self._session.get(url, params=params)
+                res = self._session.get(url, params=params or {})
                 if res.status_code == 200:
                     return res
                 elif res.status_code == 429:
-                    wait = attempt * 5
+                    # Exponential backoff with random jitter to prevent thundering herd
+                    wait = min(30.0, (2.0 ** attempt) + random.uniform(0.5, 2.0))
                     logger.warning(
-                        f"Rate-limited (429). Sleeping {wait}s… "
+                        f"Rate-limited (429). Sleeping {wait:.1f}s… "
                         f"(attempt {attempt}/{retries})"
                     )
                     time.sleep(wait)
@@ -107,21 +116,23 @@ class Khmer24Client:
                     )
                     if res.status_code == 403:
                         logger.error(
-                            "  [Hint] HTTP 403 Forbidden usually indicates that Khmer24/Cloudflare blocked the hosting environment's Datacenter IP (e.g. GitHub Actions Azure runner). "
-                            "Consider providing a proxy (KHMER24_PROXY / HTTPS_PROXY) or running via a self-hosted runner."
+                            "  [Hint] HTTP 403 Forbidden usually indicates that Khmer24/Cloudflare blocked the hosting environment's Datacenter IP. "
+                            "Consider providing a proxy (KHMER24_PROXY / HTTPS_PROXY) or running via Cloudflare Worker relay."
                         )
                         if res.text:
                             logger.debug(f"Response preview: {res.text[:300]}")
                     break
                 else:
+                    wait = min(15.0, (1.5 ** attempt) + random.uniform(0.2, 1.0))
                     logger.warning(
                         f"HTTP {res.status_code} for {url} "
-                        f"(attempt {attempt}/{retries})"
+                        f"(attempt {attempt}/{retries}). Retrying in {wait:.1f}s…"
                     )
-                    time.sleep(attempt * 1.5)
+                    time.sleep(wait)
             except Exception as exc:
-                logger.error(f"Request error on attempt {attempt}: {exc}")
-                time.sleep(attempt * 2)
+                wait = min(20.0, (2.0 ** attempt) + random.uniform(0.5, 1.5))
+                logger.error(f"Request error on attempt {attempt}: {exc}. Retrying in {wait:.1f}s…")
+                time.sleep(wait)
         return None
 
     # ── Taxonomy helpers ──────────────────────────────────────────────────────
@@ -145,6 +156,44 @@ class Khmer24Client:
         res = self._get(url, params=params)
         return res.json().get("data", []) if res else []
 
+    # ── Detail enrichment helper ──────────────────────────────────────────────
+
+    def fetch_post_detail(self, listing_id: str, slug: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """
+        Fetch full post details for a single listing from the Posts API or HTML Nuxt fallback.
+        Useful for retrieving deep attributes (odometer, engine cc, fuel type, description, images).
+        """
+        if not listing_id:
+            return None
+
+        # 1. Primary: REST post detail endpoint
+        url = f"{POSTS_API_BASE}/post/{listing_id}"
+        if RELAY_KEY:
+            params = {"target": f"https://api-posts.khmer24.com/post/{listing_id}", "lang": self.lang}
+            res = self._get(POSTS_API_BASE, params=params)
+        else:
+            res = self._get(url, params={"lang": self.lang})
+
+        if res and res.status_code == 200:
+            try:
+                payload = res.json()
+                data = payload.get("data")
+                if isinstance(data, dict):
+                    return data
+            except Exception:
+                pass
+
+        # 2. Fallback: Nuxt server-rendered HTML page
+        page_slug = slug or f"post-adid-{listing_id}"
+        page_url = f"https://www.khmer24.com/{self.lang}/{page_slug}.html"
+        html_res = self._get(page_url)
+        if html_res and html_res.status_code == 200:
+            nuxt_data = extract_nuxt_hydration_data(html_res.text)
+            if isinstance(nuxt_data, dict):
+                return nuxt_data
+
+        return None
+
     # ── Main scraping method ───────────────────────────────────────────────────
 
     def scrape_category_feed(
@@ -154,6 +203,7 @@ class Khmer24Client:
         max_pages: int = 10,
         seen_ids: Optional[set] = None,
         stop_on_seen: bool = False,
+        enrich_details: bool = ENRICH_DETAILS,
     ) -> List[AdListingModel]:
         """
         Paginate through the Posts API feed for a given category.
@@ -171,18 +221,17 @@ class Khmer24Client:
                             IDs is encountered. If False (default, feed_window mode),
                             scrapes the active feed to capture new listings and
                             updated snapshots (prices, views, renewals) for SCD tracking.
+            enrich_details: If True, fetches individual post details for richer specs.
 
         Returns:
             List of validated ``AdListingModel`` records collected in this run.
         """
-        # When the Cloudflare Worker relay is active, the Worker URL is used as
-        # the base and the real Khmer24 feed URL is passed as ?target=.
-        # When relay is off (local/direct), the real Khmer24 URL is used directly.
         _khmer24_feed_url = "https://api-posts.khmer24.com/feed"
         if RELAY_KEY:
-            url = POSTS_API_BASE   # points to your Worker
+            url = POSTS_API_BASE   # points to Worker relay
         else:
             url = _khmer24_feed_url
+
         records: List[AdListingModel] = []
         historical_seen = seen_ids or set()
         seen_in_batch: set = set()
@@ -197,15 +246,13 @@ class Khmer24Client:
                 "limit": limit,
                 "lang": self.lang,
                 "sort": "recent",
-                "fields": "all",   # ← enables full nested payload
+                "fields": "all",   # enables full nested payload
             }
             if province_slug:
                 params["province"] = province_slug
 
-            # Worker relay mode: pass the real Khmer24 URL as ?target=
             if RELAY_KEY:
                 params["target"] = _khmer24_feed_url
-
 
             logger.info(
                 f"[{category_slug}] Page {page}/{max_pages}  "
@@ -244,6 +291,12 @@ class Khmer24Client:
 
                 parsed = self._parse_item(item)
                 if parsed:
+                    # Optional detail enrichment
+                    if enrich_details and (parsed.vehicle_mileage_km is None or parsed.vehicle_engine_cc is None):
+                        detail = self.fetch_post_detail(parsed.listing_id, item.get("slug"))
+                        if detail:
+                            parsed = self._enrich_item_with_detail(parsed, detail)
+
                     records.append(parsed)
                     seen_in_batch.add(item_id)
                     new_on_page += 1
@@ -270,23 +323,18 @@ class Khmer24Client:
         """
         Map a raw API ``data`` dict (from a ``fields=all`` response) to a
         validated ``AdListingModel``.
-
-        Handles all known nesting patterns including:
-        - Nested location / category / user objects
-        - highlight_specs and object_highlight_specs variants
-        - Legacy flat field names (phone_number_1, province, etc.)
         """
         try:
             # ── Category ─────────────────────────────────────────────────────
             cat = item.get("category") or {}
-            category_name = cat.get("en_name") if isinstance(cat, dict) else str(cat)
-            category_slug = cat.get("slug")    if isinstance(cat, dict) else None
+            category_name = cat.get("en_name") or cat.get("name") if isinstance(cat, dict) else str(cat)
+            category_slug = cat.get("slug") if isinstance(cat, dict) else None
 
             # ── Location ─────────────────────────────────────────────────────
             loc = item.get("location") or {}
-            province      = loc.get("en_name")  if isinstance(loc, dict) else item.get("province")
-            province_slug = loc.get("slug")     if isinstance(loc, dict) else None
-            district      = None
+            province      = loc.get("en_name") or loc.get("province") if isinstance(loc, dict) else item.get("province")
+            province_slug = loc.get("slug") or loc.get("province_slug") if isinstance(loc, dict) else None
+            district      = loc.get("district") if isinstance(loc, dict) else None
             full_location = None
             if isinstance(loc, dict):
                 full_location = (
@@ -295,26 +343,26 @@ class Khmer24Client:
                     or loc.get("en_name2")
                 )
                 en2 = loc.get("en_name2", "")
-                if en2 and "," in en2:
+                if en2 and "," in en2 and not district:
                     district = en2.split(",")[0].strip()
 
             # ── User / Seller ─────────────────────────────────────────────────
             user = item.get("user") or {}
-            seller_id    = str(user.get("id", ""))   if isinstance(user, dict) else str(item.get("userid", ""))
-            seller_name  = user.get("name")          if isinstance(user, dict) else None
-            seller_uname = user.get("username")      if isinstance(user, dict) else None
-            raw_type     = user.get("user_type", "1") if isinstance(user, dict) else "1"
-            seller_type  = "store" if str(raw_type) == "2" else "individual"
+            seller_id     = str(user.get("id", "")) if isinstance(user, dict) else str(item.get("userid", ""))
+            seller_name   = user.get("name") if isinstance(user, dict) else None
+            seller_uname  = user.get("username") if isinstance(user, dict) else None
+            seller_avatar = user.get("avatar") or user.get("photo") if isinstance(user, dict) else None
+            raw_type      = user.get("user_type", "1") if isinstance(user, dict) else "1"
+            seller_type   = "store" if str(raw_type) == "2" else "individual"
 
             # ── Phone numbers ─────────────────────────────────────────────────
             phones: List[str] = []
             phone_field = item.get("phone")
             if isinstance(phone_field, list):
-                phones = [str(p).strip() for p in phone_field if p]
+                phones = [str(p).strip() for p in phone_field if p and str(p).strip()]
             elif isinstance(phone_field, str) and phone_field.strip():
                 phones = [phone_field.strip()]
             else:
-                # Legacy numbered fields
                 for i in range(1, 4):
                     p = item.get(f"phone_number_{i}") or item.get(f"phone_{i}")
                     if p and str(p).strip():
@@ -343,7 +391,7 @@ class Khmer24Client:
                 elif field == "tax-type":
                     tax_type = str(val) if val else None
 
-            # Also handle pre-indexed object_highlight_specs dict
+            # Pre-indexed object_highlight_specs dict
             obj_specs = item.get("object_highlight_specs", {})
             if isinstance(obj_specs, dict):
                 for k, v in obj_specs.items():
@@ -355,7 +403,7 @@ class Khmer24Client:
                     except (ValueError, TypeError):
                         pass
 
-            # ── Extract structured fields from specs blob (Fix #5) ────────────
+            # ── Extract structured fields from specs blob ─────────────────────
             mileage_km   = parse_mileage(extract_spec_value(
                 specs, "mileage", "km", "odometer", "car-mileage"
             ))
@@ -365,32 +413,32 @@ class Khmer24Client:
             transmission = extract_spec_value(
                 specs, "transmission", "gearbox", "gear-type"
             )
-            raw_engine   = extract_spec_value(
+            engine_cc    = parse_engine_cc(extract_spec_value(
                 specs, "engine-size", "engine_size", "engine-cc", "displacement"
-            )
-            engine_cc: Optional[int] = None
-            if raw_engine:
-                try:
-                    engine_cc = int(float(str(raw_engine).replace(",", "").strip()))
-                except (ValueError, TypeError):
-                    pass
-            color = extract_spec_value(specs, "color", "exterior-color", "colour")
+            ))
+            color        = extract_spec_value(specs, "color", "exterior-color", "colour")
 
             # ── Condition ─────────────────────────────────────────────────────
             cond_raw = item.get("condition")
-            car_condition = cond_raw.get("value") if isinstance(cond_raw, dict) else None
+            car_condition = cond_raw.get("value") if isinstance(cond_raw, dict) else (str(cond_raw) if cond_raw else None)
 
             # ── Brand / Model from title ──────────────────────────────────────
             title = str(item.get("title", "")).strip()
             vehicle_brand, vehicle_model = extract_brand_model(title)
 
-            # ── Thumbnail & link ──────────────────────────────────────────────
+            # ── Thumbnail, Images & link ──────────────────────────────────────
             thumbnail = item.get("thumbnail") or item.get("photo")
+            images_raw = item.get("images") or item.get("photos") or []
+            images: List[str] = []
+            if isinstance(images_raw, list):
+                images = [str(img).strip() for img in images_raw if str(img).strip()]
+
             link = (
                 item.get("link")
                 or item.get("short_link")
                 or f"https://www.khmer24.com/post-adid-{item.get('id')}"
             )
+            description = str(item.get("description") or item.get("content") or "").strip() or None
 
             return AdListingModel(
                 listing_id=str(item["id"]),
@@ -399,6 +447,7 @@ class Khmer24Client:
                 currency="USD",
                 discount_price=item.get("discount_price"),
                 is_premium=item.get("is_premium"),
+                is_saved=item.get("is_saved"),
                 category=category_name,
                 category_slug=category_slug,
                 province=province,
@@ -409,12 +458,15 @@ class Khmer24Client:
                 seller_name=seller_name,
                 seller_type=seller_type,
                 seller_username=seller_uname,
+                seller_avatar=seller_avatar,
                 seller_phones=phones,
                 view_count=int(item.get("views") or 0),
                 posted_at=item.get("posted_date") or item.get("created_at"),
                 renewed_at=item.get("renew_date"),
                 thumbnail_url=thumbnail,
                 listing_url=link,
+                images=images,
+                description=description,
                 vehicle_model_year=car_year,
                 vehicle_condition=car_condition,
                 vehicle_tax_type=tax_type,
@@ -432,6 +484,33 @@ class Khmer24Client:
             logger.warning(f"Skipping item id={item.get('id')}: {exc}")
             return None
 
+    def _enrich_item_with_detail(self, model: AdListingModel, detail: Dict[str, Any]) -> AdListingModel:
+        """Enrich an existing AdListingModel with additional attributes found in detail JSON."""
+        try:
+            specs = detail.get("highlight_specs") or detail.get("specs") or {}
+            if isinstance(specs, list):
+                specs = {s.get("field", ""): s.get("value") for s in specs if isinstance(s, dict)}
+
+            if model.vehicle_mileage_km is None:
+                model.vehicle_mileage_km = parse_mileage(extract_spec_value(specs, "mileage", "km", "odometer"))
+            if model.vehicle_fuel_type is None:
+                model.vehicle_fuel_type = extract_spec_value(specs, "fuel-type", "fuel_type", "fuel")
+            if model.vehicle_transmission is None:
+                model.vehicle_transmission = extract_spec_value(specs, "transmission", "gearbox")
+            if model.vehicle_engine_cc is None:
+                model.vehicle_engine_cc = parse_engine_cc(extract_spec_value(specs, "engine-size", "engine_size", "engine-cc"))
+            if model.vehicle_color is None:
+                model.vehicle_color = extract_spec_value(specs, "color", "exterior-color")
+            if not model.description:
+                model.description = str(detail.get("description") or detail.get("content") or "").strip() or None
+            if not model.images:
+                imgs = detail.get("images") or detail.get("photos") or []
+                if isinstance(imgs, list):
+                    model.images = [str(img).strip() for img in imgs if str(img).strip()]
+        except Exception as exc:
+            logger.debug(f"Could not enrich item id={model.listing_id}: {exc}")
+        return model
+
     # ── Context manager ───────────────────────────────────────────────────────
 
     def close(self) -> None:
@@ -443,3 +522,4 @@ class Khmer24Client:
 
     def __exit__(self, *_):
         self.close()
+

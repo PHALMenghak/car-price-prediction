@@ -24,6 +24,11 @@ on:
         options:
           - feed_window
           - delta_only
+      enrich_details:
+        description: 'Enrich post details (deeper attributes)'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   scrape:
@@ -92,6 +97,7 @@ jobs:
           MAX_PAGES:         ${{ github.event.inputs.max_pages || '20' }}
           TARGET_CATEGORY:   ${{ github.event.inputs.target_category || 'cars-for-sale' }}
           SCRAPE_MODE:       ${{ github.event.inputs.scrape_mode || 'feed_window' }}
+          ENRICH_DETAILS:    ${{ github.event.inputs.enrich_details || 'false' }}
           PYTHONUTF8:        "1"
           KHMER24_DEVICE_ID: ${{ secrets.KHMER24_DEVICE_ID }}
           HTTPS_PROXY:       ${{ secrets.HTTPS_PROXY }}
@@ -119,8 +125,10 @@ jobs:
           path: |
             data/raw/cars_*.parquet
             data/raw/*.csv
+            data/raw/*.json
             data/processed/*.parquet
             data/processed/*.csv
-            logs/scraper.log
+            logs/scraper*.log
           retention-days: 30
+
 

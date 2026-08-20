@@ -1,7 +1,30 @@
 # tests/test_parsers.py — Unit tests for src/parsers.py
 
 import pytest
-from src.parsers import extract_brand_model, parse_mileage
+from src.parsers import (
+    clean_title,
+    extract_brand_model,
+    parse_engine_cc,
+    parse_mileage,
+)
+
+
+class TestCleanTitle:
+    """Tests for clean_title string normalization."""
+
+    def test_strip_zero_width_chars(self):
+        title = "P\u200blugin 2017 Option 2"
+        assert clean_title(title) == "Plugin 2017 Option 2"
+
+    def test_squished_word_and_year(self):
+        assert clean_title("Highlander01") == "Highlander 01"
+        assert clean_title("Camry2019") == "Camry 2019"
+        assert clean_title("2026Changan") == "2026 Changan"
+
+    def test_preserves_model_codes(self):
+        assert clean_title("Mercedes E300") == "Mercedes E300"
+        assert clean_title("Lexus RX350") == "Lexus RX350"
+        assert clean_title("BMW 530i") == "BMW 530i"
 
 
 class TestExtractBrandModel:
@@ -13,7 +36,7 @@ class TestExtractBrandModel:
         assert model == "Camry"
 
     def test_year_not_leaked_into_model(self):
-        """Fix #2: year digits must NOT appear in the model field."""
+        """Year digits must NOT appear in the model field."""
         brand, model = extract_brand_model("Toyota Camry 2019 used")
         assert brand == "Toyota"
         assert model == "Camry"          # NOT "Camry 2019"
@@ -35,6 +58,12 @@ class TestExtractBrandModel:
         assert brand == "Toyota"
         assert model == "Prius"
 
+    def test_khmer_nickname(self):
+        """Khmer nicknames like ស្រីម៉ៅ should map to Lexus RX300."""
+        brand, model = extract_brand_model("លក់ឡាន ស្រីម៉ៅ ឆ្នាំ2000 ឡានស្អាត")
+        assert brand == "Lexus"
+        assert model == "RX300"
+
     def test_multi_word_brand(self):
         brand, model = extract_brand_model("Mercedes-Benz E300 2020 for sale")
         assert brand == "Mercedes-Benz"
@@ -55,6 +84,23 @@ class TestExtractBrandModel:
         assert brand == "Land Rover"
         assert model == "Range Rover Sport"
 
+    def test_chinese_brands(self):
+        brand1, model1 = extract_brand_model("BYD Atto 3 2023 new")
+        assert brand1 == "BYD"
+        assert model1 == "Atto 3"
+
+        brand2, model2 = extract_brand_model("腾势 D9 2024 EV")
+        assert brand2 == "Denza"
+        assert model2 == "D9"
+
+        brand3, model3 = extract_brand_model("Fangchengbao Leopard 5 2024")
+        assert brand3 == "Fangchengbao"
+        assert model3 == "Leopard 5"
+
+        brand4, model4 = extract_brand_model("Deepal S07 2024 Full")
+        assert brand4 == "Changan"
+        assert model4 == "Deepal S07"
+
     def test_stop_word_halts_model(self):
         brand, model = extract_brand_model("Kia for sale cheap")
         assert brand == "Kia"
@@ -63,7 +109,7 @@ class TestExtractBrandModel:
     def test_keyword_stop_word(self):
         brand, model = extract_brand_model("Mazda automatic 2020")
         assert brand == "Mazda"
-        assert model is None             # "automatic" is a stop word
+        assert model is None
 
     def test_unknown_brand(self):
         brand, model = extract_brand_model("Car for sale good condition")
@@ -82,18 +128,13 @@ class TestExtractBrandModel:
 
     def test_case_insensitive(self):
         brand, model = extract_brand_model("TOYOTA CAMRY 2020")
-        assert brand == "Toyota"         # canonical casing preserved
+        assert brand == "Toyota"
         assert model == "Camry"
 
     def test_multi_word_model(self):
         brand, model = extract_brand_model("Toyota Land Cruiser 2022 used")
         assert brand == "Toyota"
         assert model == "Land Cruiser"
-
-    def test_chinese_brand(self):
-        brand, model = extract_brand_model("BYD Atto 3 2023 new")
-        assert brand == "BYD"
-        assert model == "Atto 3"         # "Atto 3" is the full model name
 
     def test_inferred_brand_from_distinct_model(self):
         """When brand is omitted in title, infer from famous model name."""
@@ -108,6 +149,14 @@ class TestExtractBrandModel:
         brand3, model3 = extract_brand_model("Wildtrak 2022 Bi-Turbo Diesel")
         assert brand3 == "Ford"
         assert model3 == "Ranger Wildtrak"
+
+        brand4, model4 = extract_brand_model("D9 EV 2024 Luxury Edition")
+        assert brand4 == "Denza"
+        assert model4 == "D9"
+
+        brand5, model5 = extract_brand_model("Highlander 2003 V6 4WD")
+        assert brand5 == "Toyota"
+        assert model5 == "Highlander"
 
 
 class TestParseMileage:
@@ -136,3 +185,32 @@ class TestParseMileage:
 
     def test_integer_input(self):
         assert parse_mileage(80000) == 80000
+
+    def test_negative_mileage(self):
+        assert parse_mileage("-5000") is None
+
+
+class TestParseEngineCc:
+    """Tests for engine displacement parsing."""
+
+    def test_liter_format(self):
+        assert parse_engine_cc("2.0L") == 2000
+        assert parse_engine_cc("2.5 l") == 2500
+        assert parse_engine_cc("1.8 Liter") == 1800
+
+    def test_cc_format(self):
+        assert parse_engine_cc("1500 cc") == 1500
+        assert parse_engine_cc("3,500cc") == 3500
+
+    def test_plain_integer(self):
+        assert parse_engine_cc(2000) == 2000
+        assert parse_engine_cc("2400") == 2400
+
+    def test_out_of_bounds(self):
+        assert parse_engine_cc("50") is None        # Below 300cc
+        assert parse_engine_cc("15000") is None    # Above 10,000cc
+
+    def test_invalid_input(self):
+        assert parse_engine_cc(None) is None
+        assert parse_engine_cc("Electric") is None
+

@@ -23,6 +23,7 @@ class UserModel(BaseModel):
     id: Optional[str] = None
     name: Optional[str] = None
     username: Optional[str] = None
+    avatar: Optional[str] = None
     user_type: Optional[str] = None      # "1" = individual, "2" = store/business
 
 
@@ -42,6 +43,7 @@ class AdListingModel(BaseModel):
     currency: str = "USD"
     discount_price: Optional[float] = None
     is_premium: Optional[bool] = None
+    is_saved: Optional[bool] = None
 
     # ── Category ──────────────────────────────────────────────────────────────
     category: Optional[str] = None
@@ -58,6 +60,7 @@ class AdListingModel(BaseModel):
     seller_name: Optional[str] = None
     seller_type: Optional[str] = None    # "individual" | "store"
     seller_username: Optional[str] = None
+    seller_avatar: Optional[str] = None
 
     # ── Contact ───────────────────────────────────────────────────────────────
     seller_phones: List[str] = Field(default_factory=list)
@@ -68,6 +71,8 @@ class AdListingModel(BaseModel):
     renewed_at: Optional[str] = None
     thumbnail_url: Optional[str] = None
     listing_url: Optional[str] = None
+    images: List[str] = Field(default_factory=list)
+    description: Optional[str] = None
 
     # ── Vehicle-specific fields (parsed from highlight_specs) ─────────────────
     vehicle_model_year: Optional[int] = None
@@ -86,17 +91,27 @@ class AdListingModel(BaseModel):
     # ── Raw specs dict — full API payload for future extension ────────────────
     raw_specs: Optional[Dict[str, Any]] = Field(default=None)
 
-    # ── Scrape timestamp (Fix #5) ─────────────────────────────────────────────
+    # ── Scrape timestamp ──────────────────────────────────────────────────────
     scraped_at: str = Field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
 
     # ── Validators ────────────────────────────────────────────────────────────
 
+    @field_validator("listing_id", mode="before")
+    @classmethod
+    def clean_id(cls, v):
+        return str(v).strip() if v is not None else ""
+
+    @field_validator("listing_title", mode="before")
+    @classmethod
+    def clean_title(cls, v):
+        return str(v).strip() if v is not None else ""
+
     @field_validator("price", "discount_price", mode="before")
     @classmethod
     def clean_price(cls, v):
-        """Strip currency symbols and coerce to float; returns None for zero/empty."""
+        """Strip currency symbols and coerce to float; returns None for zero/empty/negative."""
         if v is None or v == "" or v == "0.00":
             return None
         if isinstance(v, (int, float)):
@@ -105,7 +120,7 @@ class AdListingModel(BaseModel):
         try:
             val = float(s)
             return val if val > 0 else None
-        except ValueError:
+        except (ValueError, TypeError):
             return None
 
     @field_validator("vehicle_model_year", mode="before")
@@ -130,3 +145,25 @@ class AdListingModel(BaseModel):
             return int(float(str(v).replace(",", "").strip()))
         except (ValueError, TypeError):
             return None
+
+    @field_validator("view_count", mode="before")
+    @classmethod
+    def clean_view_count(cls, v):
+        if v is None or v == "":
+            return 0
+        try:
+            return max(0, int(float(str(v).replace(",", "").strip())))
+        except (ValueError, TypeError):
+            return 0
+
+    @field_validator("seller_phones", mode="before")
+    @classmethod
+    def clean_seller_phones(cls, v):
+        if not v:
+            return []
+        if isinstance(v, str):
+            return [v.strip()] if v.strip() else []
+        if isinstance(v, list):
+            return [str(p).strip() for p in v if str(p).strip()]
+        return []
+
