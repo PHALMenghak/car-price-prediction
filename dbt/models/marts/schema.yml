@@ -1,0 +1,115 @@
+# dbt/models/marts/schema.yml
+# Data contracts and quality governance for the Gold / Feature Mart layer.
+# All tests here are run as part of CI/CD before ML model training.
+
+version: 2
+
+models:
+  - name: fct_cars_ml_features
+    description: >
+      Gold Layer: Production-ready ML feature store for Cambodia car price regression.
+      Materializes the complete feature matrix from Bronze → Silver → Gold transformations.
+      Used directly by scikit-learn / LightGBM training pipelines.
+
+    columns:
+      - name: listing_id
+        description: "Unique listing identifier."
+        tests:
+          - unique
+          - not_null
+
+      - name: price
+        description: "Validated USD asking price (regression target)."
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 500
+              max_value: 300000
+
+      - name: log_price
+        description: "Symmetrical log-transformed target: ln(1 + price). Used as primary ML target."
+        tests:
+          - not_null
+
+      - name: vehicle_model_year
+        description: "Imputed vehicle release year (no NULLs remain after Gold imputation)."
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 1990
+              max_value: 2027
+
+      - name: vehicle_age
+        description: "Current year minus model year (non-linear depreciation input)."
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 40
+
+      - name: vehicle_mileage_km
+        description: "Imputed odometer reading (0–500,000 km; no NULLs after Gold imputation)."
+        tests:
+          - not_null
+
+      - name: vehicle_engine_cc
+        description: "Imputed engine displacement in cc; no NULLs after Gold imputation."
+        tests:
+          - not_null
+
+      - name: brand_category
+        description: "Cambodia automotive market segment classification."
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Luxury', 'Mass_Market', 'Chinese_EV', 'Other']
+
+      - name: location_tier
+        description: "Geographic market liquidity tier (Tier_1 = Phnom Penh)."
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Tier_1', 'Tier_2', 'Tier_3']
+
+      - name: vehicle_condition
+        description: "Normalized listing condition: 'new' or 'used'."
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['new', 'used']
+
+      - name: has_price_drop
+        description: "Binary: 1 if seller reduced price during listing lifetime."
+        tests:
+          - accepted_values:
+              values: [0, 1]
+
+      - name: has_full_option
+        description: "NLP binary: 1 if listing title mentions full-option package."
+        tests:
+          - accepted_values:
+              values: [0, 1]
+
+      - name: has_sunroof
+        description: "NLP binary: 1 if listing title mentions sunroof or moonroof."
+        tests:
+          - accepted_values:
+              values: [0, 1]
+
+      - name: has_leather
+        description: "NLP binary: 1 if listing title mentions leather seats."
+        tests:
+          - accepted_values:
+              values: [0, 1]
+
+      - name: has_camera
+        description: "NLP binary: 1 if listing title mentions camera or 360 sensors."
+        tests:
+          - accepted_values:
+              values: [0, 1]
+
+      - name: is_urgent_sale
+        description: "NLP binary: 1 if listing indicates urgent sale or price negotiation."
+        tests:
+          - accepted_values:
+              values: [0, 1]

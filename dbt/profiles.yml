@@ -1,0 +1,27 @@
+# dbt/profiles.yml
+# DuckDB connection profile for local zero-cost execution.
+# Place this file inside the dbt/ directory so dbt finds it automatically
+# when running commands from within dbt/ (or pass --profiles-dir . from project root).
+
+khmer24_duckdb:
+  target: dev
+  outputs:
+
+    # ── Local development: in-memory DuckDB reads Parquet directly ────────────
+    dev:
+      type: duckdb
+      path: ':memory:'
+      threads: 4
+      extensions:
+        - parquet
+        - httpfs
+
+    # ── Production profile (optional): Google BigQuery cloud warehouse ────────
+    prod_bigquery:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('GCP_PROJECT_ID', 'car-price-cambodia') }}"
+      dataset: khmer24_cars
+      threads: 8
+      timeout_seconds: 300
+      location: US

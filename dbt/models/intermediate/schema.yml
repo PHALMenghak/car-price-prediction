@@ -1,0 +1,55 @@
+# dbt/models/intermediate/schema.yml
+# Data contracts for the Silver / Intermediate cleaning layer.
+
+version: 2
+
+models:
+  - name: int_cars_cleaned
+    description: >
+      Silver Layer: Applies hard sanity business rules to Bronze data.
+      Drops rows with prices outside $500–$300,000 and impossible model years.
+      Clamps mileage (0–500,000 km) and engine CC (500–7,000 cc) to NULL
+      rather than dropping rows, preserving volume for Gold imputation.
+
+    columns:
+      - name: listing_id
+        description: "Unique listing identifier (inherited from staging)."
+        tests:
+          - unique
+          - not_null
+
+      - name: price
+        description: "Validated USD asking price — all rows guaranteed in $500–$300,000 range."
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 500
+              max_value: 300000
+
+      - name: vehicle_model_year
+        description: "Model year in range 1990–current_year+1, or NULL (will be imputed in Gold)."
+
+      - name: vehicle_mileage_km
+        description: "Odometer reading in km (0–500,000), or NULL for out-of-range/missing."
+
+      - name: vehicle_engine_cc
+        description: "Engine displacement in cc (500–7,000), or NULL for out-of-range/missing."
+
+      - name: vehicle_brand
+        description: "Vehicle make — 'Unknown' when not parseable."
+        tests:
+          - not_null
+
+      - name: province
+        description: "Cambodia province — 'Unknown' when not provided."
+        tests:
+          - not_null
+
+      - name: days_on_market
+        description: "Days active on the Khmer24 marketplace (≥ 0)."
+
+      - name: has_price_drop
+        description: "1 if seller reduced price during listing lifetime, else 0."
+        tests:
+          - accepted_values:
+              values: [0, 1]

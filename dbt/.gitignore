@@ -1,0 +1,13 @@
+# dbt/.gitignore
+# Exclude generated artifacts and installed packages from version control.
+# These are rebuilt locally via: uv run dbt deps && uv run dbt compile
+
+# Compiled SQL output (regenerated on every dbt run)
+target/
+
+# Installed external dbt packages (installed via dbt deps)
+dbt_packages/
+
+# DuckDB database files (in-memory by default, but guard against any local .db files)
+*.duckdb
+*.db

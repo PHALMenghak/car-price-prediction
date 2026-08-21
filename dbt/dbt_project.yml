@@ -1,0 +1,38 @@
+# dbt/dbt_project.yml
+# Global dbt project configuration for Cambodia Car Price Prediction
+# Implements Medallion Architecture: Bronze (Staging) → Silver (Intermediate) → Gold (Marts)
+
+name: 'khmer24_car_price'
+version: '1.0.0'
+config-version: 2
+
+# Connection profile defined in dbt/profiles.yml
+profile: 'khmer24_duckdb'
+
+# Path configurations (relative to this file — the dbt/ directory)
+model-paths:   ["models"]
+analysis-paths: ["analyses"]
+macro-paths:   ["macros"]
+test-paths:    ["tests"]
+seed-paths:    ["seeds"]
+target-path:   "target"
+clean-targets: ["target", "dbt_packages"]
+
+# ── Medallion Layer Materialization Strategy ──────────────────────────────────
+models:
+  khmer24_car_price:
+
+    # Bronze/Staging: lightweight views — fast, no storage cost
+    staging:
+      +materialized: view
+      +schema: staging
+
+    # Silver/Intermediate: views for incremental refinement
+    intermediate:
+      +materialized: view
+      +schema: intermediate
+
+    # Gold/Marts: external Parquet export directly consumed by ML training
+    marts:
+      +materialized: table
+      +schema: marts

@@ -1,0 +1,70 @@
+# dbt/models/staging/schema.yml
+# Data contracts and tests for the Bronze / Staging layer.
+# Ensures raw snapshot ingestion produces structurally valid output before Silver processing.
+
+version: 2
+
+models:
+  - name: stg_khmer24_cars
+    description: >
+      Bronze Layer: Ingests all multi-day raw Parquet snapshots from data/raw/cars_*.parquet.
+      Deduplicates listings across scrape dates (latest snapshot kept per listing_id).
+      Computes longitudinal market signals: days_on_market, initial_price, price_drop, view_velocity.
+
+    columns:
+      - name: listing_id
+        description: "Unique Khmer24 listing identifier."
+        tests:
+          - unique
+          - not_null
+
+      - name: listing_title
+        description: "Free-text listing title (may include Khmer Unicode characters)."
+        tests:
+          - not_null
+
+      - name: price
+        description: "Current asking price in USD (latest observed snapshot)."
+        tests:
+          - not_null
+
+      - name: initial_price
+        description: "First ever observed price for this listing (for price-drop signal)."
+
+      - name: price_drop_amount
+        description: "Absolute price reduction in USD since first listing (≥ 0)."
+
+      - name: has_price_drop
+        description: "Binary flag: 1 if price was reduced at any point, 0 otherwise."
+        tests:
+          - accepted_values:
+              values: [0, 1]
+
+      - name: days_on_market
+        description: "Days between first_posted_at and scraped_at (≥ 0)."
+
+      - name: view_velocity
+        description: "Average view count per day on market (demand proxy)."
+
+      - name: vehicle_brand
+        description: "Standardized vehicle make (Toyota, BMW, etc.) or 'Unknown'."
+        tests:
+          - not_null
+
+      - name: vehicle_model_year
+        description: "Vehicle release year (nullable — imputed in Gold layer)."
+
+      - name: vehicle_condition
+        description: "Normalized condition: 'new' or 'used'."
+        tests:
+          - not_null
+
+      - name: province
+        description: "Cambodia province where the vehicle is listed."
+        tests:
+          - not_null
+
+      - name: scraped_at
+        description: "UTC timestamp when this data snapshot was collected."
+        tests:
+          - not_null
