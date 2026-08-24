@@ -190,6 +190,7 @@ Car_price_prediction/
 │   ├── 03_baseline_models.ipynb
 │   └── 04_model_evaluation.ipynb
 ├── pipeline/                      # Core Data Engineering Pipelines
+│   ├── dbt_runner.py              # Programmatic & CLI runner for dbt DuckDB pipeline
 │   ├── extract_load.py            # EL pipeline (feed scraper, change tracking)
 │   └── transform.py               # Medallion data cleaning & feature engineering
 ├── src/                           # Shared Production Modules
@@ -197,7 +198,6 @@ Car_price_prediction/
 │   ├── parsers.py                 # Multilingual brand, model & spec extraction regexes
 │   ├── schemas.py                 # Pydantic v2 data models & type validators
 │   ├── storage.py                 # Parquet / CSV I/O, manifests & historical tracking
-│   ├── cleaning.py                # Outlier detection & deduplication rules
 │   └── config.py                  # Central settings, URLs & environment variables
 ├── tests/                         # Comprehensive Pytest Suite (81 tests)
 │   ├── test_client.py

@@ -148,12 +148,17 @@ _BRAND_ALIASES: List[Tuple[str, str]] = [
     (r"wuling", "Wuling"),
     (r"gtv\b", "GTV"),
 
-    # Exotic & Sports
+    # Exotic & Sports & Other
+    (r"jaguar", "Jaguar"),
     (r"lamborghini", "Lamborghini"),
     (r"ferrari", "Ferrari"),
     (r"bentley", "Bentley"),
     (r"maserati", "Maserati"),
     (r"mini\b", "MINI"),
+    (r"jmc\b", "JMC"),
+    (r"proton", "Proton"),
+    (r"radar\b", "Radar"),
+    (r"im\s*motors|im6\b", "IM Motors"),
 ]
 
 _BRAND_PATTERNS = [
@@ -725,22 +730,26 @@ KNOWN_MODELS_BY_BRAND: Dict[str, List[Tuple[str, str]]] = {
 # ── Standalone / Uniquely Identifiable Model Aliases (No Brand required) ───────
 # (regex_pattern, Canonical Brand, Canonical Model or None)
 STANDALONE_MODEL_MAP: List[Tuple[str, str, Optional[str]]] = [
-    # Toyota models & Khmer aliases
+    # Toyota models & Khmer nicknames / shorthands
     (r"(?:prius|pruis|prus|plugin|pluging|plug-in|plungin)", "Toyota", "Prius"),
-    (r"(?:camry|camri)", "Toyota", "Camry"),
-    (r"(?:highlander|high lander)", "Toyota", "Highlander"),
-    (r"(?:corolla cross|corolla altis|corolla)", "Toyota", "Corolla"),
+    (r"(?:camry|camri|ឆ្លាម|បាឡែន|គូទធំ)", "Toyota", "Camry"),
+    (r"(?:highlander|high lander|\bhld\b)", "Toyota", "Highlander"),
+    (r"(?:corolla cross|corolla altis|corolla|កូរូលា)", "Toyota", "Corolla"),
     # LC underscore format: "LC_105series", "LC_80series", "LC_200series"
     (r"lc[_\-\s]*(?:300|200|105|100|80|70)\s*(?:series)?", "Toyota", "Land Cruiser"),
-    (r"(?:land cruiser prado|land cruiser|prado)", "Toyota", "Land Cruiser"),
-    (r"(?:hilux revo rally|hilux revo|hilux vigo|hilux|revo|vigo|rally)", "Toyota", "Hilux"),
-    (r"(?:alphard|vellfire|sienna|fortuner|yaris cross|yaris|raize|veloz|rush|vitz|innova|avanza|vios|hiace|crown|sequoia|4runner|c-hr|chr|harrier|belta|aqua|celica|fj cruiser|bz4x|tacoma|tundra)", "Toyota", None),
+    (r"(?:land\s*cruiser\s*prado|land\s*cruiser|land\s*criuser|prado)", "Toyota", "Land Cruiser"),
+    (r"(?:hilux\s*revo\s*rally|hilux\s*revo|hilux\s*vigo|hilux|revo|vigo|rally)", "Toyota", "Hilux"),
+    (r"(?:alphard|vellfire|sienna|fortuner|yaris\s*cross|yaris|raize|veloz|rush|vitz|vizt|innova|avanza|vios|hiace|crown|មេអំបៅ|sequoia|4runner|c-hr|chr|harrier|belta|aqua|celica|fj\s*cruiser|bz4x|tacoma|tundra)", "Toyota", None),
     (r"(?:le\s*0[1-9]|le\s*[1-9][0-9]|xle\s*0[1-9]|xle\s*[1-9][0-9]|se\s*0[1-9])", "Toyota", "Camry"),
 
-    # Lexus models & Khmer nicknames
-    (r"(?:lx\s*600|lx\s*570|lx\s*470|lx\s*450)", "Lexus", None),
+    # Lexus models & Khmer nicknames / shorthands
+    (r"(?:lx\s*600|lx\s*570|lx\s*470|lx\s*450d?|lx\s*450)", "Lexus", None),
     (r"(?:gx\s*460|gx\s*470)", "Lexus", None),
     (r"(?:rx\s*450h|rx\s*350|rx\s*330|rx\s*300)", "Lexus", None),
+    (r"(?:\b470\b(?:\.\d{4}|\s+\d{4}))", "Lexus", "LX470"),
+    (r"(?:\b570\b(?:\.\d{4}|\s+\d{4}))", "Lexus", "LX570"),
+    (r"(?:\b330\b(?:\.\d{4}|\s+\d{4}))", "Lexus", "RX330"),
+    (r"(?:\b300\b(?:\.\d{4}|\s+\d{4}))", "Lexus", "RX300"),
     # NX with period separator: "NX.200T" → treat [.\s] as flexible separator
     (r"nx[.\s]*(?:350h|350|300h|300|200t|250)", "Lexus", None),
     # LM with flexible spacing: "LM 350H", "LM350H"
@@ -767,40 +776,40 @@ STANDALONE_MODEL_MAP: List[Tuple[str, str, Optional[str]]] = [
     (r"everest\s*titanium", "Ford", "Everest Titanium"),
     (r"everest\s*sport", "Ford", "Everest Sport"),
     (r"everest", "Ford", "Everest"),
-    (r"(?:f-150 raptor|f-150|f-250|f-350|explorer|territory|expedition|escape|mustang|bronco)", "Ford", None),
+    (r"(?:f-150\s*raptor|f-150|f-250|f-350|explorer|territory|expedition|escape|mustang|bronco|ecosport)", "Ford", None),
 
-
-    # Chevrolet
-    (r"(?:camaro rs|camaro|corvette|silverado|colorado|trailblazer|tahoe|suburban|cruze|trax|captiva)", "Chevrolet", None),
+    # Chevrolet & Cadillac
+    (r"(?:camaro\s*rs|camaro|corvette|silverado|colorado|trailblazer|tahoe|suburban|cruze|trax|captiva)", "Chevrolet", None),
+    (r"(?:escalade)", "Cadillac", "Escalade"),
 
     # Hyundai & Kia
-    (r"(?:grand starex|starex|staria|santa fe|palisade|tucson|creta|venue|elantra|sonata|accent|kona|ioniq 5|ioniq 6|custin|h-1)", "Hyundai", None),
-    (r"(?:grand carnival|carnival|sedona|sorento|sportage|telluride|seltos|sonet|carens|picanto|morning|k5|k3|cerato|ev6|ev9|ray\b|嘉华)", "Kia", None),
+    (r"(?:grand\s*starex|starex|staria|santa\s*fe|palisade|tucson|creta|venue|elantra|sonata|accent|kona|ioniq\s*5|ioniq\s*6|custin|h-1|visto|វីស្តូ)", "Hyundai", None),
+    (r"(?:grand\s*carnival|carnival|sedona|sorento|sportage|telluride|seltos|sonet|carens|picanto|morning|k5|k3|cerato|ev6|ev9|ray\b|嘉华)", "Kia", None),
 
     # Chinese EV / Modern
-    (r"(?:atto 3|dolphin|seal|song plus|tang|han|qin plus|yuan plus|seagull|yangwang u8)", "BYD", None),
+    (r"(?:atto\s*3|dolphin|seal|song\s*plus|tang|han|qin\s*plus|yuan\s*plus|seagull|yangwang\s*u8)", "BYD", None),
     # Denza: "Denza N8L", "腾势D9", "D9", "N8L", "N8", "N7"
     (r"(?:denza\s*d9|denza\s*n8|denza\s*n7|腾势\s*d9|腾势|d9\b|n8l\b|n8\b|n7\b)", "Denza", None),
     # Fangchengbao: "Leopard 7 ultra", "Leopard Ti7 DM-i", "Leopard 5/8"
     (r"(?:leopard\s*(?:5|7|8|ti7)|leopard\s*ultra|ti7\b|bao\s*(?:5|8))", "Fangchengbao", None),
     # Changan: "Deepal S05", "EZ 60", "EZ-6", "Changan Q05"
     (r"(?:deepal\s*(?:s05|s07|l07)|s05\b|s07\b|l07\b|uni-[ktv]|cs75\s*plus|cs55\s*plus|cs35\s*plus|q05\b|ez[\s-]*(?:60|6)\b)", "Changan", None),
-    # Avatr: "Avatr Max plus", "Avatr 07/11/12"
-    (r"(?:avatr\s*(?:07|11|12|max))", "Avatr", None),
+    # Avatr: "Avatr Max plus", "Avatr 07/11/12", "AVATAR"
+    (r"(?:avat[ae]r\s*(?:07|11|12|max|06t)?|avatar\b)", "Avatr", None),
     # Xpeng: "Xpeng X9" — brand word already catches most, standalone for X9
     (r"(?:x9\b|g6\b|g9\b|p7\b|p5\b)", "Xpeng", None),
     # GAC: "GN6pro", "GN8高定版", "全新GN8", "GN6" — flexible spacing + no-space
     (r"(?:gn8|gn6\s*pro|gn6|gs8|gs4|gs3|emzoom|emkoo|aion\s*[ysv])", "GAC", None),
     # iCar: "Icar v23s", "icar V23"
     (r"(?:icar\s*(?:v23s?|03)|v23s?\b)", "iCar", None),
-    (r"(?:coolray|azkarra|monjaro|tugella|okavango|emgrand|starray)", "Geely", None),
+    (r"(?:coolray|azkarra|monjaro|tugella|okavango|emgrand|starray|radar\s*rd6|radar)", "Geely", None),
     (r"(?:dashing|x70\s*plus|x70|x90\s*plus|t2\b|traveler)", "Jetour", None),
     (r"(?:tiggo\s*(?:8\s*pro|7\s*pro|4\s*pro|8|7)|omoda\s*5|jaecoo\s*[78])", "Chery", None),
     # MG: "MG4 (EV)", "MG4 EV"
     (r"(?:mg4\s*(?:ev)?|mg\s*hs|mg\s*zs|mg\s*rx8|mg\s*gt|mg5|cyberster|mg\s*one)", "MG", None),
     (r"(?:tank\s*(?:300|500|400|700)|h6\s*hev|h6\b|jolion|dargo|h9\b)", "Haval", None),
     (r"(?:kaola|alpha-[ts])", "Arcfox", None),
-    (r"(?:zeekr\s*(?:001|009|x|007))", "Zeekr", None),
+    (r"(?:zeekr\s*(?:001|009|x|007|9x))", "Zeekr", None),
     (r"(?:li\s*l[9876]|l[9876]\b)", "Li Auto", None),
 
     # German & Other makes
@@ -809,18 +818,18 @@ STANDALONE_MODEL_MAP: List[Tuple[str, str, Optional[str]]] = [
     (r"(?:rang[e]?\s*rover\s*(?:sport|autobiography|sv|velar|evoque|vogue|lwb)?|rang[e]?\s*rover|rr\s*sport|vogue\b|defender\s*(?:110|90|130)?|discovery\s*sport|discovery\b)", "Land Rover", None),
     (r"(?:cayenne\s*coupe|cayenne|macan|panamera|taycan|911\s*carrera|911\b|718\s*(?:cayman|boxster))", "Porsche", None),
     (r"(?:q8|q7|q5|q3|q2|a8|a7|a6|a5|a4|a3|e-tron|r8)\b", "Audi", None),
-    (r"(?:rubicon|sahara|wrangler|gladiator|grand cherokee|cherokee|compass|renegade)", "Jeep", None),
+    (r"(?:rubicon|sahara|wrangler|gladiator|grand\s*cherokee|cherokee|compass|renegade)", "Jeep", None),
     (r"(?:cr-v|crv|hr-v|hrv|wr-v|civic|city|accord|br-v|pilot|passport|odyssey|fit|jazz)", "Honda", None),
-    (r"(?:montero sport|pajero sport|pajero|triton|l200|xpander cross|xpander|xforce|outlander|attrage|mirage)", "Mitsubishi", None),
+    (r"(?:montero\s*sport|pajero\s*sport|pajero|triton|l200|xpander\s*cross|xpander|xforce|outlander|attrage|mirage)", "Mitsubishi", None),
     (r"(?:navara|patrol|terra|x-trail|kicks|magnite|almera|sunny|urvan|gt-r|juke)", "Nissan", None),
     (r"(?:cx-90|cx-60|cx-9|cx-8|cx-5|cx-30|cx-3|bt-50|mazda\s*[236])", "Mazda", None),
     (r"(?:d-max|dmax|mu-x|trooper)", "Isuzu", None),
-    (r"(?:jimny|swift|ertiga|xl7|ciaz|grand vitara|vitara|carry)", "Suzuki", None),
+    (r"(?:jimny|swift|ertiga|xl7|ciaz|grand\s*vitara|vitara|carry)", "Suzuki", None),
     (r"(?:huracan|urus|aventador)", "Lamborghini", None),
     # GTV & ZNA — Cambodia-specific brands, always standalone
-    (r"(?:gtv\s*(?:kain|reahu|soben|krormo))", "GTV", None),
-    (r"gtv\b", "GTV", None),
+    (r"(?:gtv\s*(?:kain|reahu|soben|krormo)|gtv\b)", "GTV", None),
     (r"(?:zna\s*z9\s*gt|zna\s*z9|zna\s*rich|zna\b)", "ZNA", None),
+    (r"(?:scion|sion)", "Toyota", "Scion"),
 ]
 
 _STANDALONE_MODEL_PATTERNS = [

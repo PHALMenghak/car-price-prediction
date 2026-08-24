@@ -224,17 +224,19 @@ def re_extract_brands(df: pd.DataFrame) -> pd.DataFrame:
 
 def impute_missing_values(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Hierarchical grouped imputation for missing values.
+    Hierarchical grouped imputation and domain inference for missing values.
 
     Strategy:
-    - Numeric columns: grouped median cascade → global fallback
-    - Categorical columns: mode by model → domain-appropriate default
-    - Adds `is_mileage_missing` indicator flag
+    - Numeric specs: grouped median cascade → global fallback
+    - Missing indicators: is_mileage_missing, is_engine_cc_missing
+    - Fuel type & transmission: inferred from brand/model taxonomy & title keywords
+    - Color: extracted via multilingual English & Khmer patterns
     """
     df = df.copy()
 
-    # ── Mileage missing indicator (BEFORE imputation) ──────────────────────
+    # ── Missing indicator flags (BEFORE imputation) ───────────────────────
     df["is_mileage_missing"] = df["vehicle_mileage_km"].isna().astype(int)
+    df["is_engine_cc_missing"] = df["vehicle_engine_cc"].isna().astype(int)
 
     # ── Model Year: grouped median by (brand, model) → (brand) → global ──
     df["vehicle_model_year"] = pd.to_numeric(df["vehicle_model_year"], errors="coerce")
@@ -244,7 +246,7 @@ def impute_missing_values(df: pd.DataFrame) -> pd.DataFrame:
     df["vehicle_model_year"] = df.groupby("vehicle_brand")["vehicle_model_year"].transform(
         lambda s: s.fillna(s.median())
     )
-    df["vehicle_model_year"] = df["vehicle_model_year"].fillna(2012)
+    df["vehicle_model_year"] = df["vehicle_model_year"].fillna(2012).astype(int)
 
     # ── Mileage: grouped median by (year, brand) → global median → 100k ──
     df["vehicle_mileage_km"] = pd.to_numeric(df["vehicle_mileage_km"], errors="coerce")
@@ -255,15 +257,18 @@ def impute_missing_values(df: pd.DataFrame) -> pd.DataFrame:
         df["vehicle_mileage_km"] = df["vehicle_mileage_km"].fillna(
             df["vehicle_mileage_km"].median()
         )
-    df["vehicle_mileage_km"] = df["vehicle_mileage_km"].fillna(100_000)
+    df["vehicle_mileage_km"] = df["vehicle_mileage_km"].fillna(100_000).round(0)
 
-    # ── Engine CC: grouped median by model → global fallback 2000 ─────────
+    # ── Engine CC: grouped median by model → brand → global fallback 2000 ─
     df["vehicle_engine_cc"] = pd.to_numeric(df["vehicle_engine_cc"], errors="coerce")
     if df["vehicle_engine_cc"].notna().sum() > 0:
         df["vehicle_engine_cc"] = df.groupby("vehicle_model")["vehicle_engine_cc"].transform(
             lambda s: s.fillna(s.median())
         )
-    df["vehicle_engine_cc"] = df["vehicle_engine_cc"].fillna(2000)
+        df["vehicle_engine_cc"] = df.groupby("vehicle_brand")["vehicle_engine_cc"].transform(
+            lambda s: s.fillna(s.median())
+        )
+    df["vehicle_engine_cc"] = df["vehicle_engine_cc"].fillna(2000).round(0)
 
     # ── Categorical defaults ──────────────────────────────────────────────
     df["vehicle_brand"] = df["vehicle_brand"].fillna("Unknown").str.strip()
@@ -273,49 +278,54 @@ def impute_missing_values(df: pd.DataFrame) -> pd.DataFrame:
     df["province"] = df["province"].fillna("Phnom Penh").str.strip()
     df["seller_type"] = df["seller_type"].fillna("individual").str.lower().str.strip()
 
-    # Fuel type: mode by vehicle_model → "Unknown"
-    df["vehicle_fuel_type"] = df["vehicle_fuel_type"].replace("", np.nan)
-    if df["vehicle_fuel_type"].notna().sum() > 0:
-        df["vehicle_fuel_type"] = df.groupby("vehicle_model")["vehicle_fuel_type"].transform(
-            lambda s: s.fillna(s.mode().iloc[0]) if len(s.mode()) > 0 else s
-        )
-    df["vehicle_fuel_type"] = df["vehicle_fuel_type"].fillna("Unknown").str.strip()
+    # ── Inferred Fuel Type ────────────────────────────────────────────────
+    title_lower = df["listing_title"].fillna("").str.lower()
+    model_lower = df["vehicle_model"].str.lower()
 
-    # Transmission: mode by vehicle_model → "Unknown"
-    df["vehicle_transmission"] = df["vehicle_transmission"].replace("", np.nan)
-    if df["vehicle_transmission"].notna().sum() > 0:
-        df["vehicle_transmission"] = df.groupby("vehicle_model")["vehicle_transmission"].transform(
-            lambda s: s.fillna(s.mode().iloc[0]) if len(s.mode()) > 0 else s
-        )
-    df["vehicle_transmission"] = df["vehicle_transmission"].fillna("Unknown").str.strip()
+    ev_brands = {b.lower() for b in CHINESE_EV_BRANDS}.union({"tesla", "vinfast"})
+    hybrid_models = {"prius", "aqua", "camry hybrid", "ct200h", "rx450h", "nx300h", "es300h", "bz4x"}
+    diesel_models = {"hilux", "hilux revo", "hilux vigo", "ranger", "ranger raptor", "ranger wildtrak", "d-max", "navara", "grand starex"}
 
-    logger.info(
-        f"Imputation complete. Remaining nulls per key column: "
-        f"brand={df['vehicle_brand'].isna().sum()}, "
-        f"model={df['vehicle_model'].isna().sum()}, "
-        f"year={df['vehicle_model_year'].isna().sum()}, "
-        f"mileage={df['vehicle_mileage_km'].isna().sum()}, "
-        f"fuel={df['vehicle_fuel_type'].isna().sum()}, "
-        f"trans={df['vehicle_transmission'].isna().sum()}"
-    )
+    df["vehicle_fuel_type"] = "Unknown"
+    is_ev = df["vehicle_brand"].str.lower().isin(ev_brands) | title_lower.str.contains(r"\bev\b|electric|អគ្គិសនី", regex=True)
+    is_hybrid = title_lower.str.contains("hybrid") | model_lower.isin(hybrid_models)
+    is_diesel = title_lower.str.contains("diesel|ម៉ាស៊ូត") | model_lower.isin(diesel_models)
+    is_petrol = (df["vehicle_brand"] != "Unknown") | (df["vehicle_model"] != "Unknown")
+
+    df.loc[is_petrol, "vehicle_fuel_type"] = "Petrol"
+    df.loc[is_diesel, "vehicle_fuel_type"] = "Diesel"
+    df.loc[is_hybrid, "vehicle_fuel_type"] = "Hybrid"
+    df.loc[is_ev, "vehicle_fuel_type"] = "Electric"
+
+    # ── Inferred Transmission ─────────────────────────────────────────────
+    df["vehicle_transmission"] = "Automatic"
+    is_manual = title_lower.str.contains(r"manual|លេខដៃ|លេខកំប៉ុក", regex=True)
+    df.loc[is_manual, "vehicle_transmission"] = "Manual"
+
+    # ── Extracted Color ───────────────────────────────────────────────────
+    df["vehicle_color"] = "Unknown"
+    df.loc[title_lower.str.contains(r"white|ពណ៍ស|ពណ៌ស") & ~title_lower.str.contains(r"កៅអី|ពូក"), "vehicle_color"] = "White"
+    df.loc[title_lower.str.contains(r"black|ពណ៍ខ្មៅ|ពណ៌ខ្មៅ|ខ្មៅ"), "vehicle_color"] = "Black"
+    df.loc[title_lower.str.contains(r"silver|ទឹកប្រាក់|ពណ៍ប្រាក់|ពណ៌ប្រាក់"), "vehicle_color"] = "Silver"
+    df.loc[title_lower.str.contains(r"grey|gray|កណ្ដុរប្រមេះ|កណ្តុរប្រមេះ|ប្រផេះ"), "vehicle_color"] = "Grey"
+    df.loc[title_lower.str.contains(r"gold|ទឹកមាស|ពណ៍មាស|ពណ៌មាស"), "vehicle_color"] = "Gold"
+    df.loc[title_lower.str.contains(r"red|ក្រហម"), "vehicle_color"] = "Red"
+    df.loc[title_lower.str.contains(r"blue|ខៀវ"), "vehicle_color"] = "Blue"
+    df.loc[title_lower.str.contains(r"yellow|លឿង"), "vehicle_color"] = "Yellow"
+
+    logger.info("Imputation and domain inference complete.")
     return df
 
 
 def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Create ML features from cleaned data.
+    Create ML features from cleaned data without target leakage.
 
-    Temporal & depreciation:
-      vehicle_age, vehicle_age_squared, mileage_per_year
-
-    Market segmentation:
-      is_luxury_brand, is_popular_brand, is_chinese_ev_brand
-
-    Geographic:
-      location_tier (Tier_1 / Tier_2 / Tier_3)
+    Core specs & Depreciation:
+      vehicle_age, is_plate_number, brand_category, location_tier
 
     Title NLP indicators:
-      has_full_option, has_sunroof, has_leather, has_camera, is_urgent_sale
+      has_full_option, is_urgent_sale
 
     Target transformation:
       log_price = ln(1 + price)
@@ -324,15 +334,13 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
 
     # ── 1. Temporal & Depreciation Features ────────────────────────────────
     df["vehicle_age"] = (CURRENT_YEAR - df["vehicle_model_year"]).clip(lower=0)
-    df["vehicle_age_squared"] = df["vehicle_age"] ** 2
+    df["is_plate_number"] = (df["vehicle_tax_type"] == "Plate Number").astype(int)
 
-    mileage = pd.to_numeric(df["vehicle_mileage_km"], errors="coerce").fillna(0)
-    df["mileage_per_year"] = (mileage / (df["vehicle_age"] + 1)).round(1)
-
-    # ── 2. Brand Tier Flags ────────────────────────────────────────────────
-    df["is_luxury_brand"] = df["vehicle_brand"].isin(LUXURY_BRANDS).astype(int)
-    df["is_popular_brand"] = df["vehicle_brand"].isin(POPULAR_BRANDS).astype(int)
-    df["is_chinese_ev_brand"] = df["vehicle_brand"].isin(CHINESE_EV_BRANDS).astype(int)
+    # ── 2. Brand Tier Categorical ──────────────────────────────────────────
+    df["brand_category"] = "Other"
+    df.loc[df["vehicle_brand"].isin(POPULAR_BRANDS), "brand_category"] = "Mass_Market"
+    df.loc[df["vehicle_brand"].isin(CHINESE_EV_BRANDS), "brand_category"] = "Chinese_EV"
+    df.loc[df["vehicle_brand"].isin(LUXURY_BRANDS), "brand_category"] = "Luxury"
 
     # ── 3. Location Tier ───────────────────────────────────────────────────
     df["location_tier"] = "Tier_3"
@@ -342,47 +350,29 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     # ── 4. Title NLP Indicator Flags ───────────────────────────────────────
     title_lower = df["listing_title"].fillna("").str.lower()
 
-    df["has_full_option"] = title_lower.str.contains(
-        r"full\s*option|option\s*[34]|f[\-\s]*sport", regex=True
+    df["has_full_option"] = (
+        title_lower.str.contains(r"full\s*option|option\s*[34]|f[\-\s]*sport", regex=True)
+        | df["listing_title"].str.contains(r"ហ្វូល|អប់សិនពេញ", regex=True)
     ).astype(int)
 
-    df["has_sunroof"] = title_lower.str.contains(
-        r"solar|sunroof|moonroof|បើកដំបូល|open\s*roof", regex=True
-    ).astype(int)
-
-    df["has_leather"] = title_lower.str.contains(
-        r"leather|ពូកស្បែក|seat\s*leather", regex=True
-    ).astype(int)
-
-    df["has_camera"] = title_lower.str.contains(
-        r"camera|sensor|360|reverse\s*cam", regex=True
-    ).astype(int)
-
-    df["is_urgent_sale"] = title_lower.str.contains(
-        r"urgent|លក់ប្រញាប់|ធូរថ្លៃ|negotiable|ចរចា", regex=True
+    df["is_urgent_sale"] = (
+        title_lower.str.contains(r"urgent|negotiable|below\s*market", regex=True)
+        | df["listing_title"].str.contains(r"លក់ប្រញាប់|ធូរថ្លៃ|ចរចា|ចចារ", regex=True)
     ).astype(int)
 
     # ── 5. Target Transformation ───────────────────────────────────────────
     df["log_price"] = np.log1p(df["price"])
 
-    logger.info(
-        f"Feature engineering complete. "
-        f"Luxury brands: {df['is_luxury_brand'].sum()}, "
-        f"Popular brands: {df['is_popular_brand'].sum()}, "
-        f"Chinese EV: {df['is_chinese_ev_brand'].sum()}, "
-        f"Full option: {df['has_full_option'].sum()}, "
-        f"Urgent sale: {df['is_urgent_sale'].sum()}"
-    )
+    logger.info("Feature engineering complete.")
     return df
 
 
-# ── ML Feature Column Selection ────────────────────────────────────────────
+# ── ML Feature Column Selection (24 Production Columns) ───────────────────
 
 ML_FEATURE_COLUMNS: List[str] = [
-    # Identifiers (kept for debugging, NOT used in training)
+    # Identifier (excluded from model training)
     "listing_id",
-    "listing_title",
-    # Target
+    # Targets
     "price",
     "log_price",
     # Core vehicle specs
@@ -390,37 +380,28 @@ ML_FEATURE_COLUMNS: List[str] = [
     "vehicle_model",
     "vehicle_model_year",
     "vehicle_age",
-    "vehicle_age_squared",
-    "vehicle_condition",
-    "vehicle_tax_type",
-    "vehicle_fuel_type",
-    "vehicle_transmission",
     "vehicle_mileage_km",
     "is_mileage_missing",
-    "mileage_per_year",
     "vehicle_engine_cc",
-    # Location
+    "is_engine_cc_missing",
+    # Powertrain & Appearance
+    "vehicle_fuel_type",
+    "vehicle_transmission",
+    "vehicle_color",
+    # Condition & Registration
+    "vehicle_condition",
+    "is_plate_number",
+    # Market & Geo segmentation
+    "brand_category",
     "province",
     "location_tier",
-    # Seller & Engagement
     "seller_type",
-    "view_count",
-    # Historical change tracking
+    # Market Dynamics & NLP
     "days_on_market",
-    "initial_price",
-    "price_drop_amount",
-    "has_price_drop",
-    "view_velocity",
-    # Brand tier flags
-    "is_luxury_brand",
-    "is_popular_brand",
-    "is_chinese_ev_brand",
-    # Title NLP indicators
     "has_full_option",
-    "has_sunroof",
-    "has_leather",
-    "has_camera",
     "is_urgent_sale",
+    # Metadata
+    "scraped_at",
 ]
 
 
@@ -431,6 +412,7 @@ def select_ml_features(df: pd.DataFrame) -> pd.DataFrame:
     if missing:
         logger.warning(f"ML feature selection: missing columns {missing}")
     return df[available].copy()
+
 
 
 def split_train_test(
@@ -553,9 +535,9 @@ def run(
         "mileage_known_pct": round(
             (1 - df_train["is_mileage_missing"].mean()) * 100, 1
         ),
-        "luxury_brand_pct": round(df_train["is_luxury_brand"].mean() * 100, 1),
-        "popular_brand_pct": round(df_train["is_popular_brand"].mean() * 100, 1),
-        "chinese_ev_pct": round(df_train["is_chinese_ev_brand"].mean() * 100, 1),
+        "luxury_brand_pct": round((df_train["brand_category"] == "Luxury").mean() * 100, 1),
+        "popular_brand_pct": round((df_train["brand_category"] == "Mass_Market").mean() * 100, 1),
+        "chinese_ev_pct": round((df_train["brand_category"] == "Chinese_EV").mean() * 100, 1),
         "price_mean": round(df_train["price"].mean(), 2),
         "price_median": round(df_train["price"].median(), 2),
         "mean_vehicle_age": round(df_train["vehicle_age"].mean(), 1),

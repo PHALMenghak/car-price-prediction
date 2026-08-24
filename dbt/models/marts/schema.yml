@@ -84,44 +84,50 @@ models:
           - accepted_values:
               values: [0, 1]
 
-      - name: has_price_drop
-        description: "Binary: 1 if seller reduced price during listing lifetime."
+      - name: vehicle_fuel_type
+        description: "Inferred propulsion type: Petrol, Diesel, Hybrid, Electric, Unknown."
         tests:
+          - not_null
+          - accepted_values:
+              values: ['Petrol', 'Diesel', 'Hybrid', 'Electric', 'Unknown']
+
+      - name: vehicle_transmission
+        description: "Inferred gearbox transmission: Automatic vs. Manual."
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Automatic', 'Manual', 'Unknown']
+
+      - name: vehicle_color
+        description: "Extracted vehicle exterior color."
+        tests:
+          - not_null
+
+      - name: is_mileage_missing
+        description: "Binary: 1 if vehicle mileage was imputed, 0 if observed."
+        tests:
+          - not_null
           - accepted_values:
               values: [0, 1]
 
-      - name: has_price_increase
-        description: "Binary: 1 if seller increased price during listing lifetime upon renewal."
+      - name: is_engine_cc_missing
+        description: "Binary: 1 if engine CC was imputed, 0 if observed."
         tests:
+          - not_null
           - accepted_values:
               values: [0, 1]
 
       - name: has_full_option
         description: "NLP binary: 1 if listing title mentions full-option package."
         tests:
-          - accepted_values:
-              values: [0, 1]
-
-      - name: has_sunroof
-        description: "NLP binary: 1 if listing title mentions sunroof or moonroof."
-        tests:
-          - accepted_values:
-              values: [0, 1]
-
-      - name: has_leather
-        description: "NLP binary: 1 if listing title mentions leather seats."
-        tests:
-          - accepted_values:
-              values: [0, 1]
-
-      - name: has_camera
-        description: "NLP binary: 1 if listing title mentions camera or 360 sensors."
-        tests:
+          - not_null
           - accepted_values:
               values: [0, 1]
 
       - name: is_urgent_sale
         description: "NLP binary: 1 if listing indicates urgent sale or price negotiation."
         tests:
+          - not_null
           - accepted_values:
               values: [0, 1]
+

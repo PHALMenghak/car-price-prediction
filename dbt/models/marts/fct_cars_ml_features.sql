@@ -25,7 +25,6 @@ imputed_medians AS (
         *,
 
         -- Missing indicator flags (capture before imputation)
-        CASE WHEN vehicle_model_year IS NULL THEN 1 ELSE 0 END   AS is_year_missing,
         CASE WHEN vehicle_mileage_km IS NULL THEN 1 ELSE 0 END   AS is_mileage_missing,
         CASE WHEN vehicle_engine_cc IS NULL THEN 1 ELSE 0 END    AS is_engine_cc_missing,
 
@@ -45,7 +44,7 @@ imputed_medians AS (
             100000.0
         ) AS imputed_mileage,
 
-        -- ── Engine CC imputation: Model median → 2000 cc ─────────────────
+        -- ── Engine CC imputation: Model median → Brand median → 2000 cc ──
         COALESCE(
             vehicle_engine_cc,
             MEDIAN(vehicle_engine_cc) OVER (PARTITION BY vehicle_model),
@@ -59,62 +58,32 @@ imputed_medians AS (
 SELECT
     -- ── Identifiers ───────────────────────────────────────────────────────
     listing_id,
-    listing_title,
 
-    -- ── Regression Targets ────────────────────────────────────────────────
+    -- ── Regression Targets (Primary Log Target & Raw Dollar Target) ────────
     price,
     LN(1.0 + price)                                          AS log_price,
 
-    -- ── Core Vehicle Specs (imputed) ──────────────────────────────────────
+    -- ── Core Vehicle Specs & Imputation Flags ──────────────────────────────
     vehicle_brand,
     vehicle_model,
     CAST(imputed_year AS INTEGER)                            AS vehicle_model_year,
-    is_year_missing,
+    (date_part('year', CURRENT_DATE) - imputed_year)         AS vehicle_age,
     ROUND(imputed_mileage, 0)                                AS vehicle_mileage_km,
     is_mileage_missing,
     ROUND(imputed_engine_cc, 0)                              AS vehicle_engine_cc,
     is_engine_cc_missing,
+
+    -- ── Powertrain & Physical Appearance ──────────────────────────────────
+    {{ infer_fuel_type('vehicle_brand', 'vehicle_model', 'listing_title', 'vehicle_fuel_type') }} AS vehicle_fuel_type,
+    {{ infer_transmission('listing_title', 'vehicle_transmission') }} AS vehicle_transmission,
+    {{ extract_color_from_title('listing_title') }}          AS vehicle_color,
+
+    -- ── Vehicle Condition & Legal Registration Status ─────────────────────
     vehicle_condition,
-    vehicle_tax_type,
     CASE WHEN vehicle_tax_type = 'Plate Number' THEN 1 ELSE 0 END AS is_plate_number,
-    vehicle_fuel_type,
-    vehicle_transmission,
-    vehicle_color,
 
-    -- ── Feature 1: Non-linear Depreciation & Mileage Intensity ───────────
-    (date_part('year', CURRENT_DATE) - imputed_year)         AS vehicle_age,
-    POWER(
-        (date_part('year', CURRENT_DATE) - imputed_year), 2
-    )                                                        AS vehicle_age_squared,
-    CASE
-        WHEN vehicle_condition = 'new' THEN 0.0
-        ELSE ROUND(
-            imputed_mileage / (date_part('year', CURRENT_DATE) - imputed_year + 1),
-            1
-        )
-    END                                                      AS mileage_per_year,
-
-    -- ── Feature 2: Cambodia Brand Tier Classification (via macro) ─────────
+    -- ── Market Segmentation & Geographic Liquidity Tiers ──────────────────
     {{ classify_brand_tier('vehicle_brand') }}               AS brand_category,
-    CASE WHEN vehicle_brand IN (
-        'Lexus', 'Mercedes-Benz', 'BMW', 'Porsche', 'Land Rover',
-        'Audi', 'Cadillac', 'Rolls-Royce', 'Bentley', 'Maserati',
-        'Lamborghini', 'Ferrari', 'Aston Martin', 'Genesis', 'Volvo',
-        'Acura', 'Infiniti'
-    ) THEN 1 ELSE 0 END                                      AS is_luxury_brand,
-    CASE WHEN vehicle_brand IN (
-        'Toyota', 'Ford', 'Hyundai', 'Mazda', 'Kia',
-        'Honda', 'Mitsubishi', 'Nissan', 'Suzuki', 'Isuzu',
-        'Subaru', 'Chevrolet', 'Volkswagen', 'Jeep', 'RAM',
-        'Dodge', 'Peugeot', 'Renault', 'MINI'
-    ) THEN 1 ELSE 0 END                                      AS is_popular_brand,
-    CASE WHEN vehicle_brand IN (
-        'BYD', 'MG', 'Geely', 'Haval', 'GAC', 'Jetour', 'Changan',
-        'Denza', 'Xpeng', 'NIO', 'Zeekr', 'AVATR', 'Li Auto', 'Chery',
-        'Tank', 'Omoda', 'Jaecoo'
-    ) THEN 1 ELSE 0 END                                      AS is_chinese_ev_brand,
-
-    -- ── Feature 3: Cambodia Geographic Liquidity Tiers ────────────────────
     province,
     CASE
         WHEN province = 'Phnom Penh'                                         THEN 'Tier_1'
@@ -124,23 +93,14 @@ SELECT
         )                                                                    THEN 'Tier_2'
         ELSE                                                                      'Tier_3'
     END                                                      AS location_tier,
-    CASE WHEN province = 'Phnom Penh' THEN 1 ELSE 0 END     AS is_tier_1_loc,
-
-    -- ── Feature 4: Marketplace & Seller Dynamics ──────────────────────────
     seller_type,
-    view_count,
-    ROUND(days_on_market, 1)                                 AS days_on_market,
-    initial_price,
-    price_drop_amount,
-    has_price_drop,
-    price_increase_amount,
-    has_price_increase,
-    view_velocity,
 
-    -- ── Feature 5: Multilingual NLP Title Signals (via macro) ────────────
+    -- ── Marketplace Dynamics & NLP Signals ─────────────────────────────────
+    ROUND(days_on_market, 1)                                 AS days_on_market,
     {{ extract_title_options('listing_title') }},
 
-    -- ── Metadata ──────────────────────────────────────────────────────────
+    -- ── Metadata / Ingestion Index ─────────────────────────────────────────
     scraped_at
 
 FROM imputed_medians
+

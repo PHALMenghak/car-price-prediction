@@ -9,7 +9,7 @@
 --   3. Mileage clamping: outside 0–500,000 km becomes NULL (imputed in Gold)
 --   4. Engine CC clamping: outside 500–7,000 cc becomes NULL (imputed in Gold)
 --   5. Exports clean un-imputed dataset to data/processed/cars_clean.parquet for EDA
--- Materialization: view (with parquet export post-hook)
+-- Materialization: view (with parquet & csv export post-hooks)
 
 {{ config(
     materialized = 'view',
@@ -28,52 +28,42 @@ SELECT
     listing_id,
     listing_title,
 
-    -- ── Price Signals (pass-through; filtering in WHERE clause) ──────────
+    -- ── Validated Pricing & Market Time ───────────────────────────────────
     price,
     initial_price,
-    price_drop_amount,
-    has_price_drop,
-    price_increase_amount,
-    has_price_increase,
-
-    -- ── Temporal Market Signals ───────────────────────────────────────────
     days_on_market,
-    view_velocity,
     view_count,
 
-    -- ── Vehicle Dimensions ────────────────────────────────────────────────
+    -- ── Vehicle Core Specifications (Preserved with authentic NULLs) ──────
     COALESCE(NULLIF(TRIM(vehicle_brand), ''), 'Unknown')          AS vehicle_brand,
     COALESCE(NULLIF(TRIM(vehicle_model), ''), 'Unknown')          AS vehicle_model,
     vehicle_model_year,   -- NULL allowed; hierarchical imputation in Gold
-    vehicle_condition,
-    vehicle_tax_type,
-    vehicle_fuel_type,
-    vehicle_transmission,
-    vehicle_color,
 
-    -- ── Physical Spec Clamping: out-of-range → NULL (not row-dropped) ─────
-    -- Mileage: physically impossible values (negative or > 500,000 km) → NULL
+    -- Physical Spec Clamping: out-of-range → NULL (not row-dropped)
     CASE
         WHEN vehicle_mileage_km < 0 OR vehicle_mileage_km > 500000 THEN NULL
         ELSE vehicle_mileage_km
-    END AS vehicle_mileage_km,
+    END                                                           AS vehicle_mileage_km,
 
-    -- Engine CC: implausible values (< 500 or > 7,000 cc) → NULL
     CASE
         WHEN vehicle_engine_cc < 500 OR vehicle_engine_cc > 7000 THEN NULL
         ELSE vehicle_engine_cc
-    END AS vehicle_engine_cc,
+    END                                                           AS vehicle_engine_cc,
+
+    vehicle_fuel_type,
+    vehicle_transmission,
+    vehicle_color,
+    vehicle_condition,
+    vehicle_tax_type,
 
     -- ── Location & Seller ─────────────────────────────────────────────────
     province,
     seller_type,
     seller_id,
-    seller_name,
 
     -- ── Timestamps ────────────────────────────────────────────────────────
     posted_at,
-    scraped_at,
-    renewed_at
+    scraped_at
 
 FROM staging
 WHERE
@@ -86,3 +76,4 @@ WHERE
         vehicle_model_year IS NULL
         OR vehicle_model_year BETWEEN 1990 AND (date_part('year', CURRENT_DATE) + 1)
     )
+

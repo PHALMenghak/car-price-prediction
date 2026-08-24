@@ -48,15 +48,6 @@ models:
 
       - name: days_on_market
         description: "Days active on the Khmer24 marketplace (≥ 0)."
-
-      - name: has_price_drop
-        description: "1 if seller reduced price during listing lifetime, else 0."
         tests:
-          - accepted_values:
-              values: [0, 1]
+          - not_null
 
-      - name: has_price_increase
-        description: "1 if seller raised price during listing lifetime upon renewal, else 0."
-        tests:
-          - accepted_values:
-              values: [0, 1]
