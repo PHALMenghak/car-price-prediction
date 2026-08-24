@@ -23,8 +23,9 @@ models:
         tests:
           - not_null
           - dbt_utils.accepted_range:
-              min_value: 500
-              max_value: 300000
+              arguments:
+                min_value: 500
+                max_value: 300000
 
       - name: vehicle_model_year
         description: "Model year in range 1990–current_year+1, or NULL (will be imputed in Gold)."
@@ -50,6 +51,12 @@ models:
 
       - name: has_price_drop
         description: "1 if seller reduced price during listing lifetime, else 0."
+        tests:
+          - accepted_values:
+              values: [0, 1]
+
+      - name: has_price_increase
+        description: "1 if seller raised price during listing lifetime upon renewal, else 0."
         tests:
           - accepted_values:
               values: [0, 1]

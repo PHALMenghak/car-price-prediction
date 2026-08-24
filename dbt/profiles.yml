@@ -1,22 +1,42 @@
 # dbt/profiles.yml
 # DuckDB connection profile for local zero-cost execution.
-# Place this file inside the dbt/ directory so dbt finds it automatically
-# when running commands from within dbt/ (or pass --profiles-dir . from project root).
+#
+# ── HOW TO RUN ─────────────────────────────────────────────────────────────────
+# Always run dbt commands from the PROJECT ROOT (not from inside dbt/):
+#
+#   dbt run   --project-dir dbt  --profiles-dir dbt
+#   dbt test  --project-dir dbt  --profiles-dir dbt
+#   dbt docs generate --project-dir dbt  --profiles-dir dbt
+#
+# Or use the shortcut scripts (if configured in pyproject.toml):
+#   uv run dbt-run
+#
+# ── PATH RESOLUTION ────────────────────────────────────────────────────────────
+# external_root: '.'  → DuckDB resolves read_parquet('data/raw/…') relative to
+#                        the PROJECT ROOT (where you run the dbt command from).
+#                        This means 'data/raw/cars_*.parquet' correctly finds
+#                        the files at <project_root>/data/raw/cars_*.parquet
+#
+# path: 'data/processed/khmer24.duckdb' → The Gold table (fct_cars_ml_features)
+#                        is persisted to disk. ML training notebooks can then
+#                        connect and read it directly without re-running dbt.
+# ───────────────────────────────────────────────────────────────────────────────
 
 khmer24_duckdb:
   target: dev
   outputs:
 
-    # ── Local development: in-memory DuckDB reads Parquet directly ────────────
+    # ── Local development ──────────────────────────────────────────────────────
     dev:
       type: duckdb
-      path: ':memory:'
+      path: 'data/processed/khmer24.duckdb'   # persisted to disk (project root relative)
       threads: 4
       extensions:
         - parquet
         - httpfs
+      external_root: '.'    # resolves all read_parquet() paths from project root
 
-    # ── Production profile (optional): Google BigQuery cloud warehouse ────────
+    # ── Production profile (optional): Google BigQuery cloud warehouse ─────────
     prod_bigquery:
       type: bigquery
       method: oauth

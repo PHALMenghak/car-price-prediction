@@ -17,6 +17,9 @@ env/
 # Scraped data output — tracked by git so GitHub Actions can push results back.
 # Exclude only local DB files which are never needed in the repo.
 data/**/*.db
+*.duckdb*
+dbt/target/
+dbt/dbt_packages/
 
 # Log files — broad exclusion first, then allow daily and latest scraper logs
 *.log
@@ -36,10 +39,4 @@ Thumbs.db
 .idea/
 .vscode/
 
-khmer24-data-scientist-intern-scraping-playbook.md
-PROJECT_PLAN.md
-DBT_TRANSFORMATION_PLAYBOOK.md
-Architecture.drawio
-DATA_PREPROCESSING_METHODOLOGY.md
-ROADMAP.md
-PROJECT_EXPLANATION.md
+docs/

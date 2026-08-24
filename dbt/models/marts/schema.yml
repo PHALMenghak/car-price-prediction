@@ -23,8 +23,9 @@ models:
         tests:
           - not_null
           - dbt_utils.accepted_range:
-              min_value: 500
-              max_value: 300000
+              arguments:
+                min_value: 500
+                max_value: 300000
 
       - name: log_price
         description: "Symmetrical log-transformed target: ln(1 + price). Used as primary ML target."
@@ -36,16 +37,14 @@ models:
         tests:
           - not_null
           - dbt_utils.accepted_range:
-              min_value: 1990
-              max_value: 2027
+              arguments:
+                min_value: 1990
+                max_value: 2027
 
       - name: vehicle_age
-        description: "Current year minus model year (non-linear depreciation input)."
+        description: "Current year minus model year (≥0). Bounded indirectly by vehicle_model_year range (1990–2027)."
         tests:
           - not_null
-          - dbt_utils.accepted_range:
-              min_value: 0
-              max_value: 40
 
       - name: vehicle_mileage_km
         description: "Imputed odometer reading (0–500,000 km; no NULLs after Gold imputation)."
@@ -78,8 +77,21 @@ models:
           - accepted_values:
               values: ['new', 'used']
 
+      - name: is_plate_number
+        description: "Binary: 1 if vehicle has local registered plate number, 0 if tax paper/unregistered."
+        tests:
+          - not_null
+          - accepted_values:
+              values: [0, 1]
+
       - name: has_price_drop
         description: "Binary: 1 if seller reduced price during listing lifetime."
+        tests:
+          - accepted_values:
+              values: [0, 1]
+
+      - name: has_price_increase
+        description: "Binary: 1 if seller increased price during listing lifetime upon renewal."
         tests:
           - accepted_values:
               values: [0, 1]

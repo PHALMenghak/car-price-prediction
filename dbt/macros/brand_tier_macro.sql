@@ -7,7 +7,8 @@
         WHEN {{ brand_col }} IN (
             'Lexus', 'Mercedes-Benz', 'BMW', 'Porsche', 'Land Rover',
             'Audi', 'Cadillac', 'Rolls-Royce', 'Bentley', 'Maserati',
-            'Lamborghini', 'Ferrari', 'Aston Martin', 'Genesis', 'Volvo'
+            'Lamborghini', 'Ferrari', 'Aston Martin', 'Genesis', 'Volvo',
+            'Acura', 'Infiniti'
         ) THEN 'Luxury'
         WHEN {{ brand_col }} IN (
             'BYD', 'MG', 'Geely', 'Haval', 'GAC', 'Jetour', 'Changan',

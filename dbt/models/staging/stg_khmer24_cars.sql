@@ -66,7 +66,7 @@ SELECT
     listing_id,
     listing_title,
 
-    -- ── Price & Price-Drop Signals ────────────────────────────────────────
+    -- ── Price & Price-Change Signals ─────────────────────────────────────
     TRY_CAST(price AS DOUBLE)                                     AS price,
     TRY_CAST(_initial_price AS DOUBLE)                            AS initial_price,
     GREATEST(
@@ -77,6 +77,14 @@ SELECT
         WHEN (TRY_CAST(_initial_price AS DOUBLE) - TRY_CAST(price AS DOUBLE)) > 0
         THEN 1 ELSE 0
     END                                                           AS has_price_drop,
+    GREATEST(
+        TRY_CAST(price AS DOUBLE) - TRY_CAST(_initial_price AS DOUBLE),
+        0.0
+    )                                                             AS price_increase_amount,
+    CASE
+        WHEN (TRY_CAST(price AS DOUBLE) - TRY_CAST(_initial_price AS DOUBLE)) > 0
+        THEN 1 ELSE 0
+    END                                                           AS has_price_increase,
 
     -- ── Temporal Market Signals ───────────────────────────────────────────
     ROUND(

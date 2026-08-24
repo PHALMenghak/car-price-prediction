@@ -2,14 +2,18 @@
 -- ─────────────────────────────────────────────────────────────────────────────
 -- GOLD LAYER: ML Feature Store — Imputation, Feature Engineering & Export
 -- ─────────────────────────────────────────────────────────────────────────────
--- Reads from Silver layer (int_cars_cleaned) and produces the final ML matrix:
---   1. Hierarchical window-median imputation for year, mileage, engine_cc
---   2. Non-linear depreciation features: vehicle_age, vehicle_age², mileage/year
---   3. Cambodia automotive brand tier classification (via macro)
---   4. Geographic liquidity tiers (Phnom Penh Tier_1, urban Tier_2, rural Tier_3)
---   5. Multilingual NLP feature extraction from listing titles (via macro)
---   6. Log-transformed regression target: log_price = ln(1 + price)
--- Materialization: table (persisted in DuckDB for direct ML consumption)
+-- Reads from Silver layer (int_cars_cleaned) and produces the final ML matrix.
+-- After materializing into DuckDB, the post_hook exports a Parquet file to
+-- data/processed/fct_cars_ml_features.parquet for direct ML consumption.
+-- Materialization: table (persisted in DuckDB at data/processed/khmer24.duckdb)
+
+{{ config(
+    materialized = 'table',
+    post_hook    = [
+        "COPY {{ this }} TO 'data/processed/fct_cars_ml_features.parquet' (FORMAT PARQUET)",
+        "COPY {{ this }} TO 'data/processed/fct_cars_ml_features.csv' (HEADER, DELIMITER ',')"
+    ]
+) }}
 
 WITH silver AS (
     SELECT * FROM {{ ref('int_cars_cleaned') }}
@@ -72,6 +76,7 @@ SELECT
     is_engine_cc_missing,
     vehicle_condition,
     vehicle_tax_type,
+    CASE WHEN vehicle_tax_type = 'Plate Number' THEN 1 ELSE 0 END AS is_plate_number,
     vehicle_fuel_type,
     vehicle_transmission,
     vehicle_color,
@@ -81,22 +86,27 @@ SELECT
     POWER(
         (date_part('year', CURRENT_DATE) - imputed_year), 2
     )                                                        AS vehicle_age_squared,
-    ROUND(
-        imputed_mileage / (date_part('year', CURRENT_DATE) - imputed_year + 1),
-        1
-    )                                                        AS mileage_per_year,
+    CASE
+        WHEN vehicle_condition = 'new' THEN 0.0
+        ELSE ROUND(
+            imputed_mileage / (date_part('year', CURRENT_DATE) - imputed_year + 1),
+            1
+        )
+    END                                                      AS mileage_per_year,
 
     -- ── Feature 2: Cambodia Brand Tier Classification (via macro) ─────────
     {{ classify_brand_tier('vehicle_brand') }}               AS brand_category,
     CASE WHEN vehicle_brand IN (
         'Lexus', 'Mercedes-Benz', 'BMW', 'Porsche', 'Land Rover',
         'Audi', 'Cadillac', 'Rolls-Royce', 'Bentley', 'Maserati',
-        'Lamborghini', 'Ferrari', 'Aston Martin', 'Genesis', 'Volvo'
+        'Lamborghini', 'Ferrari', 'Aston Martin', 'Genesis', 'Volvo',
+        'Acura', 'Infiniti'
     ) THEN 1 ELSE 0 END                                      AS is_luxury_brand,
     CASE WHEN vehicle_brand IN (
         'Toyota', 'Ford', 'Hyundai', 'Mazda', 'Kia',
         'Honda', 'Mitsubishi', 'Nissan', 'Suzuki', 'Isuzu',
-        'Subaru', 'Chevrolet', 'Volkswagen', 'Jeep'
+        'Subaru', 'Chevrolet', 'Volkswagen', 'Jeep', 'RAM',
+        'Dodge', 'Peugeot', 'Renault', 'MINI'
     ) THEN 1 ELSE 0 END                                      AS is_popular_brand,
     CASE WHEN vehicle_brand IN (
         'BYD', 'MG', 'Geely', 'Haval', 'GAC', 'Jetour', 'Changan',
@@ -123,6 +133,8 @@ SELECT
     initial_price,
     price_drop_amount,
     has_price_drop,
+    price_increase_amount,
+    has_price_increase,
     view_velocity,
 
     -- ── Feature 5: Multilingual NLP Title Signals (via macro) ────────────

@@ -3,13 +3,21 @@
 -- SILVER LAYER: Deterministic sanity filtering & physical spec validation
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Receives deduplicated Bronze data from stg_khmer24_cars.
--- Applies business rules that enforce data integrity for ML model training:
+-- Applies business rules that enforce data integrity:
 --   1. Hard price bounds: $500 ≤ price ≤ $300,000 (drop rows outside range)
 --   2. Model year bounds: 1990 ≤ year ≤ current_year+1 (null rows preserved)
 --   3. Mileage clamping: outside 0–500,000 km becomes NULL (imputed in Gold)
 --   4. Engine CC clamping: outside 500–7,000 cc becomes NULL (imputed in Gold)
---   5. Final categorical nullability guard for all string dimensions
--- Materialization: view (chained from staging view — no redundant storage)
+--   5. Exports clean un-imputed dataset to data/processed/cars_clean.parquet for EDA
+-- Materialization: view (with parquet export post-hook)
+
+{{ config(
+    materialized = 'view',
+    post_hook    = [
+        "COPY {{ this }} TO 'data/processed/cars_clean.parquet' (FORMAT PARQUET)",
+        "COPY {{ this }} TO 'data/processed/cars_clean.csv' (HEADER, DELIMITER ',')"
+    ]
+) }}
 
 WITH staging AS (
     SELECT * FROM {{ ref('stg_khmer24_cars') }}
@@ -25,6 +33,8 @@ SELECT
     initial_price,
     price_drop_amount,
     has_price_drop,
+    price_increase_amount,
+    has_price_increase,
 
     -- ── Temporal Market Signals ───────────────────────────────────────────
     days_on_market,
