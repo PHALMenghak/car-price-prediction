@@ -34,7 +34,7 @@ jobs:
   scrape:
     name: Scrape Khmer24 Cars
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 60                # increased: 50 pages + dbt needs headroom
     permissions:
       contents: write   # required to git-push scraped data back to the repo
 
@@ -110,9 +110,10 @@ jobs:
 
       - name: Run dbt Transformations & Data Tests
         env:
-          PYTHONUTF8: "1"
+          PYTHONUTF8: "1"              # ensure UTF-8 for Khmer characters in dbt SQL output
         run: |
-          uv run dbt run --project-dir dbt --profiles-dir dbt
+          uv run dbt deps --project-dir dbt --profiles-dir dbt
+          uv run dbt run  --project-dir dbt --profiles-dir dbt
           uv run dbt test --project-dir dbt --profiles-dir dbt
 
       - name: Commit & push scraped & processed data back to repository
