@@ -242,13 +242,23 @@ class TestImputeMissingValues:
         assert result.iloc[0]["is_mileage_missing"] == 1
         assert result.iloc[1]["is_mileage_missing"] == 0
 
-    def test_fills_transmission_unknown(self):
+    def test_fills_transmission_automatic(self):
+        # Smart inference: default is "Automatic" (most Cambodian listings are automatic).
+        # "Unknown" is only set when no brand/model/title signal is present.
         df = _make_test_df(n=1, vehicle_transmission=[None])
         result = impute_missing_values(df)
-        assert result.iloc[0]["vehicle_transmission"] == "Unknown"
+        assert result.iloc[0]["vehicle_transmission"] == "Automatic"
 
-    def test_fills_fuel_type_unknown(self):
+    def test_fills_fuel_type_inferred_petrol(self):
+        # Smart inference: "Petrol" is the default when brand/model are known.
+        # The helper _make_test_df uses Toyota/Camry, which triggers the petrol fallback.
         df = _make_test_df(n=1, vehicle_fuel_type=[None])
+        result = impute_missing_values(df)
+        assert result.iloc[0]["vehicle_fuel_type"] == "Petrol"
+
+    def test_fills_fuel_type_unknown_for_bare_row(self):
+        # With no brand/model signal, fuel type stays "Unknown".
+        df = _make_test_df(n=1, vehicle_fuel_type=[None], vehicle_brand=[None], vehicle_model=[None])
         result = impute_missing_values(df)
         assert result.iloc[0]["vehicle_fuel_type"] == "Unknown"
 
@@ -274,32 +284,38 @@ class TestEngineerFeatures:
         result = engineer_features(df)
         assert result.iloc[0]["vehicle_age"] == CURRENT_YEAR - 2020
 
-    def test_vehicle_age_squared(self):
+    def test_vehicle_age_computed(self):
+        # vehicle_age_squared was removed; brand_category replaced binary flags.
+        # Verify vehicle_age is still computed correctly (the primary age feature).
         df = self._prepare_df(vehicle_model_year=[2020])
         result = engineer_features(df)
-        expected_age = CURRENT_YEAR - 2020
-        assert result.iloc[0]["vehicle_age_squared"] == expected_age ** 2
+        assert result.iloc[0]["vehicle_age"] == CURRENT_YEAR - 2020
 
-    def test_luxury_brand_flag(self):
+    def test_luxury_brand_category(self):
+        # is_luxury_brand removed; brand classification lives in brand_category.
         df = self._prepare_df(vehicle_brand=["Lexus"])
         result = engineer_features(df)
-        assert result.iloc[0]["is_luxury_brand"] == 1
+        assert result.iloc[0]["brand_category"] == "Luxury"
 
-    def test_popular_brand_flag(self):
+    def test_popular_brand_category(self):
+        # is_popular_brand removed; Toyota maps to Mass_Market in brand_category.
         df = self._prepare_df(vehicle_brand=["Toyota"])
         result = engineer_features(df)
-        assert result.iloc[0]["is_popular_brand"] == 1
+        assert result.iloc[0]["brand_category"] == "Mass_Market"
 
-    def test_lexus_is_both_luxury_and_popular(self):
+    def test_lexus_is_luxury_over_popular(self):
+        # Lexus is in both LUXURY_BRANDS and POPULAR_BRANDS.
+        # Assignment order: Popular → Chinese_EV → Luxury (last write wins = Luxury).
         df = self._prepare_df(vehicle_brand=["Lexus"])
         result = engineer_features(df)
-        assert result.iloc[0]["is_luxury_brand"] == 1
-        assert result.iloc[0]["is_popular_brand"] == 1
+        assert result.iloc[0]["brand_category"] == "Luxury"
 
-    def test_chinese_ev_brand_flag(self):
+    def test_chinese_ev_brand_category(self):
+        # is_chinese_ev_brand removed; BYD maps to Chinese_EV in brand_category.
         df = self._prepare_df(vehicle_brand=["BYD"])
         result = engineer_features(df)
-        assert result.iloc[0]["is_chinese_ev_brand"] == 1
+        assert result.iloc[0]["brand_category"] == "Chinese_EV"
+
 
     def test_location_tier_1(self):
         df = self._prepare_df(province=["Phnom Penh"])
@@ -339,14 +355,12 @@ class TestEngineerFeatures:
 class TestSelectMLFeatures:
     def test_returns_expected_columns(self):
         df = _make_test_df(n=1)
-        # Add all the columns that would be present after engineering
+        # Add all the columns that would be present after full pipeline engineering
         for col in [
-            "is_mileage_missing", "vehicle_age", "vehicle_age_squared",
-            "mileage_per_year", "log_price", "location_tier",
-            "is_luxury_brand", "is_popular_brand", "is_chinese_ev_brand",
-            "has_full_option", "has_sunroof", "has_leather", "has_camera",
-            "is_urgent_sale", "days_on_market", "initial_price",
-            "price_drop_amount", "has_price_drop", "view_velocity",
+            "is_mileage_missing", "is_engine_cc_missing", "vehicle_age",
+            "brand_category", "location_tier", "log_price",
+            "has_full_option", "is_urgent_sale", "days_on_market",
+            "initial_price", "price_drop_amount", "has_price_drop", "view_velocity",
         ]:
             df[col] = 0
         result = select_ml_features(df)
@@ -354,9 +368,13 @@ class TestSelectMLFeatures:
         assert "price" in result.columns
         assert "log_price" in result.columns
         assert "vehicle_brand" in result.columns
+        assert "brand_category" in result.columns
         # Non-ML columns should be excluded
         assert "raw_specs" not in result.columns
         assert "thumbnail_url" not in result.columns
+        # Old removed columns should not appear
+        assert "vehicle_age_squared" not in result.columns
+        assert "is_luxury_brand" not in result.columns
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

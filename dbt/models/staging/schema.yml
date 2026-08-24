@@ -38,13 +38,15 @@ models:
         description: "Binary flag: 1 if price was reduced at any point, 0 otherwise."
         tests:
           - accepted_values:
-              values: [0, 1]
+              arguments:
+                values: [0, 1]
 
       - name: has_price_increase
         description: "Binary flag: 1 if price was raised at any point, 0 otherwise."
         tests:
           - accepted_values:
-              values: [0, 1]
+              arguments:
+                values: [0, 1]
 
       - name: days_on_market
         description: "Days between first_posted_at and scraped_at (≥ 0)."

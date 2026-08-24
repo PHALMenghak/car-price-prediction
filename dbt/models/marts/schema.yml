@@ -61,42 +61,48 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: ['Luxury', 'Mass_Market', 'Chinese_EV', 'Other']
+              arguments:
+                values: ['Luxury', 'Mass_Market', 'Chinese_EV', 'Other']
 
       - name: location_tier
         description: "Geographic market liquidity tier (Tier_1 = Phnom Penh)."
         tests:
           - not_null
           - accepted_values:
-              values: ['Tier_1', 'Tier_2', 'Tier_3']
+              arguments:
+                values: ['Tier_1', 'Tier_2', 'Tier_3']
 
       - name: vehicle_condition
         description: "Normalized listing condition: 'new' or 'used'."
         tests:
           - not_null
           - accepted_values:
-              values: ['new', 'used']
+              arguments:
+                values: ['new', 'used']
 
       - name: is_plate_number
         description: "Binary: 1 if vehicle has local registered plate number, 0 if tax paper/unregistered."
         tests:
           - not_null
           - accepted_values:
-              values: [0, 1]
+              arguments:
+                values: [0, 1]
 
       - name: vehicle_fuel_type
         description: "Inferred propulsion type: Petrol, Diesel, Hybrid, Electric, Unknown."
         tests:
           - not_null
           - accepted_values:
-              values: ['Petrol', 'Diesel', 'Hybrid', 'Electric', 'Unknown']
+              arguments:
+                values: ['Petrol', 'Diesel', 'Hybrid', 'Electric', 'Unknown']
 
       - name: vehicle_transmission
         description: "Inferred gearbox transmission: Automatic vs. Manual."
         tests:
           - not_null
           - accepted_values:
-              values: ['Automatic', 'Manual', 'Unknown']
+              arguments:
+                values: ['Automatic', 'Manual', 'Unknown']
 
       - name: vehicle_color
         description: "Extracted vehicle exterior color."
@@ -108,26 +114,30 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: [0, 1]
+              arguments:
+                values: [0, 1]
 
       - name: is_engine_cc_missing
         description: "Binary: 1 if engine CC was imputed, 0 if observed."
         tests:
           - not_null
           - accepted_values:
-              values: [0, 1]
+              arguments:
+                values: [0, 1]
 
       - name: has_full_option
         description: "NLP binary: 1 if listing title mentions full-option package."
         tests:
           - not_null
           - accepted_values:
-              values: [0, 1]
+              arguments:
+                values: [0, 1]
 
       - name: is_urgent_sale
         description: "NLP binary: 1 if listing indicates urgent sale or price negotiation."
         tests:
           - not_null
           - accepted_values:
-              values: [0, 1]
+              arguments:
+                values: [0, 1]
 
