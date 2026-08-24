@@ -73,7 +73,7 @@ PARQUET_FILENAME = get_daily_parquet_filename()
 # Override via environment variables for CI/CD flexibility.
 TARGET_CATEGORY = os.getenv("TARGET_CATEGORY", "cars-for-sale")
 TARGET_PROVINCE = os.getenv("TARGET_PROVINCE") or None   # None = all provinces
-MAX_PAGES       = int(os.getenv("MAX_PAGES", "20"))       # 30 items/page → up to 600 listings
+MAX_PAGES       = int(os.getenv("MAX_PAGES", "50"))       # 30 items/page → up to 1,500 listings
 
 # SCRAPE_MODE:
 # - 'feed_window' (default): Scrapes the active recent feed (up to MAX_PAGES).

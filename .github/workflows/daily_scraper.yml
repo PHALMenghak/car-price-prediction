@@ -9,7 +9,7 @@ on:
       max_pages:
         description: 'Max pages to scrape'
         required: false
-        default: '20'
+        default: '50'
         type: string
       target_category:
         description: 'Category slug'
@@ -94,7 +94,7 @@ jobs:
 
       - name: Run Scraper
         env:
-          MAX_PAGES:         ${{ github.event.inputs.max_pages || '20' }}
+          MAX_PAGES:         ${{ github.event.inputs.max_pages || '50' }}
           TARGET_CATEGORY:   ${{ github.event.inputs.target_category || 'cars-for-sale' }}
           SCRAPE_MODE:       ${{ github.event.inputs.scrape_mode || 'feed_window' }}
           ENRICH_DETAILS:    ${{ github.event.inputs.enrich_details || 'false' }}
