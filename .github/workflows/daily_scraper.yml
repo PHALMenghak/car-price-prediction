@@ -34,7 +34,7 @@ jobs:
   scrape:
     name: Scrape Khmer24 Cars
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     permissions:
       contents: write   # required to git-push scraped data back to the repo
 
@@ -109,6 +109,8 @@ jobs:
         run: uv run python main.py
 
       - name: Run dbt Transformations & Data Tests
+        env:
+          PYTHONUTF8: "1"
         run: |
           uv run dbt run --project-dir dbt --profiles-dir dbt
           uv run dbt test --project-dir dbt --profiles-dir dbt
@@ -135,5 +137,3 @@ jobs:
             data/processed/*.csv
             logs/scraper*.log
           retention-days: 30
-
-
