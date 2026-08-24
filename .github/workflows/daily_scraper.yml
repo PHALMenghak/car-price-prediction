@@ -108,7 +108,12 @@ jobs:
           RELAY_KEY:         ${{ secrets.RELAY_KEY }}
         run: uv run python main.py
 
-      - name: Commit & push scraped data back to repository
+      - name: Run dbt Transformations & Data Tests
+        run: |
+          uv run dbt run --project-dir dbt --profiles-dir dbt
+          uv run dbt test --project-dir dbt --profiles-dir dbt
+
+      - name: Commit & push scraped & processed data back to repository
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"

@@ -1,0 +1,9 @@
+# dbt/packages.yml
+# External dbt packages:
+#   dbt_utils  — utility macros (accepted_range, generate_surrogate_key, etc.)
+#
+# Install with:  uv run dbt deps   (from inside the dbt/ directory)
+
+packages:
+  - package: dbt-labs/dbt_utils
+    version: 1.3.0
