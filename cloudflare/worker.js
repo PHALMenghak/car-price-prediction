@@ -21,6 +21,9 @@
 const ALLOWED_HOSTS = [
   "api-posts.khmer24.com",
   "api.khmer24.com",
+  "www.khmer24.com",
+  "khmer24.com",
+  "m.khmer24.com",
 ];
 
 // Main request handler

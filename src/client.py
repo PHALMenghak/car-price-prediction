@@ -197,7 +197,12 @@ class Khmer24Client:
         else:
             page_url = f"https://www.khmer24.com/{self.lang}/post-adid-{listing_id}.html"
 
-        html_res = self._get(page_url, silent_404=True)
+        if RELAY_KEY:
+            params = {"target": page_url}
+            html_res = self._get(POSTS_API_BASE, params=params, silent_404=True)
+        else:
+            html_res = self._get(page_url, silent_404=True)
+
         if html_res and html_res.status_code == 200:
             nuxt_data = extract_nuxt_hydration_data(html_res.text)
             if isinstance(nuxt_data, list):
