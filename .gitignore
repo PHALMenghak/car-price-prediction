@@ -18,6 +18,8 @@ env/
 # Exclude only local DB files which are never needed in the repo.
 data/**/*.db
 *.duckdb*
+.backfill_cache.json
+data/raw/.backfill_cache.json
 dbt/target/
 dbt/dbt_packages/
 

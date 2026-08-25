@@ -41,9 +41,6 @@ class AdListingModel(BaseModel):
     listing_title: str
     price: Optional[float] = None
     currency: str = "USD"
-    discount_price: Optional[float] = None
-    is_premium: Optional[bool] = None
-    is_saved: Optional[bool] = None
 
     # ── Category ──────────────────────────────────────────────────────────────
     category: Optional[str] = None
@@ -108,7 +105,7 @@ class AdListingModel(BaseModel):
     def clean_title(cls, v):
         return str(v).strip() if v is not None else ""
 
-    @field_validator("price", "discount_price", mode="before")
+    @field_validator("price", mode="before")
     @classmethod
     def clean_price(cls, v):
         """Strip currency symbols and coerce to float; returns None for zero/empty/negative."""

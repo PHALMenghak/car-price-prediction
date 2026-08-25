@@ -119,9 +119,13 @@ def main() -> None:
 
 
 def run_full_pipeline() -> None:
-    """Run scrape + dbt transformation in a single call."""
-    sys.argv.append("--transform")
-    sys.argv.append("--dbt-test")
+    """Run scrape with detail enrichment + dbt transformation in a single call."""
+    if "--enrich-details" not in sys.argv:
+        sys.argv.append("--enrich-details")
+    if "--transform" not in sys.argv:
+        sys.argv.append("--transform")
+    if "--dbt-test" not in sys.argv:
+        sys.argv.append("--dbt-test")
     main()
 
 

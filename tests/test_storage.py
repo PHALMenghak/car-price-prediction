@@ -23,7 +23,6 @@ def test_storage_parquet_roundtrip(tmp_path):
             images=["https://img.khmer24.com/1.jpg", "https://img.khmer24.com/2.jpg"],
             description="Good car, original paint",
             seller_avatar="https://img.khmer24.com/avatar.jpg",
-            is_saved=True,
             raw_specs={"fuel": "Hybrid", "car-year": 2012},
         ),
         AdListingModel(
@@ -47,7 +46,6 @@ def test_storage_parquet_roundtrip(tmp_path):
     assert loaded_df.iloc[0]["seller_phones"] == ["012345678", "098765432"]
     assert loaded_df.iloc[0]["images"] == ["https://img.khmer24.com/1.jpg", "https://img.khmer24.com/2.jpg"]
     assert loaded_df.iloc[0]["description"] == "Good car, original paint"
-    assert loaded_df.iloc[0]["is_saved"] == True
 
     # Test load_all_parquet
     combined_df = load_all_parquet(directory=temp_dir)

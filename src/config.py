@@ -83,6 +83,6 @@ SCRAPE_MODE     = os.getenv("SCRAPE_MODE", "feed_window")
 
 # ENRICH_DETAILS:
 # If True, scrapes individual post detail endpoints for listings missing key specs.
-ENRICH_DETAILS  = os.getenv("ENRICH_DETAILS", "false").lower() in ("true", "1", "yes")
+ENRICH_DETAILS  = os.getenv("ENRICH_DETAILS", "true").lower() in ("true", "1", "yes")
 
 

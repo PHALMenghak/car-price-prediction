@@ -22,7 +22,11 @@ from src.parsers import (
     extract_spec_value,
     parse_mileage,
     parse_engine_cc,
+    normalize_transmission,
+    normalize_fuel_type,
+    normalize_color,
     extract_nuxt_hydration_data,
+    resolve_nuxt_specs,
 )
 
 logger = logging.getLogger(__name__)
@@ -186,12 +190,27 @@ class Khmer24Client:
                 pass
 
         # 2. Fallback: Nuxt server-rendered HTML page
-        page_slug = slug or f"post-adid-{listing_id}"
-        page_url = f"https://www.khmer24.com/{self.lang}/{page_slug}.html"
+        if slug and str(slug).startswith("http"):
+            page_url = str(slug)
+        elif slug:
+            page_url = f"https://www.khmer24.com/{self.lang}/{slug}.html"
+        else:
+            page_url = f"https://www.khmer24.com/{self.lang}/post-adid-{listing_id}.html"
+
         html_res = self._get(page_url, silent_404=True)
         if html_res and html_res.status_code == 200:
             nuxt_data = extract_nuxt_hydration_data(html_res.text)
-            if isinstance(nuxt_data, dict):
+            if isinstance(nuxt_data, list):
+                # Modern Khmer24 NUXT flat-array format — resolve spec pointers.
+                resolved = resolve_nuxt_specs(nuxt_data)
+                if resolved:
+                    logger.debug(
+                        f"fetch_post_detail({listing_id}): NUXT resolved "
+                        f"{len(resolved)} spec fields via HTML page."
+                    )
+                    return {"resolved_specs": resolved, "_source": "nuxt_html"}
+            elif isinstance(nuxt_data, dict):
+                # Legacy inline-JSON dict format
                 return nuxt_data
 
         return None
@@ -293,9 +312,17 @@ class Khmer24Client:
 
                 parsed = self._parse_item(item)
                 if parsed:
-                    # Optional detail enrichment
-                    if enrich_details and (parsed.vehicle_mileage_km is None or parsed.vehicle_engine_cc is None):
-                        detail = self.fetch_post_detail(parsed.listing_id, item.get("slug"))
+                    # Optional detail enrichment — trigger when any key spec is missing
+                    needs_enrich = any([
+                        parsed.vehicle_mileage_km is None,
+                        parsed.vehicle_fuel_type is None,
+                        parsed.vehicle_transmission is None,
+                        parsed.vehicle_engine_cc is None,
+                        parsed.vehicle_color is None,
+                    ])
+                    if enrich_details and needs_enrich:
+                        link_or_slug = item.get("link") or item.get("slug")
+                        detail = self.fetch_post_detail(parsed.listing_id, link_or_slug)
                         if detail:
                             parsed = self._enrich_item_with_detail(parsed, detail)
 
@@ -415,16 +442,16 @@ class Khmer24Client:
             mileage_km   = parse_mileage(extract_spec_value(
                 specs, "mileage", "km", "odometer", "car-mileage"
             ))
-            fuel_type    = extract_spec_value(
-                specs, "fuel-type", "fuel_type", "fuel"
-            )
-            transmission = extract_spec_value(
+            fuel_type    = normalize_fuel_type(extract_spec_value(
+                specs, "engine-type", "fuel-type", "fuel_type", "fuel"
+            ))
+            transmission = normalize_transmission(extract_spec_value(
                 specs, "transmission", "gearbox", "gear-type"
-            )
+            ))
             engine_cc    = parse_engine_cc(extract_spec_value(
                 specs, "engine-size", "engine_size", "engine-cc", "displacement"
             ))
-            color        = extract_spec_value(specs, "color", "exterior-color", "colour")
+            color        = normalize_color(extract_spec_value(specs, "color", "exterior-color", "colour"))
 
             # ── Condition ─────────────────────────────────────────────────────
             cond_raw = item.get("condition")
@@ -464,9 +491,6 @@ class Khmer24Client:
                 listing_title=title,
                 price=item.get("price"),
                 currency="USD",
-                discount_price=item.get("discount_price"),
-                is_premium=item.get("is_premium"),
-                is_saved=item.get("is_saved"),
                 category=category_name,
                 category_slug=category_slug,
                 province=province,
@@ -504,28 +528,185 @@ class Khmer24Client:
             return None
 
     def _enrich_item_with_detail(self, model: AdListingModel, detail: Dict[str, Any]) -> AdListingModel:
-        """Enrich an existing AdListingModel with additional attributes found in detail JSON."""
-        try:
-            specs = detail.get("highlight_specs") or detail.get("specs") or {}
-            if isinstance(specs, list):
-                specs = {s.get("field", ""): s.get("value") for s in specs if isinstance(s, dict)}
+        """
+        Enrich an existing ``AdListingModel`` with additional attributes found in
+        a detail payload returned by ``fetch_post_detail``.
 
+        Handles two payload formats:
+
+        1. **NUXT resolved_specs** (``detail["resolved_specs"]``) — produced when
+           the HTML detail page was scraped and its NUXT flat-array was resolved.
+           Field keys are the real Khmer24 API names:
+
+           ========================  ========================  ====================
+           resolved_specs key        Maps to                   Example value
+           ========================  ========================  ====================
+           ``engine-type``           ``vehicle_fuel_type``     ``"Petrol"``
+           ``transmission``          ``vehicle_transmission``  ``"Auto"``
+           ``color``                 ``vehicle_color``         ``"Black"``
+           ``car-brand``             ``vehicle_brand``         ``"Land Rover"``
+           ``car-model``             ``vehicle_model``         ``"Range Rover Vogue"``
+           ``condition``             ``vehicle_condition``     ``"Used"``
+           ========================  ========================  ====================
+
+        2. **Legacy highlight_specs** dict — used when the REST detail endpoint
+           returned structured JSON (older format).
+
+        Additionally, if ``vehicle_mileage_km`` is still ``None`` after both
+        structured lookups, the listing description is scanned with a regex to
+        extract odometer readings (e.g. ``"150,000 km"``, ``"85K km"``).
+        """
+        import re as _re
+
+        try:
+            # ── Path 1: NUXT resolved_specs (primary — from HTML detail page) ──
+            resolved: Dict[str, Any] = detail.get("resolved_specs") or {}
+
+            if resolved:
+                # Fuel type — Khmer24 field is "engine-type" (not "fuel-type")
+                raw_fuel = (
+                    resolved.get("engine-type")
+                    or resolved.get("fuel-type")
+                    or resolved.get("fuel_type")
+                    or None
+                )
+                if raw_fuel:
+                    model.vehicle_fuel_type = normalize_fuel_type(raw_fuel)
+                elif model.vehicle_fuel_type:
+                    model.vehicle_fuel_type = normalize_fuel_type(model.vehicle_fuel_type)
+
+                # Transmission — field name matches schema key
+                raw_trans = (
+                    resolved.get("transmission")
+                    or resolved.get("gearbox")
+                    or resolved.get("gear-type")
+                    or None
+                )
+                if raw_trans:
+                    model.vehicle_transmission = normalize_transmission(raw_trans)
+                elif model.vehicle_transmission:
+                    model.vehicle_transmission = normalize_transmission(model.vehicle_transmission)
+
+                # Color
+                raw_color = (
+                    resolved.get("color")
+                    or resolved.get("exterior-color")
+                    or resolved.get("colour")
+                    or None
+                )
+                if raw_color:
+                    model.vehicle_color = normalize_color(raw_color)
+                elif model.vehicle_color:
+                    model.vehicle_color = normalize_color(model.vehicle_color)
+
+                # Mileage (km)
+                if model.vehicle_mileage_km is None:
+                    raw_km = (
+                        resolved.get("mileage")
+                        or resolved.get("car-mileage")
+                        or resolved.get("odometer")
+                        or resolved.get("km")
+                    )
+                    if raw_km is not None:
+                        model.vehicle_mileage_km = parse_mileage(raw_km)
+
+                # Engine displacement (cc)
+                if model.vehicle_engine_cc is None:
+                    raw_cc = (
+                        resolved.get("engine-size")
+                        or resolved.get("engine_size")
+                        or resolved.get("engine-cc")
+                        or resolved.get("displacement")
+                    )
+                    if raw_cc is not None:
+                        model.vehicle_engine_cc = parse_engine_cc(raw_cc)
+
+                # Model Year
+                if model.vehicle_model_year is None:
+                    raw_yr = resolved.get("car-year") or resolved.get("year")
+                    if raw_yr is not None:
+                        try:
+                            yr_int = int(str(raw_yr).strip())
+                            if 1980 <= yr_int <= 2027:
+                                model.vehicle_model_year = yr_int
+                        except (ValueError, TypeError):
+                            pass
+
+                # Tax type / Registration
+                if model.vehicle_tax_type is None:
+                    model.vehicle_tax_type = resolved.get("tax-type") or None
+
+                # Brand — only fill in, never override a value already parsed from title
+                if model.vehicle_brand is None:
+                    model.vehicle_brand = resolved.get("car-brand") or None
+
+                # Model — only fill in if missing
+                if model.vehicle_model is None:
+                    model.vehicle_model = resolved.get("car-model") or None
+
+                # Condition — "Used" / "New"
+                if model.vehicle_condition is None:
+                    model.vehicle_condition = resolved.get("condition") or None
+
+            # ── Path 2: Legacy highlight_specs dict (fallback for REST responses) ─
+            legacy_specs: Dict[str, Any] = {}
+            raw_hs = detail.get("highlight_specs") or detail.get("specs")
+            if isinstance(raw_hs, list):
+                legacy_specs = {
+                    s.get("field", ""): s.get("value")
+                    for s in raw_hs
+                    if isinstance(s, dict)
+                }
+            elif isinstance(raw_hs, dict):
+                legacy_specs = raw_hs
+
+            if legacy_specs:
+                if model.vehicle_mileage_km is None:
+                    model.vehicle_mileage_km = parse_mileage(
+                        extract_spec_value(legacy_specs, "mileage", "km", "odometer", "car-mileage")
+                    )
+                if model.vehicle_fuel_type is None:
+                    model.vehicle_fuel_type = normalize_fuel_type(extract_spec_value(
+                        legacy_specs, "engine-type", "fuel-type", "fuel_type", "fuel"
+                    ))
+                if model.vehicle_transmission is None:
+                    model.vehicle_transmission = normalize_transmission(extract_spec_value(
+                        legacy_specs, "transmission", "gearbox", "gear-type"
+                    ))
+                if model.vehicle_engine_cc is None:
+                    model.vehicle_engine_cc = parse_engine_cc(
+                        extract_spec_value(legacy_specs, "engine-size", "engine_size", "engine-cc", "displacement")
+                    )
+                if model.vehicle_color is None:
+                    model.vehicle_color = normalize_color(extract_spec_value(
+                        legacy_specs, "color", "exterior-color", "colour"
+                    ))
+
+            # ── Mileage regex fallback — scan description text ─────────────────
+            # Triggered when no structured mileage was found in either spec source.
             if model.vehicle_mileage_km is None:
-                model.vehicle_mileage_km = parse_mileage(extract_spec_value(specs, "mileage", "km", "odometer"))
-            if model.vehicle_fuel_type is None:
-                model.vehicle_fuel_type = extract_spec_value(specs, "fuel-type", "fuel_type", "fuel")
-            if model.vehicle_transmission is None:
-                model.vehicle_transmission = extract_spec_value(specs, "transmission", "gearbox")
-            if model.vehicle_engine_cc is None:
-                model.vehicle_engine_cc = parse_engine_cc(extract_spec_value(specs, "engine-size", "engine_size", "engine-cc"))
-            if model.vehicle_color is None:
-                model.vehicle_color = extract_spec_value(specs, "color", "exterior-color")
+                desc = detail.get("description") or detail.get("content") or model.description or ""
+                if desc:
+                    # Matches: "150,000 km", "85K km", "150000km", "85.5k"
+                    km_match = _re.search(
+                        r'(\d[\d,\.]*)\s*[Kk]\s*(?:km\b|$)|(\d[\d,]*)\s*(?:km\b)',
+                        desc,
+                        _re.IGNORECASE,
+                    )
+                    if km_match:
+                        raw_km = km_match.group(1) or km_match.group(2)
+                        model.vehicle_mileage_km = parse_mileage(raw_km + ("k" if km_match.group(1) else ""))
+
+            # ── Supplementary fields from legacy REST detail ───────────────────
             if not model.description:
-                model.description = str(detail.get("description") or detail.get("content") or "").strip() or None
+                model.description = (
+                    str(detail.get("description") or detail.get("content") or "").strip() or None
+                )
             if not model.images:
                 imgs = detail.get("images") or detail.get("photos") or []
                 if isinstance(imgs, list):
                     model.images = [str(img).strip() for img in imgs if str(img).strip()]
+
         except Exception as exc:
             logger.debug(f"Could not enrich item id={model.listing_id}: {exc}")
         return model

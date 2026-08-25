@@ -6,6 +6,9 @@ from src.parsers import (
     extract_brand_model,
     parse_engine_cc,
     parse_mileage,
+    normalize_transmission,
+    normalize_fuel_type,
+    normalize_color,
 )
 
 
@@ -213,4 +216,55 @@ class TestParseEngineCc:
     def test_invalid_input(self):
         assert parse_engine_cc(None) is None
         assert parse_engine_cc("Electric") is None
+
+
+class TestSpecNormalizers:
+    """Tests for English and Khmer transmission, fuel type, and color normalizers."""
+
+    def test_normalize_transmission(self):
+        assert normalize_transmission("Auto") == "Automatic"
+        assert normalize_transmission("automatic") == "Automatic"
+        assert normalize_transmission("ស្វ័យប្រវត្តិ") == "Automatic"
+        assert normalize_transmission("លេខអូតូ") == "Automatic"
+        assert normalize_transmission("Manual") == "Manual"
+        assert normalize_transmission("លេខដៃ") == "Manual"
+        assert normalize_transmission("លេខកំប៉ុក") == "Manual"
+        assert normalize_transmission(None) is None
+        assert normalize_transmission("unknown") is None
+
+    def test_normalize_fuel_type(self):
+        assert normalize_fuel_type("Petrol") == "Petrol"
+        assert normalize_fuel_type("gasoline") == "Petrol"
+        assert normalize_fuel_type("សាំង") == "Petrol"
+        assert normalize_fuel_type("ប្រេងសាំង") == "Petrol"
+        assert normalize_fuel_type("Diesel") == "Diesel"
+        assert normalize_fuel_type("ម៉ាស៊ូត") == "Diesel"
+        assert normalize_fuel_type("Hybrid") == "Hybrid"
+        assert normalize_fuel_type("ហាយប្រីត/Hybrid") == "Hybrid"
+        assert normalize_fuel_type("កូនកាត់") == "Hybrid"
+        assert normalize_fuel_type("Electric") == "Electric"
+        assert normalize_fuel_type("អគ្គិសនី") == "Electric"
+        assert normalize_fuel_type("ហ្គាស/LPG") == "LPG"
+        assert normalize_fuel_type(None) is None
+        assert normalize_fuel_type("unknown") is None
+
+    def test_normalize_color(self):
+        assert normalize_color("White") == "White"
+        assert normalize_color("ពណ៌ស") == "White"
+        assert normalize_color("ពណ៍ខ្មៅ") == "Black"
+        assert normalize_color("ពណ៌ប្រាក់") == "Silver"
+        assert normalize_color("ទឹកប្រាក់") == "Silver"
+        assert normalize_color("ពណ៌ប្រផេះ") == "Grey"
+        assert normalize_color("កណ្តុរប្រមេះ") == "Grey"
+        assert normalize_color("ពណ៌មាស") == "Gold"
+        assert normalize_color("ពណ៌ក្រហម") == "Red"
+        assert normalize_color("ពណ៌ខៀវ") == "Blue"
+        assert normalize_color("ពណ៌លឿង") == "Yellow"
+        assert normalize_color("ពណ៌ទឹកក្រូច") == "Orange"
+        assert normalize_color("ពណ៌បៃតង") == "Green"
+        assert normalize_color("ពណ៌ត្នោត") == "Brown"
+        assert normalize_color("ផ្សេងៗ") == "Other"
+        assert normalize_color(None) is None
+        assert normalize_color("unknown") is None
+
 

@@ -61,8 +61,6 @@ def _make_test_df(n=5, **overrides):
         "thumbnail_url": [None] * n,
         "listing_url": ["https://example.com"] * n,
         "raw_specs": ["{}"] * n,
-        "discount_price": [None] * n,
-        "is_premium": [None] * n,
         "category": ["Cars"] * n,
         "category_slug": ["cars-for-sale"] * n,
         "province_slug": ["phnom-penh"] * n,

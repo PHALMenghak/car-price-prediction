@@ -30,7 +30,6 @@ REORDERED_COLUMNS: List[str] = [
     # 2. Target Variable & Pricing
     "price",
     "currency",
-    "discount_price",
     # 3. Core Car Specs (ML Features)
     "vehicle_brand",
     "vehicle_model",
@@ -57,8 +56,6 @@ REORDERED_COLUMNS: List[str] = [
     "seller_avatar",
     "seller_phones",
     "view_count",
-    "is_premium",
-    "is_saved",
     # 6. Timestamps
     "posted_at",
     "renewed_at",

@@ -13,7 +13,7 @@
 
 WITH raw_snapshots AS (
     SELECT *
-    FROM read_parquet('data/raw/cars_*.parquet')
+    FROM read_parquet('data/raw/cars_*.parquet', union_by_name=true)
 ),
 
 ranked_snapshots AS (

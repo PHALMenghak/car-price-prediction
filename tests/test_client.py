@@ -56,7 +56,6 @@ def test_parse_item_extracts_rich_fields():
             "price": "48000",
             "description": "Clean car from direct owner",
             "images": ["https://img.khmer24.com/rx1.jpg", "https://img.khmer24.com/rx2.jpg"],
-            "is_saved": True,
             "user": {
                 "id": "555",
                 "name": "Sokha",
@@ -82,10 +81,9 @@ def test_parse_item_extracts_rich_fields():
     assert len(listing.images) == 2
     assert listing.seller_avatar == "https://img.khmer24.com/sokha.jpg"
     assert listing.seller_type == "store"
-    assert listing.is_saved is True
     assert listing.vehicle_engine_cc == 3500
     assert listing.vehicle_mileage_km == 45000
-    assert listing.vehicle_fuel_type == "Gasoline"
+    assert listing.vehicle_fuel_type == "Petrol"
 
 
 def test_enrich_item_with_detail():
@@ -115,7 +113,44 @@ def test_enrich_item_with_detail():
     assert enriched.vehicle_mileage_km == 20000
     assert enriched.vehicle_engine_cc == 2000
     assert enriched.vehicle_fuel_type == "Diesel"
-    assert enriched.vehicle_transmission == "Auto"
+    assert enriched.vehicle_transmission == "Automatic"
+
+
+def test_enrich_item_with_nuxt_resolved_specs():
+    client = Khmer24Client()
+    try:
+        base_item = AdListingModel(
+            listing_id="888",
+            listing_title="Lexus RX300 2021",
+            price=65000.0,
+        )
+        detail_data = {
+            "_source": "nuxt_html",
+            "resolved_specs": {
+                "engine-type": "Petrol",
+                "transmission": "Automatic",
+                "color": "White",
+                "mileage": "32,000 km",
+                "engine-size": "2.0L",
+                "tax-type": "Plate Number",
+                "car-year": 2021,
+                "car-brand": "Lexus",
+                "car-model": "RX300",
+                "condition": "Used",
+            },
+        }
+        enriched = client._enrich_item_with_detail(base_item, detail_data)
+    finally:
+        client.close()
+
+    assert enriched.vehicle_mileage_km == 32000
+    assert enriched.vehicle_engine_cc == 2000
+    assert enriched.vehicle_fuel_type == "Petrol"
+    assert enriched.vehicle_transmission == "Automatic"
+    assert enriched.vehicle_color == "White"
+    assert enriched.vehicle_tax_type == "Plate Number"
+    assert enriched.vehicle_model_year == 2021
+    assert enriched.vehicle_condition == "Used"
 
 
 def test_scrape_category_feed_deduplicates_in_batch(monkeypatch):

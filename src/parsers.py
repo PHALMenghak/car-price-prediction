@@ -1015,6 +1015,168 @@ def parse_engine_cc(raw: Any) -> Optional[int]:
         return None
 
 
+# ── Canonical Spec Normalizers (English & Khmer to English) ───────────────────
+
+_TRANSMISSION_MAP: Dict[str, str] = {
+    # English
+    "auto": "Automatic",
+    "automatic": "Automatic",
+    "at": "Automatic",
+    "cvt": "Automatic",
+    "dct": "Automatic",
+    "manual": "Manual",
+    "mt": "Manual",
+    # Khmer
+    "លេខដៃ": "Manual",
+    "លេខកំប៉ុក": "Manual",
+    "កំប៉ុក": "Manual",
+    "ស្វ័យប្រវត្តិ": "Automatic",
+    "លេខស្វ័យប្រវត្តិ": "Automatic",
+    "អូតូ": "Automatic",
+    "លេខអូតូ": "Automatic",
+}
+
+_FUEL_TYPE_MAP: Dict[str, str] = {
+    # English
+    "petrol": "Petrol",
+    "gasoline": "Petrol",
+    "gas": "Petrol",
+    "diesel": "Diesel",
+    "hybrid": "Hybrid",
+    "plug-in hybrid": "Hybrid",
+    "plugin hybrid": "Hybrid",
+    "phev": "Hybrid",
+    "electric": "Electric",
+    "ev": "Electric",
+    "lpg": "LPG",
+    "cng": "CNG",
+    # Khmer & Multilingual combinations
+    "សាំង": "Petrol",
+    "ប្រេងសាំង": "Petrol",
+    "ម៉ាស៊ូត": "Diesel",
+    "ប្រេងម៉ាស៊ូត": "Diesel",
+    "ហាយប្រីត/hybrid": "Hybrid",
+    "ហាយប្រ៊ីដ/hybrid": "Hybrid",
+    "ហាយប្រីត": "Hybrid",
+    "ហាយប្រ៊ីដ": "Hybrid",
+    "កូនកាត់": "Hybrid",
+    "ឡានកូនកាត់": "Hybrid",
+    "ហ្គាស/lpg": "LPG",
+    "ហ្គាស": "LPG",
+    "អគ្គិសនី": "Electric",
+    "ឡានអគ្គិសនី": "Electric",
+}
+
+_COLOR_MAP: Dict[str, str] = {
+    # English
+    "white": "White",
+    "black": "Black",
+    "silver": "Silver",
+    "grey": "Grey",
+    "gray": "Grey",
+    "gold": "Gold",
+    "red": "Red",
+    "blue": "Blue",
+    "yellow": "Yellow",
+    "orange": "Orange",
+    "green": "Green",
+    "brown": "Brown",
+    "purple": "Purple",
+    "violet": "Purple",
+    "pink": "Pink",
+    "other": "Other",
+    # Khmer
+    "ពណ៌ស": "White",
+    "ពណ៍ស": "White",
+    "ស": "White",
+    "ពណ៌ខ្មៅ": "Black",
+    "ពណ៍ខ្មៅ": "Black",
+    "ខ្មៅ": "Black",
+    "ពណ៌ប្រាក់": "Silver",
+    "ពណ៍ប្រាក់": "Silver",
+    "ទឹកប្រាក់": "Silver",
+    "ប្រាក់": "Silver",
+    "ពណ៌ប្រផេះ": "Grey",
+    "ពណ៍ប្រផេះ": "Grey",
+    "ប្រផេះ": "Grey",
+    "កណ្តុរប្រមេះ": "Grey",
+    "កណ្ដុរប្រមេះ": "Grey",
+    "ពណ៌កណ្តុរប្រមេះ": "Grey",
+    "ពណ៌មាស": "Gold",
+    "ពណ៍មាស": "Gold",
+    "ទឹកមាស": "Gold",
+    "មាស": "Gold",
+    "ពណ៌ក្រហម": "Red",
+    "ពណ៍ក្រហម": "Red",
+    "ក្រហម": "Red",
+    "ពណ៌ខៀវ": "Blue",
+    "ពណ៍ខៀវ": "Blue",
+    "ខៀវ": "Blue",
+    "ពណ៌លឿង": "Yellow",
+    "ពណ៍លឿង": "Yellow",
+    "លឿង": "Yellow",
+    "ពណ៌ទឹកក្រូច": "Orange",
+    "ពណ៍ទឹកក្រូច": "Orange",
+    "ទឹកក្រូច": "Orange",
+    "ពណ៌បៃតង": "Green",
+    "ពណ៍បៃតង": "Green",
+    "បៃតង": "Green",
+    "ពណ៌ត្នោត": "Brown",
+    "ពណ៍ត្នោត": "Brown",
+    "ត្នោត": "Brown",
+    "ពណ៌ស្វាយ": "Purple",
+    "ស្វាយ": "Purple",
+    "ពណ៌ឈូក": "Pink",
+    "ផ្កាឈូក": "Pink",
+    "ផ្សេងៗ": "Other",
+}
+
+
+def normalize_transmission(raw: Any) -> Optional[str]:
+    """Normalize raw transmission text (English or Khmer) to English ('Automatic' or 'Manual')."""
+    if raw is None:
+        return None
+    s = clean_title(str(raw)).lower().strip()
+    if not s or s in ("unknown", "none", "null", ""):
+        return None
+    if s in _TRANSMISSION_MAP:
+        return _TRANSMISSION_MAP[s]
+    for k, v in _TRANSMISSION_MAP.items():
+        if k in s:
+            return v
+    return "Automatic" if ("auto" in s or "អូតូ" in s or "ស្វ័យប្រវត្តិ" in s) else ("Manual" if ("manual" in s or "ដៃ" in s) else str(raw).strip().title())
+
+
+def normalize_fuel_type(raw: Any) -> Optional[str]:
+    """Normalize raw fuel type text (English or Khmer) to English ('Petrol', 'Diesel', 'Hybrid', 'Electric', 'LPG')."""
+    if raw is None:
+        return None
+    s = clean_title(str(raw)).lower().strip()
+    if not s or s in ("unknown", "none", "null", ""):
+        return None
+    if s in _FUEL_TYPE_MAP:
+        return _FUEL_TYPE_MAP[s]
+    for k, v in _FUEL_TYPE_MAP.items():
+        if k in s:
+            return v
+    return str(raw).strip().title()
+
+
+def normalize_color(raw: Any) -> Optional[str]:
+    """Normalize raw color text (English or Khmer) to English ('White', 'Black', 'Silver', 'Grey', etc.)."""
+    if raw is None:
+        return None
+    s = clean_title(str(raw)).lower().strip()
+    if not s or s in ("unknown", "none", "null", ""):
+        return None
+    if s in _COLOR_MAP:
+        return _COLOR_MAP[s]
+    for k, v in _COLOR_MAP.items():
+        if k in s:
+            return v
+    return str(raw).strip().title()
+
+
 def flatten_feed_response(raw: Any) -> List[Dict[str, Any]]:
     """
     Safely extract the ``data`` list from a Khmer24 Posts API JSON response.
@@ -1025,10 +1187,14 @@ def flatten_feed_response(raw: Any) -> List[Dict[str, Any]]:
     return raw.get("data", []) or []
 
 
-def extract_nuxt_hydration_data(html_content: str) -> Optional[dict]:
+def extract_nuxt_hydration_data(html_content: str) -> Any:
     """
     Extract and parse window.__NUXT_DATA__ or inline JSON from a Khmer24 server-rendered page.
     Used as a fallback when the REST API is unavailable or for post detail extraction.
+
+    Returns:
+        A ``list`` (Khmer24 NUXT flat pointer-array) or ``dict`` (legacy format),
+        or ``None`` if not found / unparseable.
     """
     if not html_content or not isinstance(html_content, str):
         return None
@@ -1049,3 +1215,105 @@ def extract_nuxt_hydration_data(html_content: str) -> Optional[dict]:
     except json.JSONDecodeError as exc:
         logger.warning(f"Failed to decode Nuxt hydration JSON: {exc}")
         return None
+
+
+# ── NUXT Flat-Array Spec Resolver ──────────────────────────────────────────────
+
+def _nuxt_resolve(arr: List[Any], node: Any, _depth: int = 0) -> Any:
+    """
+    Recursively dereference integer pointer nodes in a Khmer24 NUXT flat array.
+
+    The NUXT hydration payload is a flat list where every object stores its
+    field values as integer indices into the same list.  This function walks
+    that graph until it reaches a concrete leaf value (str, int, float, bool).
+
+    Args:
+        arr:    The top-level NUXT flat list.
+        node:   The current node to resolve (int pointer, dict, list, or leaf).
+        _depth: Internal recursion guard — stops at depth 30 to prevent loops.
+
+    Returns:
+        The fully-dereferenced leaf value, dict, or list.
+    """
+    if _depth > 30:
+        return node
+    if isinstance(node, int) and 0 <= node < len(arr):
+        return _nuxt_resolve(arr, arr[node], _depth + 1)
+    if isinstance(node, dict):
+        return {k: _nuxt_resolve(arr, v, _depth + 1) for k, v in node.items()}
+    if isinstance(node, list):
+        return [_nuxt_resolve(arr, v, _depth + 1) for v in node]
+    return node
+
+
+# Keys that uniquely identify the vehicle spec-field map inside the NUXT array.
+_NUXT_SPEC_MAP_SIGNATURE: frozenset = frozenset({"engine-type", "transmission", "color"})
+
+
+def resolve_nuxt_specs(arr: Any) -> Optional[Dict[str, Any]]:
+    """
+    Find and fully resolve the vehicle spec-field map embedded in a Khmer24
+    NUXT hydration array.
+
+    Khmer24 detail pages embed all listing specs in a single flat JSON array
+    (``<script type="application/json">``).  Specs are stored as pointer objects
+    whose ``value`` fields are integer indices into the same array.
+
+    This function:
+    1. Scans the array for the spec index-map dict (identified by having all of
+       ``engine-type``, ``transmission``, and ``color`` as keys).
+    2. Dereferences every pointer until concrete string/number leaf values are
+       reached.
+    3. Returns a flat ``{field_key: display_value}`` dict ready for direct use.
+
+    Available field keys (subset relevant to car listings):
+        ``engine-type``  → fuel type  (e.g. ``"Petrol"``, ``"Diesel"``, ``"Electric"``)
+        ``transmission`` → gear type  (e.g. ``"Auto"``, ``"Manual"``)
+        ``color``        → body color (e.g. ``"Black"``, ``"White"``, ``"Silver"``)
+        ``car-brand``    → canonical brand name
+        ``car-model``    → canonical model name
+        ``car-year``     → model year
+        ``condition``    → usage state (e.g. ``"Used"``, ``"New"``)
+        ``body_type``    → body style  (e.g. ``"SUV"``, ``"Sedan"``)
+        ``tax-type``     → import status
+
+    Args:
+        arr: The parsed NUXT flat list returned by ``extract_nuxt_hydration_data``.
+
+    Returns:
+        A flat dict of resolved spec values, or ``None`` if the spec map is not
+        found or the array is not a valid NUXT payload.
+    """
+    if not isinstance(arr, list):
+        return None
+
+    # ── Step 1: Find the spec index-map ───────────────────────────────────────
+    spec_map_node: Optional[Dict[str, Any]] = None
+    for item in arr:
+        if isinstance(item, dict) and (
+            _NUXT_SPEC_MAP_SIGNATURE.issubset(item.keys())
+            or len(_NUXT_SPEC_MAP_SIGNATURE.intersection(item.keys())) >= 2
+        ):
+            spec_map_node = item
+            break
+
+    if spec_map_node is None:
+        logger.debug("resolve_nuxt_specs: spec field map not found in NUXT array.")
+        return None
+
+    # ── Step 2: Resolve each spec entry to its display_value ──────────────────
+    result: Dict[str, Any] = {}
+    for field_key, spec_idx in spec_map_node.items():
+        resolved_spec = _nuxt_resolve(arr, spec_idx)
+        if not isinstance(resolved_spec, dict):
+            continue
+        # Prefer display_value (human-readable label), fall back to raw value
+        val = resolved_spec.get("display_value") or resolved_spec.get("value")
+        if val is not None and not isinstance(val, (dict, list)):
+            result[field_key] = val
+
+    logger.debug(
+        f"resolve_nuxt_specs: resolved {len(result)} spec fields: {list(result.keys())}"
+    )
+    return result or None
+

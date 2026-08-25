@@ -40,7 +40,11 @@
 
 {% macro infer_fuel_type(brand_col, model_col, title_col, raw_fuel_col) %}
     CASE
-        WHEN {{ raw_fuel_col }} IS NOT NULL AND {{ raw_fuel_col }} NOT IN ('', 'Unknown') THEN {{ raw_fuel_col }}
+        WHEN LOWER({{ raw_fuel_col }}) IN ('gasoline', 'petrol', 'gas') THEN 'Petrol'
+        WHEN LOWER({{ raw_fuel_col }}) = 'diesel' THEN 'Diesel'
+        WHEN LOWER({{ raw_fuel_col }}) IN ('hybrid', 'plug-in hybrid', 'phev') THEN 'Hybrid'
+        WHEN LOWER({{ raw_fuel_col }}) IN ('electric', 'ev') THEN 'Electric'
+        WHEN {{ raw_fuel_col }} IS NOT NULL AND {{ raw_fuel_col }} IN ('Petrol', 'Diesel', 'Hybrid', 'Electric') THEN {{ raw_fuel_col }}
         WHEN {{ brand_col }} IN ('BYD', 'Avatr', 'Xpeng', 'NIO', 'Zeekr', 'Deepal', 'Arcfox', 'VinFast', 'Tesla', 'iCar')
              OR REGEXP_MATCHES(LOWER({{ title_col }}), '\bev\b|electric|អគ្គិសនី') THEN 'Electric'
         WHEN REGEXP_MATCHES(LOWER({{ title_col }}), 'hybrid')
@@ -54,7 +58,8 @@
 
 {% macro infer_transmission(title_col, raw_trans_col) %}
     CASE
-        WHEN {{ raw_trans_col }} IS NOT NULL AND {{ raw_trans_col }} NOT IN ('', 'Unknown') THEN {{ raw_trans_col }}
+        WHEN LOWER({{ raw_trans_col }}) IN ('manual', 'លេខដៃ', 'លេខកំប៉ុក') THEN 'Manual'
+        WHEN LOWER({{ raw_trans_col }}) IN ('automatic', 'auto', 'លេខអូតូ', 'អូតូ') THEN 'Automatic'
         WHEN REGEXP_MATCHES(LOWER({{ title_col }}), 'manual|លេខដៃ|លេខកំប៉ុក') THEN 'Manual'
         WHEN REGEXP_MATCHES(LOWER({{ title_col }}), 'auto|លេខអូតូ|អូតូ') THEN 'Automatic'
         ELSE 'Automatic'
