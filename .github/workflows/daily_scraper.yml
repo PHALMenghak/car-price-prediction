@@ -27,7 +27,7 @@ on:
       enrich_details:
         description: 'Enrich post details (deeper attributes)'
         required: false
-        default: false
+        default: true
         type: boolean
 
 jobs:
@@ -97,7 +97,7 @@ jobs:
           MAX_PAGES:         ${{ github.event.inputs.max_pages || '50' }}
           TARGET_CATEGORY:   ${{ github.event.inputs.target_category || 'cars-for-sale' }}
           SCRAPE_MODE:       ${{ github.event.inputs.scrape_mode || 'feed_window' }}
-          ENRICH_DETAILS:    ${{ github.event.inputs.enrich_details || 'false' }}
+          ENRICH_DETAILS:    ${{ github.event.inputs.enrich_details || 'true' }}
           PYTHONUTF8:        "1"
           KHMER24_DEVICE_ID: ${{ secrets.KHMER24_DEVICE_ID }}
           HTTPS_PROXY:       ${{ secrets.HTTPS_PROXY }}
