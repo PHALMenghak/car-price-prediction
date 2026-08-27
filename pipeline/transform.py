@@ -279,6 +279,11 @@ def impute_missing_values(df: pd.DataFrame) -> pd.DataFrame:
     df["seller_type"] = df["seller_type"].fillna("individual").str.lower().str.strip()
 
     # ── Inferred Fuel Type ────────────────────────────────────────────────
+    if "vehicle_fuel_type" not in df.columns:
+        df["vehicle_fuel_type"] = "Unknown"
+    else:
+        df["vehicle_fuel_type"] = df["vehicle_fuel_type"].fillna("Unknown").str.strip()
+
     title_lower = df["listing_title"].fillna("").str.lower()
     model_lower = df["vehicle_model"].str.lower()
 
@@ -286,32 +291,41 @@ def impute_missing_values(df: pd.DataFrame) -> pd.DataFrame:
     hybrid_models = {"prius", "aqua", "camry hybrid", "ct200h", "rx450h", "nx300h", "es300h", "bz4x"}
     diesel_models = {"hilux", "hilux revo", "hilux vigo", "ranger", "ranger raptor", "ranger wildtrak", "d-max", "navara", "grand starex"}
 
-    df["vehicle_fuel_type"] = "Unknown"
+    mask_fuel_missing = df["vehicle_fuel_type"].isin(["Unknown", "", "None", None])
     is_ev = df["vehicle_brand"].str.lower().isin(ev_brands) | title_lower.str.contains(r"\bev\b|electric|អគ្គិសនី", regex=True)
     is_hybrid = title_lower.str.contains("hybrid") | model_lower.isin(hybrid_models)
     is_diesel = title_lower.str.contains("diesel|ម៉ាស៊ូត") | model_lower.isin(diesel_models)
     is_petrol = (df["vehicle_brand"] != "Unknown") | (df["vehicle_model"] != "Unknown")
 
-    df.loc[is_petrol, "vehicle_fuel_type"] = "Petrol"
-    df.loc[is_diesel, "vehicle_fuel_type"] = "Diesel"
-    df.loc[is_hybrid, "vehicle_fuel_type"] = "Hybrid"
-    df.loc[is_ev, "vehicle_fuel_type"] = "Electric"
+    df.loc[mask_fuel_missing & is_petrol, "vehicle_fuel_type"] = "Petrol"
+    df.loc[mask_fuel_missing & is_diesel, "vehicle_fuel_type"] = "Diesel"
+    df.loc[mask_fuel_missing & is_hybrid, "vehicle_fuel_type"] = "Hybrid"
+    df.loc[mask_fuel_missing & is_ev, "vehicle_fuel_type"] = "Electric"
 
     # ── Inferred Transmission ─────────────────────────────────────────────
-    df["vehicle_transmission"] = "Automatic"
+    if "vehicle_transmission" not in df.columns:
+        df["vehicle_transmission"] = "Automatic"
+    else:
+        df["vehicle_transmission"] = df["vehicle_transmission"].fillna("Automatic").str.strip()
+
     is_manual = title_lower.str.contains(r"manual|លេខដៃ|លេខកំប៉ុក", regex=True)
     df.loc[is_manual, "vehicle_transmission"] = "Manual"
 
     # ── Extracted Color ───────────────────────────────────────────────────
-    df["vehicle_color"] = "Unknown"
-    df.loc[title_lower.str.contains(r"white|ពណ៍ស|ពណ៌ស") & ~title_lower.str.contains(r"កៅអី|ពូក"), "vehicle_color"] = "White"
-    df.loc[title_lower.str.contains(r"black|ពណ៍ខ្មៅ|ពណ៌ខ្មៅ|ខ្មៅ"), "vehicle_color"] = "Black"
-    df.loc[title_lower.str.contains(r"silver|ទឹកប្រាក់|ពណ៍ប្រាក់|ពណ៌ប្រាក់"), "vehicle_color"] = "Silver"
-    df.loc[title_lower.str.contains(r"grey|gray|កណ្ដុរប្រមេះ|កណ្តុរប្រមេះ|ប្រផេះ"), "vehicle_color"] = "Grey"
-    df.loc[title_lower.str.contains(r"gold|ទឹកមាស|ពណ៍មាស|ពណ៌មាស"), "vehicle_color"] = "Gold"
-    df.loc[title_lower.str.contains(r"red|ក្រហម"), "vehicle_color"] = "Red"
-    df.loc[title_lower.str.contains(r"blue|ខៀវ"), "vehicle_color"] = "Blue"
-    df.loc[title_lower.str.contains(r"yellow|លឿង"), "vehicle_color"] = "Yellow"
+    if "vehicle_color" not in df.columns:
+        df["vehicle_color"] = "Unknown"
+    else:
+        df["vehicle_color"] = df["vehicle_color"].fillna("Unknown").str.strip()
+
+    mask_color_missing = df["vehicle_color"].isin(["Unknown", "", "None", None])
+    df.loc[mask_color_missing & title_lower.str.contains(r"white|ពណ៍ស|ពណ៌ស") & ~title_lower.str.contains(r"កៅអី|ពូក"), "vehicle_color"] = "White"
+    df.loc[mask_color_missing & title_lower.str.contains(r"black|ពណ៍ខ្មៅ|ពណ៌ខ្មៅ|ខ្មៅ"), "vehicle_color"] = "Black"
+    df.loc[mask_color_missing & title_lower.str.contains(r"silver|ទឹកប្រាក់|ពណ៍ប្រាក់|ពណ៌ប្រាក់"), "vehicle_color"] = "Silver"
+    df.loc[mask_color_missing & title_lower.str.contains(r"grey|gray|កណ្ដុរប្រមេះ|កណ្តុរប្រមេះ|ប្រផេះ"), "vehicle_color"] = "Grey"
+    df.loc[mask_color_missing & title_lower.str.contains(r"gold|ទឹកមាស|ពណ៍មាស|ពណ៌មាស"), "vehicle_color"] = "Gold"
+    df.loc[mask_color_missing & title_lower.str.contains(r"red|ក្រហម"), "vehicle_color"] = "Red"
+    df.loc[mask_color_missing & title_lower.str.contains(r"blue|ខៀវ"), "vehicle_color"] = "Blue"
+    df.loc[mask_color_missing & title_lower.str.contains(r"yellow|លឿង"), "vehicle_color"] = "Yellow"
 
     logger.info("Imputation and domain inference complete.")
     return df
@@ -397,7 +411,11 @@ ML_FEATURE_COLUMNS: List[str] = [
     "location_tier",
     "seller_type",
     # Market Dynamics & NLP
+    "initial_price",
+    "price_drop_amount",
+    "has_price_drop",
     "days_on_market",
+    "view_velocity",
     "has_full_option",
     "is_urgent_sale",
     # Metadata

@@ -18,6 +18,8 @@ def test_extract_specs_from_detail_nuxt():
     detail = {
         "_source": "nuxt_html",
         "resolved_specs": {
+            "car-brand": "Toyota",
+            "car-model": "Prius",
             "transmission": "ស្វ័យប្រវត្តិ",
             "engine-type": "សាំង",
             "color": "ពណ៌ស",
@@ -29,6 +31,8 @@ def test_extract_specs_from_detail_nuxt():
         },
     }
     specs = extract_specs_from_detail(detail)
+    assert specs["vehicle_brand"] == "Toyota"
+    assert specs["vehicle_model"] == "Prius"
     assert specs["vehicle_transmission"] == "Automatic"
     assert specs["vehicle_fuel_type"] == "Petrol"
     assert specs["vehicle_color"] == "White"
@@ -42,6 +46,8 @@ def test_extract_specs_from_detail_nuxt():
 def test_extract_specs_from_detail_legacy():
     detail = {
         "specs": [
+            {"field": "car-brand", "value": "Ford"},
+            {"field": "car-model", "value": "Ranger"},
             {"field": "transmission", "value": "Manual"},
             {"field": "fuel-type", "value": "Diesel"},
             {"field": "color", "value": "Black"},
@@ -50,6 +56,8 @@ def test_extract_specs_from_detail_legacy():
         ]
     }
     specs = extract_specs_from_detail(detail)
+    assert specs["vehicle_brand"] == "Ford"
+    assert specs["vehicle_model"] == "Ranger"
     assert specs["vehicle_transmission"] == "Manual"
     assert specs["vehicle_fuel_type"] == "Diesel"
     assert specs["vehicle_color"] == "Black"
@@ -62,8 +70,10 @@ def test_apply_cache_and_scan(tmp_path):
     df = pd.DataFrame([
         {
             "listing_id": "1001",
-            "listing_title": "Toyota Prius 2010",
+            "listing_title": "Car for sale",
             "price": 12000.0,
+            "vehicle_brand": "Unknown",
+            "vehicle_model": "Unknown",
             "vehicle_transmission": None,
             "vehicle_fuel_type": None,
             "vehicle_color": None,
@@ -73,6 +83,8 @@ def test_apply_cache_and_scan(tmp_path):
             "listing_id": "1002",
             "listing_title": "Ford Ranger 2020",
             "price": 28000.0,
+            "vehicle_brand": "Ford",
+            "vehicle_model": "Ranger",
             "vehicle_transmission": "Automatic",
             "vehicle_fuel_type": "Diesel",
             "vehicle_color": "White",
@@ -90,6 +102,8 @@ def test_apply_cache_and_scan(tmp_path):
         "1001": {
             "status": "ok",
             "specs": {
+                "vehicle_brand": "Toyota",
+                "vehicle_model": "Prius",
                 "vehicle_transmission": "Automatic",
                 "vehicle_fuel_type": "Hybrid",
                 "vehicle_color": "Silver",
@@ -109,6 +123,8 @@ def test_apply_cache_and_scan(tmp_path):
 
     updated_df = pd.read_parquet(pfile)
     row_1001 = updated_df[updated_df["listing_id"] == "1001"].iloc[0]
+    assert row_1001["vehicle_brand"] == "Toyota"
+    assert row_1001["vehicle_model"] == "Prius"
     assert row_1001["vehicle_transmission"] == "Automatic"
     assert row_1001["vehicle_fuel_type"] == "Hybrid"
     assert row_1001["vehicle_color"] == "Silver"

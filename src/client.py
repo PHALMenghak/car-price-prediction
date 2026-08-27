@@ -317,8 +317,13 @@ class Khmer24Client:
 
                 parsed = self._parse_item(item)
                 if parsed:
-                    # Optional detail enrichment — trigger when any key spec is missing
+                    # Optional detail enrichment — trigger when core identity (brand/model) or key spec is missing/unknown
                     needs_enrich = any([
+                        parsed.vehicle_brand is None,
+                        str(parsed.vehicle_brand).strip() in ("", "Unknown", "None", "nan"),
+                        parsed.vehicle_model is None,
+                        str(parsed.vehicle_model).strip() in ("", "Unknown", "None", "nan"),
+                        parsed.vehicle_model_year is None,
                         parsed.vehicle_mileage_km is None,
                         parsed.vehicle_fuel_type is None,
                         parsed.vehicle_transmission is None,
@@ -641,13 +646,19 @@ class Khmer24Client:
                 if model.vehicle_tax_type is None:
                     model.vehicle_tax_type = resolved.get("tax-type") or None
 
-                # Brand — only fill in, never override a value already parsed from title
-                if model.vehicle_brand is None:
-                    model.vehicle_brand = resolved.get("car-brand") or None
+                # Brand — authoritative dropdown from detail page overrides noisy title extraction or fills Unknown
+                raw_brand = resolved.get("car-brand") or resolved.get("brand")
+                if raw_brand and str(raw_brand).strip():
+                    model.vehicle_brand = str(raw_brand).strip()
+                elif model.vehicle_brand in (None, "Unknown", "", "None", "nan"):
+                    model.vehicle_brand = None
 
-                # Model — only fill in if missing
-                if model.vehicle_model is None:
-                    model.vehicle_model = resolved.get("car-model") or None
+                # Model — authoritative dropdown from detail page overrides noisy title extraction or fills Unknown
+                raw_model = resolved.get("car-model") or resolved.get("model")
+                if raw_model and str(raw_model).strip():
+                    model.vehicle_model = str(raw_model).strip()
+                elif model.vehicle_model in (None, "Unknown", "", "None", "nan"):
+                    model.vehicle_model = None
 
                 # Condition — "Used" / "New"
                 if model.vehicle_condition is None:
@@ -666,6 +677,14 @@ class Khmer24Client:
                 legacy_specs = raw_hs
 
             if legacy_specs:
+                raw_legacy_b = extract_spec_value(legacy_specs, "car-brand", "brand")
+                if raw_legacy_b and str(raw_legacy_b).strip():
+                    model.vehicle_brand = str(raw_legacy_b).strip()
+
+                raw_legacy_m = extract_spec_value(legacy_specs, "car-model", "model")
+                if raw_legacy_m and str(raw_legacy_m).strip():
+                    model.vehicle_model = str(raw_legacy_m).strip()
+
                 if model.vehicle_mileage_km is None:
                     model.vehicle_mileage_km = parse_mileage(
                         extract_spec_value(legacy_specs, "mileage", "km", "odometer", "car-mileage")

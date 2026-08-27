@@ -180,3 +180,115 @@ def test_scrape_category_feed_deduplicates_in_batch(monkeypatch):
     assert len(results) == 2
     assert results[0].listing_id == "1001"
     assert results[1].listing_id == "1002"
+
+
+def test_scrape_category_feed_triggers_enrichment_on_missing_brand_or_model(monkeypatch):
+    """Test that listings missing brand, model, or year trigger detail enrichment even if other specs are present."""
+    client = Khmer24Client()
+    
+    # Title has no recognizable brand/model, but has full physical specs
+    mock_payload = {
+        "total": 1,
+        "data": [
+            {
+                "id": "2001",
+                "title": "Good Car For Sale",
+                "price": "15000",
+                "highlight_specs": [
+                    {"field": "car-year", "value": "2018"},
+                    {"field": "mileage", "value": "50000"},
+                    {"field": "fuel-type", "value": "Petrol"},
+                    {"field": "transmission", "value": "Automatic"},
+                    {"field": "engine-size", "value": "2.0L"},
+                    {"field": "color", "value": "White"},
+                ],
+            }
+        ],
+    }
+
+    class MockResponse:
+        status_code = 200
+        text = ""
+        def json(self):
+            return mock_payload
+
+    detail_fetched = []
+
+    def mock_fetch_detail(lid, slug):
+        detail_fetched.append(lid)
+        return {
+            "resolved_specs": {
+                "car-brand": "Mazda",
+                "car-model": "CX-5",
+            }
+        }
+
+    monkeypatch.setattr(client, "_get", lambda *args, **kwargs: MockResponse())
+    monkeypatch.setattr(client, "fetch_post_detail", mock_fetch_detail)
+
+    results = client.scrape_category_feed(category_slug="cars-for-sale", max_pages=1, enrich_details=True)
+    client.close()
+
+    assert len(results) == 1
+    assert "2001" in detail_fetched
+    assert results[0].vehicle_brand == "Mazda"
+    assert results[0].vehicle_model == "CX-5"
+
+
+def test_enrich_overrides_noisy_title_brand_and_model():
+    """Test that detail page authoritative dropdown specs override noisy/unknown title extractions."""
+    client = Khmer24Client()
+    try:
+        base_item = AdListingModel(
+            listing_id="3001",
+            listing_title="ឡានស្អាត លក់ប្រញាប់ 012345678",  # Noisy title without clean brand/model
+            price=14000.0,
+            vehicle_brand=None,
+            vehicle_model=None,
+        )
+        detail_data = {
+            "_source": "nuxt_html",
+            "resolved_specs": {
+                "car-brand": "Toyota",
+                "car-model": "Prius",
+                "car-year": 2010,
+                "engine-type": "Hybrid",
+            },
+        }
+        enriched = client._enrich_item_with_detail(base_item, detail_data)
+    finally:
+        client.close()
+
+    assert enriched.vehicle_brand == "Toyota"
+    assert enriched.vehicle_model == "Prius"
+    assert enriched.vehicle_model_year == 2010
+    assert enriched.vehicle_fuel_type == "Hybrid"
+
+
+def test_enrich_with_legacy_specs_extracts_brand_and_model():
+    """Test that legacy specs dict in detail payload extracts brand and model when title was noisy."""
+    client = Khmer24Client()
+    try:
+        base_item = AdListingModel(
+            listing_id="3002",
+            listing_title="Urgent sale car",
+            price=25000.0,
+            vehicle_brand=None,
+            vehicle_model=None,
+        )
+        detail_data = {
+            "specs": [
+                {"field": "car-brand", "value": "Ford"},
+                {"field": "car-model", "value": "Ranger"},
+                {"field": "fuel-type", "value": "Diesel"},
+            ],
+        }
+        enriched = client._enrich_item_with_detail(base_item, detail_data)
+    finally:
+        client.close()
+
+    assert enriched.vehicle_brand == "Ford"
+    assert enriched.vehicle_model == "Ranger"
+    assert enriched.vehicle_fuel_type == "Diesel"
+
+

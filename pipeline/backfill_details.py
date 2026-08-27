@@ -33,6 +33,8 @@ logger = logging.getLogger(__name__)
 CACHE_FILE_NAME = ".backfill_cache.json"
 
 SPEC_COLS = [
+    "vehicle_brand",
+    "vehicle_model",
     "vehicle_transmission",
     "vehicle_fuel_type",
     "vehicle_color",
@@ -93,7 +95,16 @@ def scan_missing_listings(raw_dir: str) -> Tuple[Dict[str, Dict[str, Any]], Dict
         if "listing_id" not in df.columns:
             continue
 
-        check_cols = [c for c in ["vehicle_transmission", "vehicle_fuel_type", "vehicle_color", "vehicle_mileage_km"] if c in df.columns]
+        check_cols = [
+            c for c in [
+                "vehicle_brand",
+                "vehicle_model",
+                "vehicle_transmission",
+                "vehicle_fuel_type",
+                "vehicle_color",
+                "vehicle_mileage_km",
+            ] if c in df.columns
+        ]
 
         for _, row in df.iterrows():
             lid = str(row.get("listing_id", "")).strip()
@@ -102,7 +113,10 @@ def scan_missing_listings(raw_dir: str) -> Tuple[Dict[str, Dict[str, Any]], Dict
 
             occurrence_counts[lid] = occurrence_counts.get(lid, 0) + 1
 
-            is_missing = any(pd.isna(row.get(col)) or row.get(col) in ("", "None", None) for col in check_cols)
+            is_missing = any(
+                pd.isna(row.get(col)) or str(row.get(col)).strip() in ("", "None", "Unknown", "nan", None)
+                for col in check_cols
+            )
             if is_missing and lid not in missing_candidates:
                 missing_candidates[lid] = {
                     "url": row.get("listing_url") or f"https://www.khmer24.com/post-adid-{lid}",
@@ -118,6 +132,16 @@ def extract_specs_from_detail(detail: Dict[str, Any]) -> Dict[str, Any]:
     resolved = detail.get("resolved_specs") or {}
 
     if resolved:
+        # Brand
+        raw_b = resolved.get("car-brand") or resolved.get("brand")
+        if raw_b:
+            enriched["vehicle_brand"] = str(raw_b).strip()
+
+        # Model
+        raw_m = resolved.get("car-model") or resolved.get("model")
+        if raw_m:
+            enriched["vehicle_model"] = str(raw_m).strip()
+
         # Transmission
         raw_t = resolved.get("transmission") or resolved.get("gearbox") or resolved.get("gear-type")
         if raw_t:
@@ -169,6 +193,14 @@ def extract_specs_from_detail(detail: Dict[str, Any]) -> Dict[str, Any]:
         legacy = {s.get("field", ""): s.get("value") for s in legacy if isinstance(s, dict)}
 
     if isinstance(legacy, dict) and legacy:
+        if "vehicle_brand" not in enriched:
+            b = legacy.get("car-brand") or legacy.get("brand")
+            if b:
+                enriched["vehicle_brand"] = str(b).strip()
+        if "vehicle_model" not in enriched:
+            m = legacy.get("car-model") or legacy.get("model")
+            if m:
+                enriched["vehicle_model"] = str(m).strip()
         if "vehicle_transmission" not in enriched:
             t = legacy.get("transmission") or legacy.get("gearbox")
             if t:
@@ -215,9 +247,18 @@ def apply_cache_to_parquets(raw_dir: str, cache: Dict[str, Dict[str, Any]], dry_
                 specs = cache[lid].get("specs", {})
                 changed = False
                 for col, val in specs.items():
-                    if val is not None and (pd.isna(row.get(col)) or row.get(col) in ("", None, "None")):
-                        df.at[idx, col] = val
-                        changed = True
+                    if val is not None:
+                        current_val = row.get(col)
+                        is_missing_or_unknown = (
+                            pd.isna(current_val) or str(current_val).strip() in ("", "None", "Unknown", "nan", None)
+                        )
+                        if is_missing_or_unknown:
+                            df.at[idx, col] = val
+                            changed = True
+                        elif col in ("vehicle_brand", "vehicle_model") and val and str(val).strip() != str(current_val).strip():
+                            # Authoritative clean dropdown brand/model from detail page
+                            df.at[idx, col] = str(val).strip()
+                            changed = True
                 if changed:
                     updated_in_file += 1
 
@@ -238,8 +279,15 @@ def apply_cache_to_parquets(raw_dir: str, cache: Dict[str, Dict[str, Any]], dry_
             if lid in cache and cache[lid].get("status") == "ok":
                 specs = cache[lid].get("specs", {})
                 for col, val in specs.items():
-                    if val is not None and (pd.isna(row.get(col)) or row.get(col) in ("", None, "None")):
-                        df_csv.at[idx, col] = val
+                    if val is not None:
+                        current_val = row.get(col)
+                        is_missing_or_unknown = (
+                            pd.isna(current_val) or str(current_val).strip() in ("", "None", "Unknown", "nan", None)
+                        )
+                        if is_missing_or_unknown:
+                            df_csv.at[idx, col] = val
+                        elif col in ("vehicle_brand", "vehicle_model") and val and str(val).strip() != str(current_val).strip():
+                            df_csv.at[idx, col] = str(val).strip()
         if not dry_run:
             df_csv.to_csv(csv_sample, index=False, encoding="utf-8-sig")
 
@@ -257,8 +305,13 @@ def compute_dataset_completeness(raw_dir: str) -> Dict[str, float]:
     if n == 0:
         return {}
 
+    b_known = (combined["vehicle_brand"].notna() & ~combined["vehicle_brand"].astype(str).str.strip().isin(["Unknown", "", "None", "nan"])).sum() if "vehicle_brand" in combined.columns else 0
+    m_known = (combined["vehicle_model"].notna() & ~combined["vehicle_model"].astype(str).str.strip().isin(["Unknown", "", "None", "nan"])).sum() if "vehicle_model" in combined.columns else 0
+
     return {
         "total_rows": n,
+        "brand_pct": (b_known / n) * 100,
+        "model_pct": (m_known / n) * 100,
         "transmission_pct": (combined["vehicle_transmission"].notna().sum() / n) * 100 if "vehicle_transmission" in combined.columns else 0.0,
         "fuel_type_pct": (combined["vehicle_fuel_type"].notna().sum() / n) * 100 if "vehicle_fuel_type" in combined.columns else 0.0,
         "color_pct": (combined["vehicle_color"].notna().sum() / n) * 100 if "vehicle_color" in combined.columns else 0.0,
@@ -293,6 +346,8 @@ def run_backfill(
 
     before_metrics = compute_dataset_completeness(raw_dir)
     logger.info(f"Before Backfill Completeness (N={before_metrics.get('total_rows', 0):,} total snapshot rows):")
+    logger.info(f"  - Brand        : {before_metrics.get('brand_pct', 0.0):.1f}%")
+    logger.info(f"  - Model        : {before_metrics.get('model_pct', 0.0):.1f}%")
     logger.info(f"  - Transmission : {before_metrics.get('transmission_pct', 0.0):.1f}%")
     logger.info(f"  - Fuel Type    : {before_metrics.get('fuel_type_pct', 0.0):.1f}%")
     logger.info(f"  - Color        : {before_metrics.get('color_pct', 0.0):.1f}%")
@@ -304,7 +359,9 @@ def run_backfill(
     to_fetch = {
         lid: info
         for lid, info in missing_candidates.items()
-        if lid not in cache or cache[lid].get("status") not in ("ok", "404")
+        if lid not in cache
+        or cache[lid].get("status") not in ("ok", "404")
+        or "vehicle_brand" not in cache[lid].get("specs", {})
     }
 
     logger.info(f"Unique listings needing network fetch: {len(to_fetch):,} IDs")
@@ -367,6 +424,8 @@ def run_backfill(
     after_metrics = compute_dataset_completeness(raw_dir)
     logger.info("=" * 65)
     logger.info("After Backfill Completeness Summary:")
+    logger.info(f"  - Brand        : {after_metrics.get('brand_pct', 0.0):.1f}% (was {before_metrics.get('brand_pct', 0.0):.1f}%)")
+    logger.info(f"  - Model        : {after_metrics.get('model_pct', 0.0):.1f}% (was {before_metrics.get('model_pct', 0.0):.1f}%)")
     logger.info(f"  - Transmission : {after_metrics.get('transmission_pct', 0.0):.1f}% (was {before_metrics.get('transmission_pct', 0.0):.1f}%)")
     logger.info(f"  - Fuel Type    : {after_metrics.get('fuel_type_pct', 0.0):.1f}% (was {before_metrics.get('fuel_type_pct', 0.0):.1f}%)")
     logger.info(f"  - Color        : {after_metrics.get('color_pct', 0.0):.1f}% (was {before_metrics.get('color_pct', 0.0):.1f}%)")

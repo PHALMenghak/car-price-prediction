@@ -67,7 +67,7 @@ SELECT
     vehicle_brand,
     vehicle_model,
     CAST(imputed_year AS INTEGER)                            AS vehicle_model_year,
-    (date_part('year', CURRENT_DATE) - imputed_year)         AS vehicle_age,
+    GREATEST(CAST(date_part('year', CURRENT_DATE) - imputed_year AS INTEGER), 0) AS vehicle_age,
     ROUND(imputed_mileage, 0)                                AS vehicle_mileage_km,
     is_mileage_missing,
     ROUND(imputed_engine_cc, 0)                              AS vehicle_engine_cc,
@@ -76,7 +76,11 @@ SELECT
     -- ── Powertrain & Physical Appearance ──────────────────────────────────
     {{ infer_fuel_type('vehicle_brand', 'vehicle_model', 'listing_title', 'vehicle_fuel_type') }} AS vehicle_fuel_type,
     {{ infer_transmission('listing_title', 'vehicle_transmission') }} AS vehicle_transmission,
-    {{ extract_color_from_title('listing_title') }}          AS vehicle_color,
+    COALESCE(
+        NULLIF(vehicle_color, 'Unknown'),
+        NULLIF({{ extract_color_from_title('listing_title') }}, 'Unknown'),
+        'Unknown'
+    )                                                        AS vehicle_color,
 
     -- ── Vehicle Condition & Legal Registration Status ─────────────────────
     vehicle_condition,
@@ -96,7 +100,13 @@ SELECT
     seller_type,
 
     -- ── Marketplace Dynamics & NLP Signals ─────────────────────────────────
+    initial_price,
+    price_drop_amount,
+    has_price_drop,
+    price_increase_amount,
+    has_price_increase,
     ROUND(days_on_market, 1)                                 AS days_on_market,
+    ROUND(view_velocity, 2)                                  AS view_velocity,
     {{ extract_title_options('listing_title') }},
 
     -- ── Metadata / Ingestion Index ─────────────────────────────────────────

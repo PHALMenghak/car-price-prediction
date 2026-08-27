@@ -141,3 +141,29 @@ models:
               arguments:
                 values: [0, 1]
 
+      - name: initial_price
+        description: "Earliest recorded asking price in USD."
+        tests:
+          - not_null
+
+      - name: has_price_drop
+        description: "Binary: 1 if asking price decreased since first observed."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+
+      - name: has_price_increase
+        description: "Binary: 1 if asking price increased since first observed."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+
+      - name: view_velocity
+        description: "Estimated views per day active on marketplace."
+        tests:
+          - not_null
+

@@ -31,7 +31,12 @@ SELECT
     -- ── Validated Pricing & Market Time ───────────────────────────────────
     price,
     initial_price,
+    price_drop_amount,
+    has_price_drop,
+    price_increase_amount,
+    has_price_increase,
     days_on_market,
+    view_velocity,
     view_count,
 
     -- ── Vehicle Core Specifications (Preserved with authentic NULLs) ──────

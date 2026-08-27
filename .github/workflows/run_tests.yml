@@ -29,5 +29,10 @@ jobs:
       - name: Run Python unit tests
         run: uv run pytest tests/ -v --tb=short
 
-      - name: Run dbt data tests
-        run: uv run dbt test --project-dir dbt --profiles-dir dbt
+      - name: Run dbt transformations & tests
+        env:
+          PYTHONUTF8: "1"
+        run: |
+          uv run dbt deps --project-dir dbt --profiles-dir dbt
+          uv run dbt run  --project-dir dbt --profiles-dir dbt
+          uv run dbt test --project-dir dbt --profiles-dir dbt

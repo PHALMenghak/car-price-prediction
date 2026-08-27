@@ -1,0 +1,116 @@
+2026-08-27 09:28:51  [INFO    ]  =================================================================
+2026-08-27 09:28:51  [INFO    ]  EL Pipeline  --  Extract & Load (Time-Series & Change Tracking)
+2026-08-27 09:28:51  [INFO    ]    Category       : cars-for-sale
+2026-08-27 09:28:51  [INFO    ]    Province       : ALL
+2026-08-27 09:28:51  [INFO    ]    Max pages      : 20  (600 listings max)
+2026-08-27 09:28:51  [INFO    ]    Scrape mode    : feed_window
+2026-08-27 09:28:51  [INFO    ]    Enrich details : True
+2026-08-27 09:28:51  [INFO    ]    Output dir     : data\raw
+2026-08-27 09:28:51  [INFO    ]  =================================================================
+2026-08-27 09:28:51  [INFO    ]    Found 3,963 historical unique listing IDs in raw storage.
+2026-08-27 09:28:51  [INFO    ]  Cloudflare Worker relay enabled (POSTS_API_BASE overridden).
+2026-08-27 09:28:51  [INFO    ]  [cars-for-sale] Page 1/20  offset=0  collected=0
+2026-08-27 09:29:09  [INFO    ]  [cars-for-sale] Page 2/20  offset=30  collected=40  total=20196
+2026-08-27 09:29:18  [INFO    ]  [cars-for-sale] Page 3/20  offset=60  collected=59  total=20196
+2026-08-27 09:29:26  [INFO    ]  [cars-for-sale] Page 4/20  offset=90  collected=77  total=20196
+2026-08-27 09:29:39  [INFO    ]  [cars-for-sale] Page 5/20  offset=120  collected=107  total=20196
+2026-08-27 09:29:53  [INFO    ]  [cars-for-sale] Page 6/20  offset=150  collected=139  total=20196
+2026-08-27 09:30:08  [INFO    ]  [cars-for-sale] Page 7/20  offset=180  collected=170  total=20196
+2026-08-27 09:30:10  [INFO    ]  [cars-for-sale] Page 8/20  offset=210  collected=171  total=20196
+2026-08-27 09:30:17  [INFO    ]  [cars-for-sale] Page 9/20  offset=240  collected=185  total=20196
+2026-08-27 09:30:31  [INFO    ]  [cars-for-sale] Page 10/20  offset=270  collected=216  total=20196
+2026-08-27 09:30:35  [INFO    ]  [cars-for-sale] Page 11/20  offset=300  collected=223  total=20196
+2026-08-27 09:30:36  [INFO    ]  [cars-for-sale] Page 12/20  offset=330  collected=223  total=20196
+2026-08-27 09:30:37  [INFO    ]  [cars-for-sale] Page 13/20  offset=360  collected=223  total=20196
+2026-08-27 09:30:51  [INFO    ]  [cars-for-sale] Page 14/20  offset=390  collected=255  total=20196
+2026-08-27 09:31:04  [INFO    ]  [cars-for-sale] Page 15/20  offset=420  collected=285  total=20196
+2026-08-27 09:31:18  [INFO    ]  [cars-for-sale] Page 16/20  offset=450  collected=315  total=20196
+2026-08-27 09:31:33  [INFO    ]  [cars-for-sale] Page 17/20  offset=480  collected=345  total=20196
+2026-08-27 09:31:49  [INFO    ]  [cars-for-sale] Page 18/20  offset=510  collected=375  total=20196
+2026-08-27 09:32:04  [INFO    ]  [cars-for-sale] Page 19/20  offset=540  collected=406  total=20196
+2026-08-27 09:32:18  [INFO    ]  [cars-for-sale] Page 20/20  offset=570  collected=436  total=20196
+2026-08-27 09:32:32  [INFO    ]  Scrape complete. Collected 467 records in this batch.
+2026-08-27 09:32:32  [INFO    ]  Batch summary: 467 total listings collected (157 new IDs, 310 recurring/tracked IDs).
+2026-08-27 09:32:32  [INFO    ]  Saved 467 records to Parquet -> data\raw\cars_2026-08-27.parquet
+2026-08-27 09:32:32  [INFO    ]  Saved 60-row CSV sample -> data\raw\khmer24_cars_sample_60.csv
+2026-08-27 09:32:32  [INFO    ]  Saved ingestion run manifest -> data\raw\ingestion_manifest.json
+2026-08-27 09:32:32  [INFO    ]  Raw Parquet -> data\raw\cars_2026-08-27.parquet
+2026-08-27 09:32:32  [INFO    ]  CSV sample  -> 60 rows : data\raw\khmer24_cars_sample_60.csv
+2026-08-27 09:32:32  [INFO    ]  Manifest    -> data\raw\ingestion_manifest.json
+2026-08-27 09:32:32  [INFO    ]  -- Data Quality (current batch) ---------------------------------
+2026-08-27 09:32:32  [INFO    ]    Batch listings      : 467
+2026-08-27 09:32:32  [INFO    ]    With price          : 100.0%
+2026-08-27 09:32:32  [INFO    ]    With model year     : 100.0%
+2026-08-27 09:32:32  [INFO    ]    With brand          : 99.1%
+2026-08-27 09:32:32  [INFO    ]    With model name     : 99.1%
+2026-08-27 09:32:32  [INFO    ]    With province       : 100.0%
+2026-08-27 09:32:32  [INFO    ]    With mileage (km)   : 0.0%
+2026-08-27 09:32:32  [INFO    ]    With fuel type      : 89.1%
+2026-08-27 09:32:32  [INFO    ]    With transmission   : 85.2%
+2026-08-27 09:32:32  [INFO    ]    Total Cumulative Unique IDs : 4,120
+2026-08-27 09:32:32  [INFO    ]    Phase 1 cumulative volume target met (>= 2,000 unique listings)!
+2026-08-27 09:32:32  [INFO    ]  EL stage complete. 467 listings processed in this batch.
+2026-08-27 09:32:32  [INFO    ]  Triggering dbt transformations...
+2026-08-27 09:32:32  [INFO    ]  Running dbt: dbt run --project-dir D:\ITC3_AMS_2025\I4_AMS_S2\Y4_Internship\Car_price_prediction\dbt --profiles-dir D:\ITC3_AMS_2025\I4_AMS_S2\Y4_Internship\Car_price_prediction\dbt
+2026-08-27 09:32:43  [INFO    ]  dbt run completed successfully in 10.75s.
+2026-08-27 09:32:43  [INFO    ]  Running dbt: dbt test --project-dir D:\ITC3_AMS_2025\I4_AMS_S2\Y4_Internship\Car_price_prediction\dbt --profiles-dir D:\ITC3_AMS_2025\I4_AMS_S2\Y4_Internship\Car_price_prediction\dbt
+2026-08-27 09:32:48  [INFO    ]  dbt test completed successfully in 5.07s.
+2026-08-27 09:32:48  [INFO    ]  End-to-end ELT pipeline complete.
+2026-08-27 14:21:12  [INFO    ]  =================================================================
+2026-08-27 14:21:12  [INFO    ]  EL Pipeline  --  Extract & Load (Time-Series & Change Tracking)
+2026-08-27 14:21:12  [INFO    ]    Category       : cars-for-sale
+2026-08-27 14:21:12  [INFO    ]    Province       : ALL
+2026-08-27 14:21:12  [INFO    ]    Max pages      : 20  (600 listings max)
+2026-08-27 14:21:12  [INFO    ]    Scrape mode    : feed_window
+2026-08-27 14:21:12  [INFO    ]    Enrich details : True
+2026-08-27 14:21:12  [INFO    ]    Output dir     : data\raw
+2026-08-27 14:21:12  [INFO    ]  =================================================================
+2026-08-27 14:21:12  [INFO    ]    Found 4,120 historical unique listing IDs in raw storage.
+2026-08-27 14:21:12  [INFO    ]  Cloudflare Worker relay enabled (POSTS_API_BASE overridden).
+2026-08-27 14:21:12  [INFO    ]  [cars-for-sale] Page 1/20  offset=0  collected=0
+2026-08-27 14:21:32  [INFO    ]  [cars-for-sale] Page 2/20  offset=30  collected=40  total=20236
+2026-08-27 14:21:41  [INFO    ]  [cars-for-sale] Page 3/20  offset=60  collected=59  total=20236
+2026-08-27 14:21:52  [INFO    ]  [cars-for-sale] Page 4/20  offset=90  collected=80  total=20236
+2026-08-27 14:22:06  [INFO    ]  [cars-for-sale] Page 5/20  offset=120  collected=110  total=20236
+2026-08-27 14:22:21  [INFO    ]  [cars-for-sale] Page 6/20  offset=150  collected=141  total=20236
+2026-08-27 14:22:38  [INFO    ]  [cars-for-sale] Page 7/20  offset=180  collected=171  total=20236
+2026-08-27 14:22:44  [INFO    ]  [cars-for-sale] Page 8/20  offset=210  collected=180  total=20236
+2026-08-27 14:22:47  [INFO    ]  [cars-for-sale] Page 9/20  offset=240  collected=182  total=20236
+2026-08-27 14:23:02  [INFO    ]  [cars-for-sale] Page 10/20  offset=270  collected=209  total=20236
+2026-08-27 14:23:16  [INFO    ]  [cars-for-sale] Page 11/20  offset=300  collected=240  total=20236
+2026-08-27 14:23:30  [INFO    ]  [cars-for-sale] Page 12/20  offset=330  collected=268  total=20236
+2026-08-27 14:23:42  [INFO    ]  [cars-for-sale] Page 13/20  offset=360  collected=293  total=20236
+2026-08-27 14:23:58  [INFO    ]  [cars-for-sale] Page 14/20  offset=390  collected=324  total=20236
+2026-08-27 14:23:59  [INFO    ]  [cars-for-sale] Page 15/20  offset=420  collected=324  total=20236
+2026-08-27 14:24:04  [INFO    ]  [cars-for-sale] Page 16/20  offset=450  collected=333  total=20236
+2026-08-27 14:24:14  [INFO    ]  [cars-for-sale] Page 17/20  offset=480  collected=355  total=20236
+2026-08-27 14:24:30  [INFO    ]  [cars-for-sale] Page 18/20  offset=510  collected=387  total=20236
+2026-08-27 14:24:47  [INFO    ]  [cars-for-sale] Page 19/20  offset=540  collected=417  total=20236
+2026-08-27 14:24:53  [INFO    ]  [cars-for-sale] Page 20/20  offset=570  collected=427  total=20236
+2026-08-27 14:25:10  [INFO    ]  Scrape complete. Collected 458 records in this batch.
+2026-08-27 14:25:10  [INFO    ]  Batch summary: 458 total listings collected (196 new IDs, 262 recurring/tracked IDs).
+2026-08-27 14:25:10  [INFO    ]  Saved 458 records to Parquet -> data\raw\cars_2026-08-27.parquet
+2026-08-27 14:25:10  [INFO    ]  Saved 60-row CSV sample -> data\raw\khmer24_cars_sample_60.csv
+2026-08-27 14:25:10  [INFO    ]  Saved ingestion run manifest -> data\raw\ingestion_manifest.json
+2026-08-27 14:25:10  [INFO    ]  Raw Parquet -> data\raw\cars_2026-08-27.parquet
+2026-08-27 14:25:10  [INFO    ]  CSV sample  -> 60 rows : data\raw\khmer24_cars_sample_60.csv
+2026-08-27 14:25:10  [INFO    ]  Manifest    -> data\raw\ingestion_manifest.json
+2026-08-27 14:25:10  [INFO    ]  -- Data Quality (current batch) ---------------------------------
+2026-08-27 14:25:10  [INFO    ]    Batch listings      : 458
+2026-08-27 14:25:10  [INFO    ]    With price          : 100.0%
+2026-08-27 14:25:10  [INFO    ]    With model year     : 100.0%
+2026-08-27 14:25:10  [INFO    ]    With brand          : 99.6%
+2026-08-27 14:25:10  [INFO    ]    With model name     : 99.3%
+2026-08-27 14:25:10  [INFO    ]    With province       : 100.0%
+2026-08-27 14:25:10  [INFO    ]    With mileage (km)   : 0.0%
+2026-08-27 14:25:10  [INFO    ]    With fuel type      : 90.8%
+2026-08-27 14:25:10  [INFO    ]    With transmission   : 85.8%
+2026-08-27 14:25:10  [INFO    ]    Total Cumulative Unique IDs : 4,316
+2026-08-27 14:25:10  [INFO    ]    Phase 1 cumulative volume target met (>= 2,000 unique listings)!
+2026-08-27 14:25:10  [INFO    ]  EL stage complete. 458 listings processed in this batch.
+2026-08-27 14:25:10  [INFO    ]  Triggering dbt transformations...
+2026-08-27 14:25:10  [INFO    ]  Running dbt: dbt run --project-dir D:\ITC3_AMS_2025\I4_AMS_S2\Y4_Internship\Car_price_prediction\dbt --profiles-dir D:\ITC3_AMS_2025\I4_AMS_S2\Y4_Internship\Car_price_prediction\dbt
+2026-08-27 14:25:17  [INFO    ]  dbt run completed successfully in 6.99s.
+2026-08-27 14:25:17  [INFO    ]  Running dbt: dbt test --project-dir D:\ITC3_AMS_2025\I4_AMS_S2\Y4_Internship\Car_price_prediction\dbt --profiles-dir D:\ITC3_AMS_2025\I4_AMS_S2\Y4_Internship\Car_price_prediction\dbt
+2026-08-27 14:25:22  [INFO    ]  dbt test completed successfully in 5.0s.
+2026-08-27 14:25:22  [INFO    ]  End-to-end ELT pipeline complete.
