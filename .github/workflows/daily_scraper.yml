@@ -2,8 +2,8 @@ name: Daily Car Scraper Pipeline
 
 on:
   schedule:
-    # Runs daily at 02:00 UTC (09:00 AM Cambodia Time)
-    - cron: '0 2 * * *'
+    # Runs daily at 02:17 UTC (09:17 AM Cambodia Time) - off-peak minute to avoid GitHub Actions queue delays
+    - cron: '17 2 * * *'
   workflow_dispatch:
     inputs:
       max_pages:
