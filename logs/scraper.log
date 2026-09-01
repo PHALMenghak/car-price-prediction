@@ -2098,3 +2098,85 @@
 2026-08-31 08:57:47  [INFO    ]    Total Cumulative Unique IDs : 7,165
 2026-08-31 08:57:47  [INFO    ]    Phase 1 cumulative volume target met (>= 2,000 unique listings)!
 2026-08-31 08:57:47  [INFO    ]  EL stage complete. 1,290 listings processed in this batch.
+2026-09-01 07:51:05  [INFO    ]  =================================================================
+2026-09-01 07:51:05  [INFO    ]  EL Pipeline  --  Extract & Load (Time-Series & Change Tracking)
+2026-09-01 07:51:05  [INFO    ]    Category       : cars-for-sale
+2026-09-01 07:51:05  [INFO    ]    Province       : ALL
+2026-09-01 07:51:05  [INFO    ]    Max pages      : 50  (1500 listings max)
+2026-09-01 07:51:05  [INFO    ]    Scrape mode    : feed_window
+2026-09-01 07:51:05  [INFO    ]    Enrich details : True
+2026-09-01 07:51:05  [INFO    ]    Output dir     : data/raw
+2026-09-01 07:51:05  [INFO    ]  =================================================================
+2026-09-01 07:51:05  [INFO    ]    Found 7,165 historical unique listing IDs in raw storage.
+2026-09-01 07:51:05  [INFO    ]  Cloudflare Worker relay enabled (POSTS_API_BASE overridden).
+2026-09-01 07:51:05  [INFO    ]  [cars-for-sale] Page 1/50  offset=0  collected=0
+2026-09-01 07:51:36  [INFO    ]  [cars-for-sale] Page 2/50  offset=30  collected=40  total=20109
+2026-09-01 07:52:00  [INFO    ]  [cars-for-sale] Page 3/50  offset=60  collected=70  total=20109
+2026-09-01 07:52:22  [INFO    ]  [cars-for-sale] Page 4/50  offset=90  collected=100  total=20109
+2026-09-01 07:52:36  [INFO    ]  [cars-for-sale] Page 5/50  offset=120  collected=117  total=20109
+2026-09-01 07:53:00  [INFO    ]  [cars-for-sale] Page 6/50  offset=150  collected=149  total=20109
+2026-09-01 07:53:24  [INFO    ]  [cars-for-sale] Page 7/50  offset=180  collected=179  total=20109
+2026-09-01 07:53:47  [INFO    ]  [cars-for-sale] Page 8/50  offset=210  collected=210  total=20109
+2026-09-01 07:54:00  [INFO    ]  [cars-for-sale] Page 9/50  offset=240  collected=227  total=20109
+2026-09-01 07:54:04  [INFO    ]  [cars-for-sale] Page 10/50  offset=270  collected=230  total=20109
+2026-09-01 07:54:28  [INFO    ]  [cars-for-sale] Page 11/50  offset=300  collected=261  total=20109
+2026-09-01 07:54:49  [INFO    ]  [cars-for-sale] Page 12/50  offset=330  collected=289  total=20109
+2026-09-01 07:55:04  [INFO    ]  [cars-for-sale] Page 13/50  offset=360  collected=306  total=20109
+2026-09-01 07:55:28  [INFO    ]  [cars-for-sale] Page 14/50  offset=390  collected=337  total=20109
+2026-09-01 07:55:50  [INFO    ]  [cars-for-sale] Page 15/50  offset=420  collected=364  total=20109
+2026-09-01 07:56:14  [INFO    ]  [cars-for-sale] Page 16/50  offset=450  collected=394  total=20109
+2026-09-01 07:56:19  [INFO    ]  [cars-for-sale] Page 17/50  offset=480  collected=399  total=20109
+2026-09-01 07:56:41  [INFO    ]  [cars-for-sale] Page 18/50  offset=510  collected=429  total=20109
+2026-09-01 07:56:51  [INFO    ]  [cars-for-sale] Page 19/50  offset=540  collected=439  total=20109
+2026-09-01 07:57:14  [INFO    ]  [cars-for-sale] Page 20/50  offset=570  collected=469  total=20109
+2026-09-01 07:57:32  [INFO    ]  [cars-for-sale] Page 21/50  offset=600  collected=493  total=20109
+2026-09-01 07:57:56  [INFO    ]  [cars-for-sale] Page 22/50  offset=630  collected=524  total=20109
+2026-09-01 07:58:18  [INFO    ]  [cars-for-sale] Page 23/50  offset=660  collected=553  total=20109
+2026-09-01 07:58:39  [INFO    ]  [cars-for-sale] Page 24/50  offset=690  collected=581  total=20109
+2026-09-01 07:58:57  [INFO    ]  [cars-for-sale] Page 25/50  offset=720  collected=604  total=20109
+2026-09-01 07:59:19  [INFO    ]  [cars-for-sale] Page 26/50  offset=750  collected=632  total=20109
+2026-09-01 07:59:42  [INFO    ]  [cars-for-sale] Page 27/50  offset=780  collected=662  total=20109
+2026-09-01 08:00:03  [INFO    ]  [cars-for-sale] Page 28/50  offset=810  collected=688  total=20109
+2026-09-01 08:00:29  [INFO    ]  [cars-for-sale] Page 29/50  offset=840  collected=717  total=20109
+2026-09-01 08:00:53  [INFO    ]  [cars-for-sale] Page 30/50  offset=870  collected=747  total=20109
+2026-09-01 08:01:16  [INFO    ]  [cars-for-sale] Page 31/50  offset=900  collected=777  total=20109
+2026-09-01 08:01:40  [INFO    ]  [cars-for-sale] Page 32/50  offset=930  collected=807  total=20109
+2026-09-01 08:02:02  [INFO    ]  [cars-for-sale] Page 33/50  offset=960  collected=837  total=20109
+2026-09-01 08:02:25  [INFO    ]  [cars-for-sale] Page 34/50  offset=990  collected=867  total=20109
+2026-09-01 08:02:48  [INFO    ]  [cars-for-sale] Page 35/50  offset=1020  collected=897  total=20109
+2026-09-01 08:02:50  [INFO    ]  [cars-for-sale] Page 36/50  offset=1050  collected=897  total=20109
+2026-09-01 08:02:51  [INFO    ]  [cars-for-sale] Page 37/50  offset=1080  collected=897  total=20109
+2026-09-01 08:03:01  [INFO    ]  [cars-for-sale] Page 38/50  offset=1110  collected=907  total=20109
+2026-09-01 08:03:26  [INFO    ]  [cars-for-sale] Page 39/50  offset=1140  collected=937  total=20109
+2026-09-01 08:03:48  [INFO    ]  [cars-for-sale] Page 40/50  offset=1170  collected=967  total=20109
+2026-09-01 08:04:08  [INFO    ]  [cars-for-sale] Page 41/50  offset=1200  collected=993  total=20109
+2026-09-01 08:04:32  [INFO    ]  [cars-for-sale] Page 42/50  offset=1230  collected=1023  total=20109
+2026-09-01 08:04:55  [INFO    ]  [cars-for-sale] Page 43/50  offset=1260  collected=1053  total=20109
+2026-09-01 08:05:17  [INFO    ]  [cars-for-sale] Page 44/50  offset=1290  collected=1080  total=20109
+2026-09-01 08:05:41  [INFO    ]  [cars-for-sale] Page 45/50  offset=1320  collected=1108  total=20109
+2026-09-01 08:06:02  [INFO    ]  [cars-for-sale] Page 46/50  offset=1350  collected=1135  total=20109
+2026-09-01 08:06:25  [INFO    ]  [cars-for-sale] Page 47/50  offset=1380  collected=1165  total=20109
+2026-09-01 08:06:47  [INFO    ]  [cars-for-sale] Page 48/50  offset=1410  collected=1193  total=20109
+2026-09-01 08:07:07  [INFO    ]  [cars-for-sale] Page 49/50  offset=1440  collected=1218  total=20109
+2026-09-01 08:07:31  [INFO    ]  [cars-for-sale] Page 50/50  offset=1470  collected=1247  total=20109
+2026-09-01 08:07:53  [INFO    ]  Scrape complete. Collected 1277 records in this batch.
+2026-09-01 08:07:53  [INFO    ]  Batch summary: 1,277 total listings collected (379 new IDs, 898 recurring/tracked IDs).
+2026-09-01 08:07:54  [INFO    ]  Saved 1277 records to Parquet -> data/raw/cars_2026-09-01.parquet
+2026-09-01 08:07:54  [INFO    ]  Saved 60-row CSV sample -> data/raw/khmer24_cars_sample_60.csv
+2026-09-01 08:07:54  [INFO    ]  Saved ingestion run manifest -> data/raw/ingestion_manifest.json
+2026-09-01 08:07:54  [INFO    ]  Raw Parquet -> data/raw/cars_2026-09-01.parquet
+2026-09-01 08:07:54  [INFO    ]  CSV sample  -> 60 rows : data/raw/khmer24_cars_sample_60.csv
+2026-09-01 08:07:54  [INFO    ]  Manifest    -> data/raw/ingestion_manifest.json
+2026-09-01 08:07:54  [INFO    ]  -- Data Quality (current batch) ---------------------------------
+2026-09-01 08:07:54  [INFO    ]    Batch listings      : 1,277
+2026-09-01 08:07:54  [INFO    ]    With price          : 100.0%
+2026-09-01 08:07:54  [INFO    ]    With model year     : 100.0%
+2026-09-01 08:07:54  [INFO    ]    With brand          : 98.6%
+2026-09-01 08:07:54  [INFO    ]    With model name     : 98.1%
+2026-09-01 08:07:54  [INFO    ]    With province       : 100.0%
+2026-09-01 08:07:54  [INFO    ]    With mileage (km)   : 0.0%
+2026-09-01 08:07:54  [INFO    ]    With fuel type      : 87.6%
+2026-09-01 08:07:54  [INFO    ]    With transmission   : 85.2%
+2026-09-01 08:07:54  [INFO    ]    Total Cumulative Unique IDs : 7,544
+2026-09-01 08:07:54  [INFO    ]    Phase 1 cumulative volume target met (>= 2,000 unique listings)!
+2026-09-01 08:07:54  [INFO    ]  EL stage complete. 1,277 listings processed in this batch.
