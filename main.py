@@ -120,13 +120,22 @@ def main() -> None:
 
 def run_full_pipeline() -> None:
     """Run scrape with detail enrichment + dbt transformation in a single call."""
-    if "--enrich-details" not in sys.argv:
-        sys.argv.append("--enrich-details")
-    if "--transform" not in sys.argv:
-        sys.argv.append("--transform")
-    if "--dbt-test" not in sys.argv:
-        sys.argv.append("--dbt-test")
-    main()
+    from pipeline.dbt_runner import run_transformation
+    try:
+        result_count = run_el(
+            enrich_details=True,
+        )
+        logger.info(f"EL stage complete. {result_count:,} listings processed in this batch.")
+
+        logger.info("Triggering dbt transformations...")
+        dbt_code = run_transformation()
+        if dbt_code != 0:
+            logger.error("dbt transformation failed.")
+            sys.exit(dbt_code)
+        logger.info("End-to-end ELT pipeline complete.")
+    except Exception as exc:
+        logger.exception(f"Pipeline failed: {exc}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

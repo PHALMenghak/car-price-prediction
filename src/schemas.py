@@ -128,7 +128,8 @@ class AdListingModel(BaseModel):
             return None
         try:
             year = int(str(v).strip())
-            return year if 1980 <= year <= 2027 else None
+            _max_year = datetime.now().year + 2
+            return year if 1980 <= year <= _max_year else None
         except (ValueError, TypeError):
             return None
 

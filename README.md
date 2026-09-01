@@ -185,26 +185,25 @@ Car_price_prediction/
 │       └── preprocessing_manifest.json
 ├── logs/                          # Daily scraper execution logs (scraper_YYYY-MM-DD.log)
 ├── notebooks/                     # Exploratory Data Analysis & Modeling
-│   ├── 01_data_collection.ipynb
+│   ├── 01_data_understanding.ipynb
 │   ├── 02_eda_exploration.ipynb
-│   ├── 03_baseline_models.ipynb
-│   └── 04_model_evaluation.ipynb
+│   └── 03_model_training.ipynb
 ├── pipeline/                      # Core Data Engineering Pipelines
 │   ├── dbt_runner.py              # Programmatic & CLI runner for dbt DuckDB pipeline
 │   ├── extract_load.py            # EL pipeline (feed scraper, change tracking)
-│   └── transform.py               # Medallion data cleaning & feature engineering
+│   └── backfill_details.py        # Detail page backfill crawler & spec cache
 ├── src/                           # Shared Production Modules
 │   ├── client.py                  # Khmer24 REST API client with retry & backoff
 │   ├── parsers.py                 # Multilingual brand, model & spec extraction regexes
 │   ├── schemas.py                 # Pydantic v2 data models & type validators
 │   ├── storage.py                 # Parquet / CSV I/O, manifests & historical tracking
 │   └── config.py                  # Central settings, URLs & environment variables
-├── tests/                         # Comprehensive Pytest Suite (81 tests)
+├── tests/                         # Comprehensive Pytest Suite (56 tests)
+│   ├── test_backfill.py
 │   ├── test_client.py
 │   ├── test_parsers.py
 │   ├── test_pipeline.py
-│   ├── test_storage.py
-│   └── test_transform.py
+│   └── test_storage.py
 ├── .env.example                   # Template for local environment variables
 ├── .gitignore                     # Optimized Git exclusion rules
 ├── pyproject.toml                 # Project metadata & Python dependencies

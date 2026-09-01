@@ -3,6 +3,7 @@
 # bypassing Cloudflare Bot Management without Playwright/Selenium.
 
 import os
+import re
 import time
 import random
 import logging
@@ -566,8 +567,6 @@ class Khmer24Client:
         structured lookups, the listing description is scanned with a regex to
         extract odometer readings (e.g. ``"150,000 km"``, ``"85K km"``).
         """
-        import re as _re
-
         try:
             # ── Path 1: NUXT resolved_specs (primary — from HTML detail page) ──
             resolved: Dict[str, Any] = detail.get("resolved_specs") or {}
@@ -712,10 +711,10 @@ class Khmer24Client:
                 desc = detail.get("description") or detail.get("content") or model.description or ""
                 if desc:
                     # Matches: "150,000 km", "85K km", "150000km", "85.5k"
-                    km_match = _re.search(
+                    km_match = re.search(
                         r'(\d[\d,\.]*)\s*[Kk]\s*(?:km\b|$)|(\d[\d,]*)\s*(?:km\b)',
                         desc,
-                        _re.IGNORECASE,
+                        re.IGNORECASE,
                     )
                     if km_match:
                         raw_km = km_match.group(1) or km_match.group(2)

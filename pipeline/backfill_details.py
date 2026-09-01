@@ -23,11 +23,6 @@ from src.parsers import (
     parse_mileage,
 )
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s  [%(levelname)-8s]  %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
 logger = logging.getLogger(__name__)
 
 CACHE_FILE_NAME = ".backfill_cache.json"
@@ -106,22 +101,33 @@ def scan_missing_listings(raw_dir: str) -> Tuple[Dict[str, Dict[str, Any]], Dict
             ] if c in df.columns
         ]
 
-        for _, row in df.iterrows():
+        # Vectorized missing-spec detection across all check columns
+        _MISSING_VALS = {"", "None", "Unknown", "nan"}
+
+        # Build a boolean mask: True where any check column is null or a missing sentinel
+        null_mask = df[check_cols].isnull().any(axis=1)
+        sentinel_mask = df[check_cols].apply(
+            lambda col: col.astype(str).str.strip().isin(_MISSING_VALS)
+        ).any(axis=1)
+        is_missing_mask = null_mask | sentinel_mask
+
+        # Track occurrence counts for all IDs (vectorized)
+        for lid in df["listing_id"].dropna().astype(str).str.strip():
+            if lid and lid not in ("None", "nan"):
+                occurrence_counts[lid] = occurrence_counts.get(lid, 0) + 1
+
+        # Only iterate over rows that are missing AND not yet seen
+        missing_rows = df[is_missing_mask & df["listing_id"].astype(str).str.strip().apply(
+            lambda lid: bool(lid) and lid not in ("None", "nan") and lid not in missing_candidates
+        )]
+        for _, row in missing_rows.iterrows():
             lid = str(row.get("listing_id", "")).strip()
             if not lid or lid in ("None", "nan"):
                 continue
-
-            occurrence_counts[lid] = occurrence_counts.get(lid, 0) + 1
-
-            is_missing = any(
-                pd.isna(row.get(col)) or str(row.get(col)).strip() in ("", "None", "Unknown", "nan", None)
-                for col in check_cols
-            )
-            if is_missing and lid not in missing_candidates:
-                missing_candidates[lid] = {
-                    "url": row.get("listing_url") or f"https://www.khmer24.com/post-adid-{lid}",
-                    "title": row.get("listing_title") or "",
-                }
+            missing_candidates[lid] = {
+                "url": row.get("listing_url") or f"https://www.khmer24.com/post-adid-{lid}",
+                "title": row.get("listing_title") or "",
+            }
 
     return missing_candidates, occurrence_counts
 
@@ -444,6 +450,11 @@ def run_backfill(
 
 def main() -> None:
     """CLI entrypoint for backfill."""
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s  [%(levelname)-8s]  %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
     parser = argparse.ArgumentParser(description="Khmer24 Historical Detail Backfill")
     parser.add_argument("--raw-dir", default=RAW_DATA_DIR, help="Raw data directory")
     parser.add_argument("--limit", type=int, default=None, help="Max unique IDs to fetch in this run")

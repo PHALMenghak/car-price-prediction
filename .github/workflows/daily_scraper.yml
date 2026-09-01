@@ -100,9 +100,6 @@ jobs:
           ENRICH_DETAILS:    ${{ github.event.inputs.enrich_details || 'true' }}
           PYTHONUTF8:        "1"
           KHMER24_DEVICE_ID: ${{ secrets.KHMER24_DEVICE_ID }}
-          HTTPS_PROXY:       ${{ secrets.HTTPS_PROXY }}
-          HTTP_PROXY:        ${{ secrets.HTTP_PROXY }}
-          KHMER24_PROXY:     ${{ secrets.KHMER24_PROXY }}
           # Cloudflare Worker relay — set these to bypass Cloudflare IP blocking
           POSTS_API_BASE:    ${{ secrets.POSTS_API_BASE }}
           RELAY_KEY:         ${{ secrets.RELAY_KEY }}

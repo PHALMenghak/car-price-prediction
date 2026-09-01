@@ -152,6 +152,21 @@ def save_to_parquet(
     return path
 
 
+_JSON_RESTORE_COLS = ("seller_phones", "raw_specs", "images", "phone_numbers", "specs")
+
+
+def _restore_json_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Restore list/dict columns from JSON strings back to Python objects."""
+    for col in _JSON_RESTORE_COLS:
+        if col in df.columns:
+            df[col] = df[col].apply(
+                lambda x: json.loads(x)
+                if isinstance(x, str) and x.startswith(("[", "{"))
+                else x
+            )
+    return df
+
+
 def load_from_parquet(
     filename: str = PARQUET_FILENAME,
     directory: str = RAW_DATA_DIR,
@@ -161,16 +176,7 @@ def load_from_parquet(
     """
     path = os.path.join(directory, filename)
     df = pd.read_parquet(path)
-
-    # Restore list/dict columns from JSON strings
-    for col in ("seller_phones", "raw_specs", "images", "phone_numbers", "specs"):
-        if col in df.columns:
-            df[col] = df[col].apply(
-                lambda x: json.loads(x)
-                if isinstance(x, str) and x.startswith(("[", "{"))
-                else x
-            )
-    return df
+    return _restore_json_columns(df)
 
 
 def load_all_parquet(directory: str = RAW_DATA_DIR) -> pd.DataFrame:
@@ -200,14 +206,7 @@ def load_all_parquet(directory: str = RAW_DATA_DIR) -> pd.DataFrame:
         return pd.DataFrame()
 
     combined = pd.concat(dfs, ignore_index=True)
-    for col in ("seller_phones", "raw_specs", "images", "phone_numbers", "specs"):
-        if col in combined.columns:
-            combined[col] = combined[col].apply(
-                lambda x: json.loads(x)
-                if isinstance(x, str) and x.startswith(("[", "{"))
-                else x
-            )
-    return combined
+    return _restore_json_columns(combined)
 
 
 def save_sample_csv(
