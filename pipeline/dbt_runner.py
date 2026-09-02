@@ -29,6 +29,12 @@ def run_dbt_command(command: str = "run", extra_args: Optional[List[str]] = None
     Returns:
         Return code from the dbt process (0 = success).
     """
+    # Ensure all required data & log directories exist
+    (PROJECT_ROOT / "data" / "duckdb").mkdir(parents=True, exist_ok=True)
+    (PROJECT_ROOT / "data" / "silver").mkdir(parents=True, exist_ok=True)
+    (PROJECT_ROOT / "data" / "gold").mkdir(parents=True, exist_ok=True)
+    (PROJECT_ROOT / "logs").mkdir(parents=True, exist_ok=True)
+
     cmd = [
         "dbt",
         command,
