@@ -10,16 +10,11 @@ from dotenv import load_dotenv
 load_dotenv()  # Reads .env file from the project root
 
 # ── API Base URLs ──────────────────────────────────────────────────────────────
-# POSTS_API_BASE can be overridden via env var to route through a
-# Cloudflare Worker relay (bypasses Cloudflare Bot Management on GitHub Actions).
-# Local dev: leave unset → uses the real Khmer24 API directly.
-# GitHub Actions: set to https://khmer24-relay.<yourname>.workers.dev
 CORE_API_BASE   = os.getenv("CORE_API_BASE", "https://api.khmer24.com")
 POSTS_API_BASE  = os.getenv("POSTS_API_BASE", "https://api-posts.khmer24.com")
 IMAGES_CDN_BASE = os.getenv("IMAGES_CDN_BASE", "https://images.khmer24.co")
 
 # Cloudflare Worker relay auth key — must match RELAY_KEY set in Worker Settings.
-# Leave empty when not using the Worker relay (local dev).
 RELAY_KEY = os.getenv("RELAY_KEY", "")
 
 # Device-Id is generated uniquely per session or read from env
@@ -48,13 +43,22 @@ DEFAULT_HEADERS = {
 # ── Scraper Defaults ───────────────────────────────────────────────────────────
 DEFAULT_LANG          = "en"
 DEFAULT_PAGE_LIMIT    = 30       # Items returned per API page
-DEFAULT_DELAY_SECONDS = 0.75     # Polite delay between requests (seconds)
+DEFAULT_DELAY_SECONDS = 0.5      # Polite delay between requests (seconds)
 DEFAULT_RETRIES       = 3        # Max HTTP retry attempts per request
 DEFAULT_TIMEOUT       = 25       # HTTP request timeout in seconds
+DETAIL_WORKERS        = int(os.getenv("DETAIL_WORKERS", "4"))  # Concurrency for detail page scraping
 
-# ── Storage Paths ──────────────────────────────────────────────────────────────
-RAW_DATA_DIR       = os.path.join("data", "raw")
-PROCESSED_DATA_DIR = os.path.join("data", "processed")
+# ── Medallion Storage Paths ───────────────────────────────────────────────────
+DATA_DIR           = "data"
+BRONZE_DATA_DIR    = os.path.join(DATA_DIR, "bronze")
+SILVER_DATA_DIR    = os.path.join(DATA_DIR, "silver")
+GOLD_DATA_DIR      = os.path.join(DATA_DIR, "gold")
+DUCKDB_DIR         = os.path.join(DATA_DIR, "duckdb")
+DUCKDB_PATH        = os.path.join(DUCKDB_DIR, "khmer24.duckdb")
+
+# Aliases for backward compatibility
+RAW_DATA_DIR       = BRONZE_DATA_DIR
+PROCESSED_DATA_DIR = SILVER_DATA_DIR
 LOGS_DIR           = "logs"
 
 
@@ -64,25 +68,13 @@ def get_daily_parquet_filename(date: datetime | None = None) -> str:
     return f"cars_{d.strftime('%Y-%m-%d')}.parquet"
 
 
-# Alias for backward compatibility
 get_next_daily_version_filename = get_daily_parquet_filename
-
 PARQUET_FILENAME = get_daily_parquet_filename()
+RAW_CSV_FILENAME = "khmer24_cars.csv"  # Single full raw CSV of current day's scrape
 
 # ── Scrape Target & Mode ───────────────────────────────────────────────────────
-# Override via environment variables for CI/CD flexibility.
 TARGET_CATEGORY = os.getenv("TARGET_CATEGORY", "cars-for-sale")
 TARGET_PROVINCE = os.getenv("TARGET_PROVINCE") or None   # None = all provinces
 MAX_PAGES       = int(os.getenv("MAX_PAGES", "50"))       # 30 items/page → up to 1,500 listings
-
-# SCRAPE_MODE:
-# - 'feed_window' (default): Scrapes the active recent feed (up to MAX_PAGES).
-#   Captures new listings + updated/renewed listings for multi-day change tracking.
-# - 'delta_only': Stops scraping as soon as an entire page of previously known IDs is hit.
 SCRAPE_MODE     = os.getenv("SCRAPE_MODE", "feed_window")
-
-# ENRICH_DETAILS:
-# If True, scrapes individual post detail endpoints for listings missing key specs.
 ENRICH_DETAILS  = os.getenv("ENRICH_DETAILS", "true").lower() in ("true", "1", "yes")
-
-

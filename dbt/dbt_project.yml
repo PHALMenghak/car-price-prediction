@@ -3,13 +3,11 @@
 # Implements Medallion Architecture: Bronze (Staging) → Silver (Intermediate) → Gold (Marts)
 
 name: 'khmer24_car_price'
-version: '1.0.0'
+version: '2.0.0'
 config-version: 2
 
-# Connection profile defined in dbt/profiles.yml
 profile: 'khmer24_duckdb'
 
-# Path configurations (relative to this file — the dbt/ directory)
 model-paths:   ["models"]
 analysis-paths: ["analyses"]
 macro-paths:   ["macros"]
@@ -22,17 +20,17 @@ clean-targets: ["target", "dbt_packages"]
 models:
   khmer24_car_price:
 
-    # Bronze/Staging: lightweight views — fast, no storage cost
+    # Bronze / Staging: lightweight views over raw bronze parquet files
     staging:
       +materialized: view
       +schema: staging
 
-    # Silver/Intermediate: views for incremental refinement
+    # Silver / Intermediate: cleaned, conformed views & silver parquet exports
     intermediate:
       +materialized: view
       +schema: intermediate
 
-    # Gold/Marts: external Parquet export directly consumed by ML training
+    # Gold / Marts: Star Schema & ML feature store tables & gold parquet exports
     marts:
       +materialized: table
       +schema: marts

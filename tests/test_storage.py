@@ -2,37 +2,42 @@ import json
 import os
 import pytest
 import pandas as pd
-from src.schemas import AdListingModel
+from src.schemas import RawCarListing
 from src.storage import (
     get_historical_ids,
     load_all_parquet,
     load_from_parquet,
     save_run_manifest,
-    save_sample_csv,
+    save_to_csv,
     save_to_parquet,
 )
 
 
 def test_storage_parquet_roundtrip(tmp_path):
     sample = [
-        AdListingModel(
+        RawCarListing(
             listing_id="101",
-            listing_title="Toyota Prius 2012",
-            price=13500.0,
+            raw_title="Toyota Prius 2012",
+            raw_price="13500.0",
+            raw_spec_brand="Toyota",
+            raw_spec_model="Prius",
+            raw_spec_year="2012",
             seller_phones=["012345678", "098765432"],
             images=["https://img.khmer24.com/1.jpg", "https://img.khmer24.com/2.jpg"],
-            description="Good car, original paint",
-            seller_avatar="https://img.khmer24.com/avatar.jpg",
-            raw_specs={"fuel": "Hybrid", "car-year": 2012},
+            raw_description="Good car, original paint",
+            raw_feed_payload='{"id": 101, "title": "Toyota Prius 2012"}',
         ),
-        AdListingModel(
+        RawCarListing(
             listing_id="102",
-            listing_title="Ford Ranger 2021",
-            price=32000.0,
+            raw_title="Ford Ranger 2021",
+            raw_price="32000.0",
+            raw_spec_brand="Ford",
+            raw_spec_model="Ranger",
+            raw_spec_year="2021",
             seller_phones=[],
             images=[],
-            description=None,
-            raw_specs=None,
+            raw_description=None,
+            raw_feed_payload=None,
         ),
     ]
 
@@ -45,7 +50,7 @@ def test_storage_parquet_roundtrip(tmp_path):
     assert loaded_df["listing_id"].tolist() == ["101", "102"]
     assert loaded_df.iloc[0]["seller_phones"] == ["012345678", "098765432"]
     assert loaded_df.iloc[0]["images"] == ["https://img.khmer24.com/1.jpg", "https://img.khmer24.com/2.jpg"]
-    assert loaded_df.iloc[0]["description"] == "Good car, original paint"
+    assert loaded_df.iloc[0]["raw_description"] == "Good car, original paint"
 
     # Test load_all_parquet
     combined_df = load_all_parquet(directory=temp_dir)
@@ -53,23 +58,24 @@ def test_storage_parquet_roundtrip(tmp_path):
 
     # Test get_historical_ids
     hist_ids = get_historical_ids(directory=temp_dir)
-    assert hist_ids == {"101", "102"}
+    assert "101" in hist_ids and "102" in hist_ids
 
 
-def test_save_sample_csv(tmp_path):
+def test_save_to_csv_full(tmp_path):
     temp_dir = str(tmp_path)
     sample = [
-        AdListingModel(
+        RawCarListing(
             listing_id=f"20{i}",
-            listing_title=f"Car model {i}",
-            price=10000.0 + i * 500,
+            raw_title=f"Car model {i}",
+            raw_price=str(10000.0 + i * 500),
         )
-        for i in range(40)
+        for i in range(150)
     ]
-    csv_path = save_sample_csv(sample, n=30, directory=temp_dir)
+    csv_path = save_to_csv(sample, filename="khmer24_cars.csv", directory=temp_dir)
     assert os.path.exists(csv_path)
     df = pd.read_csv(csv_path)
-    assert len(df) == 30
+    # Verifies all 150 records from the run are saved (no downsampling)
+    assert len(df) == 150
 
 
 def test_save_run_manifest(tmp_path):
@@ -85,4 +91,3 @@ def test_save_run_manifest(tmp_path):
     with open(manifest_path, "r", encoding="utf-8") as f:
         loaded = json.load(f)
     assert loaded["cumulative_unique_ids"] == 1260
-

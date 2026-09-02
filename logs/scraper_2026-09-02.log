@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 2026-09-02 07:07:48  [INFO    ]  =================================================================
 2026-09-02 07:07:48  [INFO    ]  EL Pipeline  --  Extract & Load (Time-Series & Change Tracking)
 2026-09-02 07:07:48  [INFO    ]    Category       : cars-for-sale
@@ -80,3 +81,601 @@
 2026-09-02 07:24:18  [INFO    ]    Total Cumulative Unique IDs : 7,935
 2026-09-02 07:24:18  [INFO    ]    Phase 1 cumulative volume target met (>= 2,000 unique listings)!
 2026-09-02 07:24:18  [INFO    ]  EL stage complete. 1,220 listings processed in this batch.
+=======
+2026-09-02 10:13:10  [INFO    ]  =================================================================
+2026-09-02 10:13:10  [INFO    ]  EL Pipeline  --  Bronze Layer Ingestion (Feed + Details)
+2026-09-02 10:13:10  [INFO    ]    Category       : cars-for-sale
+2026-09-02 10:13:10  [INFO    ]    Province       : ALL
+2026-09-02 10:13:10  [INFO    ]    Max pages      : 1  (30 listings max)
+2026-09-02 10:13:10  [INFO    ]    Scrape mode    : feed_window
+2026-09-02 10:13:10  [INFO    ]    Enrich details : True
+2026-09-02 10:13:10  [INFO    ]    Output dir     : data\bronze
+2026-09-02 10:13:10  [INFO    ]  =================================================================
+2026-09-02 10:13:10  [INFO    ]    Found 7,165 historical unique listing IDs in Bronze storage.
+2026-09-02 10:13:10  [INFO    ]  Cloudflare Worker relay enabled.
+2026-09-02 10:13:10  [INFO    ]  [cars-for-sale] Page 1/1  offset=0  collected=0
+2026-09-02 10:13:11  [INFO    ]  Fetching details concurrently for 40 listings (workers=4)...
+2026-09-02 10:13:17  [INFO    ]  Scrape complete. Collected 40 records in this batch.
+2026-09-02 10:13:17  [INFO    ]  Batch summary: 40 total listings collected (10 new IDs, 30 recurring/tracked IDs).
+2026-09-02 10:13:18  [INFO    ]  Saved 40 raw records to Parquet -> data\bronze\cars_2026-09-02.parquet
+2026-09-02 10:13:18  [INFO    ]  Saved 40-row CSV sample -> data\bronze\khmer24_cars_sample_60.csv
+2026-09-02 10:13:18  [INFO    ]  Saved ingestion run manifest -> data\bronze\ingestion_manifest.json
+2026-09-02 10:13:18  [INFO    ]  Bronze Parquet -> data\bronze\cars_2026-09-02.parquet
+2026-09-02 10:13:18  [INFO    ]  CSV sample     -> data\bronze\khmer24_cars_sample_60.csv
+2026-09-02 10:13:18  [INFO    ]  Manifest       -> data\bronze\ingestion_manifest.json
+2026-09-02 10:13:18  [INFO    ]  -- Raw Data Coverage (current batch) ----------------------------
+2026-09-02 10:13:18  [INFO    ]    Batch listings          : 40
+2026-09-02 10:13:18  [INFO    ]    With price              : 100.0%
+2026-09-02 10:13:18  [INFO    ]    With raw model year     : 100.0%
+2026-09-02 10:13:18  [INFO    ]    With raw brand spec     : 95.0%
+2026-09-02 10:13:18  [INFO    ]    With raw model spec     : 90.0%
+2026-09-02 10:13:18  [INFO    ]    With raw province       : 100.0%
+2026-09-02 10:13:18  [INFO    ]    With raw mileage        : 0.0%
+2026-09-02 10:13:18  [INFO    ]    With raw fuel type      : 85.0%
+2026-09-02 10:13:18  [INFO    ]    With raw transmission   : 92.5%
+2026-09-02 10:13:18  [INFO    ]    Detail pages enriched   : 100.0%
+2026-09-02 10:13:18  [INFO    ]    Total Cumulative Unique IDs : 7,175
+2026-09-02 10:13:18  [INFO    ]  EL stage complete. 40 listings processed in this batch.
+2026-09-02 10:13:18  [INFO    ]  Triggering dbt transformations...
+2026-09-02 10:13:18  [INFO    ]  Running dbt: dbt run --project-dir D:\ITC3_AMS_2025\I4_AMS_S2\Y4_Internship\Car_price_prediction\dbt --profiles-dir D:\ITC3_AMS_2025\I4_AMS_S2\Y4_Internship\Car_price_prediction\dbt
+2026-09-02 10:13:28  [INFO    ]  dbt run completed successfully in 9.96s.
+2026-09-02 10:13:28  [INFO    ]  Running dbt: dbt test --project-dir D:\ITC3_AMS_2025\I4_AMS_S2\Y4_Internship\Car_price_prediction\dbt --profiles-dir D:\ITC3_AMS_2025\I4_AMS_S2\Y4_Internship\Car_price_prediction\dbt
+2026-09-02 10:13:34  [INFO    ]  dbt test completed successfully in 6.15s.
+2026-09-02 10:13:34  [INFO    ]  End-to-end ELT pipeline complete.
+2026-09-02 14:24:29  [INFO    ]  =================================================================
+2026-09-02 14:24:29  [INFO    ]  Starting Bronze Data Ingestion: 2026-09-02T07:24:29.184621+00:00
+2026-09-02 14:24:29  [INFO    ]  Config: category=cars-for-sale, province=ALL, max_pages=20, mode=feed_window, enrich_details=True
+2026-09-02 14:24:29  [INFO    ]  =================================================================
+2026-09-02 14:24:29  [INFO    ]  Cloudflare Worker relay enabled.
+2026-09-02 14:24:29  [ERROR   ]  Pipeline failed: Khmer24Client.scrape_category_feed() got an unexpected keyword argument 'category'
+Traceback (most recent call last):
+  File "D:\ITC3_AMS_2025\I4_AMS_S2\Y4_Internship\Car_price_prediction\main.py", line 93, in main
+    result_count = run_el(
+                   ^^^^^^^
+  File "D:\ITC3_AMS_2025\I4_AMS_S2\Y4_Internship\Car_price_prediction\pipeline\extract_load.py", line 67, in run
+    scraped_listings: List[RawCarListing] = client.scrape_category_feed(
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: Khmer24Client.scrape_category_feed() got an unexpected keyword argument 'category'
+2026-09-02 14:24:42  [INFO    ]  =================================================================
+2026-09-02 14:24:42  [INFO    ]  Starting Bronze Data Ingestion: 2026-09-02T07:24:42.953267+00:00
+2026-09-02 14:24:42  [INFO    ]  Config: category=cars-for-sale, province=ALL, max_pages=20, mode=feed_window, enrich_details=True
+2026-09-02 14:24:42  [INFO    ]  =================================================================
+2026-09-02 14:24:42  [INFO    ]  Cloudflare Worker relay enabled.
+2026-09-02 14:24:42  [ERROR   ]  Pipeline failed: Khmer24Client.scrape_category_feed() got an unexpected keyword argument 'category'
+Traceback (most recent call last):
+  File "D:\ITC3_AMS_2025\I4_AMS_S2\Y4_Internship\Car_price_prediction\main.py", line 93, in main
+    result_count = run_el(
+                   ^^^^^^^
+  File "D:\ITC3_AMS_2025\I4_AMS_S2\Y4_Internship\Car_price_prediction\pipeline\extract_load.py", line 67, in run
+    scraped_listings: List[RawCarListing] = client.scrape_category_feed(
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: Khmer24Client.scrape_category_feed() got an unexpected keyword argument 'category'
+2026-09-02 14:24:55  [INFO    ]  =================================================================
+2026-09-02 14:24:55  [INFO    ]  Starting Bronze Data Ingestion: 2026-09-02T07:24:55.534500+00:00
+2026-09-02 14:24:55  [INFO    ]  Config: category=cars-for-sale, province=ALL, max_pages=20, mode=feed_window, enrich_details=True
+2026-09-02 14:24:55  [INFO    ]  =================================================================
+2026-09-02 14:24:55  [INFO    ]  Cloudflare Worker relay enabled.
+2026-09-02 14:24:55  [ERROR   ]  Pipeline failed: Khmer24Client.scrape_category_feed() got an unexpected keyword argument 'category'
+Traceback (most recent call last):
+  File "D:\ITC3_AMS_2025\I4_AMS_S2\Y4_Internship\Car_price_prediction\main.py", line 93, in main
+    result_count = run_el(
+                   ^^^^^^^
+  File "D:\ITC3_AMS_2025\I4_AMS_S2\Y4_Internship\Car_price_prediction\pipeline\extract_load.py", line 67, in run
+    scraped_listings: List[RawCarListing] = client.scrape_category_feed(
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: Khmer24Client.scrape_category_feed() got an unexpected keyword argument 'category'
+2026-09-02 14:28:00  [INFO    ]  =================================================================
+2026-09-02 14:28:00  [INFO    ]  Starting Bronze Data Ingestion: 2026-09-02T07:28:00.665078+00:00
+2026-09-02 14:28:00  [INFO    ]  Config: category=cars-for-sale, province=ALL, max_pages=1, mode=feed_window, enrich_details=True
+2026-09-02 14:28:00  [INFO    ]  =================================================================
+2026-09-02 14:28:00  [INFO    ]  Cloudflare Worker relay enabled.
+2026-09-02 14:28:00  [INFO    ]  [cars-for-sale] Page 1/1  offset=0  collected=0
+2026-09-02 14:28:01  [INFO    ]  Fetching details concurrently for 40 listings (workers=4)...
+2026-09-02 14:28:07  [INFO    ]  Scrape complete. Collected 40 records in this batch.
+2026-09-02 14:28:07  [INFO    ]  Extraction complete in 6.39s: 40 total listings collected.
+2026-09-02 14:28:07  [INFO    ]  Batch summary: 40 total listings collected (13 new IDs, 27 recurring/tracked IDs).
+2026-09-02 14:28:07  [INFO    ]  Saved 40 raw records to Parquet -> data\bronze\cars_2026-09-02.parquet
+2026-09-02 14:28:07  [INFO    ]  Saved 40 full raw records from today's run to CSV -> data\bronze\khmer24_cars.csv
+2026-09-02 14:28:07  [INFO    ]  Saved ingestion run manifest -> data\bronze\ingestion_manifest.json
+2026-09-02 14:28:07  [INFO    ]  Bronze Parquet -> data\bronze\cars_2026-09-02.parquet
+2026-09-02 14:28:07  [INFO    ]  Full Run CSV   -> data\bronze\khmer24_cars.csv
+2026-09-02 14:28:07  [INFO    ]  Manifest       -> data\bronze\ingestion_manifest.json
+2026-09-02 14:28:07  [INFO    ]  ┌────────────────────────────────────────────────────┐
+2026-09-02 14:28:07  [INFO    ]  │  BRONZE INGESTION QUALITY SUMMARY (40 records)     │
+2026-09-02 14:28:07  [INFO    ]  ├────────────────────────────────────┬───────────────┤
+2026-09-02 14:28:07  [INFO    ]  │  Price Field Coverage              │  100.0%       │
+2026-09-02 14:28:07  [INFO    ]  │  Brand Field Coverage              │   97.5%       │
+2026-09-02 14:28:07  [INFO    ]  │  Model Field Coverage              │   95.0%       │
+2026-09-02 14:28:07  [INFO    ]  │  Year Field Coverage               │  100.0%       │
+2026-09-02 14:28:07  [INFO    ]  │  Province Field Coverage           │  100.0%       │
+2026-09-02 14:28:07  [INFO    ]  │  Mileage Field Coverage            │    0.0%       │
+2026-09-02 14:28:07  [INFO    ]  │  Transmission Field Coverage       │   92.5%       │
+2026-09-02 14:28:07  [INFO    ]  │  Fuel Type Field Coverage          │   90.0%       │
+2026-09-02 14:28:07  [INFO    ]  │  Detail Enrichment Rate            │  100.0%       │
+2026-09-02 14:28:07  [INFO    ]  ├────────────────────────────────────┴───────────────┤
+2026-09-02 14:28:07  [INFO    ]  │  Cumulative Unique Marketplace IDs :  7,188              │
+2026-09-02 14:28:07  [INFO    ]  └────────────────────────────────────────────────────┘
+2026-09-02 14:28:07  [INFO    ]  EL stage complete. 40 listings processed in this batch.
+2026-09-02 15:13:37  [INFO    ]  =================================================================
+2026-09-02 15:13:37  [INFO    ]  Starting Bronze Data Ingestion: 2026-09-02T08:13:37.112651+00:00
+2026-09-02 15:13:37  [INFO    ]  Config: category=cars-for-sale, province=ALL, max_pages=1, mode=feed_window, enrich_details=True
+2026-09-02 15:13:37  [INFO    ]  =================================================================
+2026-09-02 15:13:37  [INFO    ]  Cloudflare Worker relay enabled.
+2026-09-02 15:13:37  [INFO    ]  [cars-for-sale] Page 1/1  offset=0  collected=0
+2026-09-02 15:13:37  [INFO    ]  Fetching details concurrently for 40 listings (workers=4)...
+2026-09-02 15:13:43  [INFO    ]  Scrape complete. Collected 40 records in this batch.
+2026-09-02 15:13:43  [INFO    ]  Extraction complete in 6.34s: 40 total listings collected.
+2026-09-02 15:13:43  [INFO    ]  Batch summary: 40 total listings collected (10 new IDs, 30 recurring/tracked IDs).
+2026-09-02 15:13:43  [INFO    ]  Saved 40 raw records to Parquet -> data\bronze\cars_2026-09-02.parquet
+2026-09-02 15:13:43  [INFO    ]  Saved 40 full raw records from today's run to CSV -> data\bronze\khmer24_cars.csv
+2026-09-02 15:13:43  [INFO    ]  Saved ingestion run manifest -> data\bronze\ingestion_manifest.json
+2026-09-02 15:13:43  [INFO    ]  Bronze Parquet -> data\bronze\cars_2026-09-02.parquet
+2026-09-02 15:13:43  [INFO    ]  Full Run CSV   -> data\bronze\khmer24_cars.csv
+2026-09-02 15:13:43  [INFO    ]  Manifest       -> data\bronze\ingestion_manifest.json
+2026-09-02 15:13:43  [INFO    ]  ┌────────────────────────────────────────────────────┐
+2026-09-02 15:13:43  [INFO    ]  │  BRONZE INGESTION QUALITY SUMMARY (40 records)     │
+2026-09-02 15:13:43  [INFO    ]  ├────────────────────────────────────┬───────────────┤
+2026-09-02 15:13:43  [INFO    ]  │  Price Field Coverage              │  100.0%       │
+2026-09-02 15:13:43  [INFO    ]  │  Brand Field Coverage              │   97.5%       │
+2026-09-02 15:13:43  [INFO    ]  │  Model Field Coverage              │   95.0%       │
+2026-09-02 15:13:43  [INFO    ]  │  Year Field Coverage               │  100.0%       │
+2026-09-02 15:13:43  [INFO    ]  │  Province Field Coverage           │  100.0%       │
+2026-09-02 15:13:43  [INFO    ]  │  Mileage Field Coverage            │    0.0%       │
+2026-09-02 15:13:43  [INFO    ]  │  Transmission Field Coverage       │   95.0%       │
+2026-09-02 15:13:43  [INFO    ]  │  Fuel Type Field Coverage          │   87.5%       │
+2026-09-02 15:13:43  [INFO    ]  │  Detail Enrichment Rate            │  100.0%       │
+2026-09-02 15:13:43  [INFO    ]  ├────────────────────────────────────┴───────────────┤
+2026-09-02 15:13:43  [INFO    ]  │  Cumulative Unique Marketplace IDs :  7,190              │
+2026-09-02 15:13:43  [INFO    ]  └────────────────────────────────────────────────────┘
+2026-09-02 15:13:43  [INFO    ]  EL stage complete. 40 listings processed in this batch.
+2026-09-02 15:13:43  [INFO    ]  Triggering dbt transformations...
+2026-09-02 15:13:43  [INFO    ]  Running dbt: dbt run --project-dir D:\ITC3_AMS_2025\I4_AMS_S2\Y4_Internship\Car_price_prediction\dbt --profiles-dir D:\ITC3_AMS_2025\I4_AMS_S2\Y4_Internship\Car_price_prediction\dbt
+2026-09-02 15:13:53  [INFO    ]  dbt run completed successfully in 9.94s.
+2026-09-02 15:13:53  [INFO    ]  Running dbt: dbt test --project-dir D:\ITC3_AMS_2025\I4_AMS_S2\Y4_Internship\Car_price_prediction\dbt --profiles-dir D:\ITC3_AMS_2025\I4_AMS_S2\Y4_Internship\Car_price_prediction\dbt
+2026-09-02 15:13:59  [INFO    ]  dbt test completed successfully in 6.22s.
+2026-09-02 15:13:59  [INFO    ]  End-to-end ELT pipeline complete.
+2026-09-02 15:31:19  [INFO    ]  =================================================================
+2026-09-02 15:31:19  [INFO    ]  Starting Bronze Data Ingestion: 2026-09-02T08:31:19.859715+00:00
+2026-09-02 15:31:19  [INFO    ]  Config: category=cars-for-sale, province=ALL, max_pages=1, mode=feed_window, enrich_details=True
+2026-09-02 15:31:19  [INFO    ]  =================================================================
+2026-09-02 15:31:19  [INFO    ]  Cloudflare Worker relay enabled.
+2026-09-02 15:31:19  [INFO    ]  [cars-for-sale] Page 1/1  offset=0  collected=0
+2026-09-02 15:31:20  [INFO    ]  Fetching details concurrently for 40 listings (workers=4)...
+2026-09-02 15:33:04  [INFO    ]  =================================================================
+2026-09-02 15:33:04  [INFO    ]  Starting Bronze Data Ingestion: 2026-09-02T08:33:04.774091+00:00
+2026-09-02 15:33:04  [INFO    ]  Config: category=cars-for-sale, province=ALL, max_pages=1, mode=feed_window, enrich_details=True
+2026-09-02 15:33:04  [INFO    ]  =================================================================
+2026-09-02 15:33:04  [INFO    ]  Cloudflare Worker relay enabled.
+2026-09-02 15:33:04  [INFO    ]  [cars-for-sale] Page 1/1  offset=0  collected=0
+2026-09-02 15:33:05  [INFO    ]  Fetching details concurrently for 40 listings (workers=4)...
+2026-09-02 15:33:13  [INFO    ]  Scrape complete. Collected 40 records in this batch.
+2026-09-02 15:33:13  [INFO    ]  Extraction complete in 8.39s: 40 total listings collected.
+2026-09-02 15:33:13  [INFO    ]  Batch summary: 40 total listings collected (13 new IDs, 27 recurring/tracked IDs).
+2026-09-02 15:33:13  [INFO    ]  Saved 40 raw records to Parquet -> data\bronze\cars_2026-09-02.parquet
+2026-09-02 15:33:13  [INFO    ]  Saved 40 full raw records from today's run to CSV -> data\bronze\khmer24_cars.csv
+2026-09-02 15:33:13  [INFO    ]  Saved ingestion run manifest -> data\bronze\ingestion_manifest.json
+2026-09-02 15:33:13  [INFO    ]  Bronze Parquet -> data\bronze\cars_2026-09-02.parquet
+2026-09-02 15:33:13  [INFO    ]  Full Run CSV   -> data\bronze\khmer24_cars.csv
+2026-09-02 15:33:13  [INFO    ]  Manifest       -> data\bronze\ingestion_manifest.json
+2026-09-02 15:33:13  [INFO    ]  ┌────────────────────────────────────────────────────┐
+2026-09-02 15:33:13  [INFO    ]  │  BRONZE INGESTION QUALITY SUMMARY (40 records)     │
+2026-09-02 15:33:13  [INFO    ]  ├────────────────────────────────────┬───────────────┤
+2026-09-02 15:33:13  [INFO    ]  │  Price Field Coverage              │  100.0%       │
+2026-09-02 15:33:13  [INFO    ]  │  Brand Field Coverage              │  100.0%       │
+2026-09-02 15:33:13  [INFO    ]  │  Model Field Coverage              │  100.0%       │
+2026-09-02 15:33:13  [INFO    ]  │  Year Field Coverage               │  100.0%       │
+2026-09-02 15:33:13  [INFO    ]  │  Province Field Coverage           │  100.0%       │
+2026-09-02 15:33:13  [INFO    ]  │  Mileage Field Coverage            │    0.0%       │
+2026-09-02 15:33:13  [INFO    ]  │  Transmission Field Coverage       │   80.0%       │
+2026-09-02 15:33:13  [INFO    ]  │  Fuel Type Field Coverage          │   85.0%       │
+2026-09-02 15:33:13  [INFO    ]  │  Detail Enrichment Rate            │  100.0%       │
+2026-09-02 15:33:13  [INFO    ]  ├────────────────────────────────────┴───────────────┤
+2026-09-02 15:33:13  [INFO    ]  │  Cumulative Unique Marketplace IDs :  7,190              │
+2026-09-02 15:33:13  [INFO    ]  └────────────────────────────────────────────────────┘
+2026-09-02 15:33:13  [INFO    ]  EL stage complete. 40 listings processed in this batch.
+2026-09-02 15:34:08  [INFO    ]  =================================================================
+2026-09-02 15:34:08  [INFO    ]  Starting Bronze Data Ingestion: 2026-09-02T08:34:08.267792+00:00
+2026-09-02 15:34:08  [INFO    ]  Config: category=cars-for-sale, province=ALL, max_pages=20, mode=feed_window, enrich_details=True
+2026-09-02 15:34:08  [INFO    ]  =================================================================
+2026-09-02 15:34:08  [INFO    ]  Cloudflare Worker relay enabled.
+2026-09-02 15:34:08  [INFO    ]  [cars-for-sale] Page 1/20  offset=0  collected=0
+2026-09-02 15:34:08  [INFO    ]  Fetching details concurrently for 40 listings (workers=4)...
+2026-09-02 15:34:15  [INFO    ]  [cars-for-sale] Page 2/20  offset=30  collected=40  total=20159
+2026-09-02 15:34:15  [INFO    ]  Fetching details concurrently for 23 listings (workers=4)...
+2026-09-02 15:34:19  [INFO    ]  [cars-for-sale] Page 3/20  offset=60  collected=63  total=20159
+2026-09-02 15:34:20  [INFO    ]  Fetching details concurrently for 12 listings (workers=4)...
+2026-09-02 15:34:23  [INFO    ]  [cars-for-sale] Page 4/20  offset=90  collected=75  total=20159
+2026-09-02 15:34:23  [INFO    ]  Fetching details concurrently for 23 listings (workers=4)...
+2026-09-02 15:34:28  [INFO    ]  [cars-for-sale] Page 5/20  offset=120  collected=98  total=20159
+2026-09-02 15:34:29  [INFO    ]  Fetching details concurrently for 32 listings (workers=4)...
+2026-09-02 15:34:36  [INFO    ]  [cars-for-sale] Page 6/20  offset=150  collected=130  total=20159
+2026-09-02 15:34:36  [INFO    ]  Fetching details concurrently for 32 listings (workers=4)...
+2026-09-02 15:34:42  [INFO    ]  [cars-for-sale] Page 7/20  offset=180  collected=162  total=20159
+2026-09-02 15:34:43  [INFO    ]  Fetching details concurrently for 31 listings (workers=4)...
+2026-09-02 15:34:49  [INFO    ]  [cars-for-sale] Page 8/20  offset=210  collected=193  total=20159
+2026-09-02 15:34:49  [INFO    ]  Fetching details concurrently for 14 listings (workers=4)...
+2026-09-02 15:34:52  [INFO    ]  [cars-for-sale] Page 9/20  offset=240  collected=207  total=20159
+2026-09-02 15:34:52  [INFO    ]  Fetching details concurrently for 31 listings (workers=4)...
+2026-09-02 15:34:59  [INFO    ]  [cars-for-sale] Page 10/20  offset=270  collected=238  total=20159
+2026-09-02 15:34:59  [INFO    ]  Fetching details concurrently for 3 listings (workers=4)...
+2026-09-02 15:35:01  [INFO    ]  [cars-for-sale] Page 11/20  offset=300  collected=241  total=20159
+2026-09-02 15:35:01  [INFO    ]  Fetching details concurrently for 31 listings (workers=4)...
+2026-09-02 15:35:11  [INFO    ]  [cars-for-sale] Page 12/20  offset=330  collected=272  total=20159
+2026-09-02 15:35:12  [INFO    ]  Fetching details concurrently for 31 listings (workers=4)...
+2026-09-02 15:35:18  [INFO    ]  [cars-for-sale] Page 13/20  offset=360  collected=303  total=20159
+2026-09-02 15:35:18  [INFO    ]  Fetching details concurrently for 30 listings (workers=4)...
+2026-09-02 15:35:25  [INFO    ]  [cars-for-sale] Page 14/20  offset=390  collected=333  total=20159
+2026-09-02 15:35:25  [INFO    ]  Fetching details concurrently for 30 listings (workers=4)...
+2026-09-02 15:35:31  [INFO    ]  [cars-for-sale] Page 15/20  offset=420  collected=363  total=20159
+2026-09-02 15:35:31  [INFO    ]  Fetching details concurrently for 14 listings (workers=4)...
+2026-09-02 15:35:34  [INFO    ]  [cars-for-sale] Page 16/20  offset=450  collected=377  total=20159
+2026-09-02 15:35:34  [INFO    ]  Fetching details concurrently for 30 listings (workers=4)...
+2026-09-02 15:35:39  [INFO    ]  [cars-for-sale] Page 17/20  offset=480  collected=407  total=20159
+2026-09-02 15:35:40  [INFO    ]  [cars-for-sale] Page 18/20  offset=510  collected=407  total=20159
+2026-09-02 15:35:41  [INFO    ]  Fetching details concurrently for 30 listings (workers=4)...
+2026-09-02 15:35:46  [INFO    ]  [cars-for-sale] Page 19/20  offset=540  collected=437  total=20159
+2026-09-02 15:35:46  [INFO    ]  Fetching details concurrently for 12 listings (workers=4)...
+2026-09-02 15:35:49  [INFO    ]  [cars-for-sale] Page 20/20  offset=570  collected=449  total=20159
+2026-09-02 15:35:50  [INFO    ]  Fetching details concurrently for 19 listings (workers=4)...
+2026-09-02 15:35:54  [INFO    ]  Scrape complete. Collected 468 records in this batch.
+2026-09-02 15:35:54  [INFO    ]  Extraction complete in 106.03s: 468 total listings collected.
+2026-09-02 15:35:54  [INFO    ]  Batch summary: 468 total listings collected (180 new IDs, 288 recurring/tracked IDs).
+2026-09-02 15:35:56  [INFO    ]  Saved 468 raw records to Parquet -> data\bronze\cars_2026-09-02.parquet
+2026-09-02 15:35:58  [INFO    ]  Saved 468 full raw records from today's run to CSV -> data\bronze\khmer24_cars.csv
+2026-09-02 15:35:58  [INFO    ]  Saved ingestion run manifest -> data\bronze\ingestion_manifest.json
+2026-09-02 15:35:58  [INFO    ]  Bronze Parquet -> data\bronze\cars_2026-09-02.parquet
+2026-09-02 15:35:58  [INFO    ]  Full Run CSV   -> data\bronze\khmer24_cars.csv
+2026-09-02 15:35:58  [INFO    ]  Manifest       -> data\bronze\ingestion_manifest.json
+2026-09-02 15:35:58  [INFO    ]  ┌────────────────────────────────────────────────────┐
+2026-09-02 15:35:58  [INFO    ]  │  BRONZE INGESTION QUALITY SUMMARY (468 records)    │
+2026-09-02 15:35:58  [INFO    ]  ├────────────────────────────────────┬───────────────┤
+2026-09-02 15:35:58  [INFO    ]  │  Price Field Coverage              │  100.0%       │
+2026-09-02 15:35:58  [INFO    ]  │  Brand Field Coverage              │  100.0%       │
+2026-09-02 15:35:58  [INFO    ]  │  Model Field Coverage              │   99.4%       │
+2026-09-02 15:35:58  [INFO    ]  │  Year Field Coverage               │  100.0%       │
+2026-09-02 15:35:58  [INFO    ]  │  Province Field Coverage           │  100.0%       │
+2026-09-02 15:35:58  [INFO    ]  │  Mileage Field Coverage            │    0.0%       │
+2026-09-02 15:35:58  [INFO    ]  │  Transmission Field Coverage       │   87.8%       │
+2026-09-02 15:35:58  [INFO    ]  │  Fuel Type Field Coverage          │   92.1%       │
+2026-09-02 15:35:58  [INFO    ]  │  Detail Enrichment Rate            │  100.0%       │
+2026-09-02 15:35:58  [INFO    ]  ├────────────────────────────────────┴───────────────┤
+2026-09-02 15:35:58  [INFO    ]  │  Cumulative Unique Marketplace IDs :  7,359              │
+2026-09-02 15:35:58  [INFO    ]  └────────────────────────────────────────────────────┘
+2026-09-02 15:35:58  [INFO    ]  EL stage complete. 468 listings processed in this batch.
+2026-09-02 16:04:11  [INFO    ]  =================================================================
+2026-09-02 16:04:11  [INFO    ]  Starting Bronze Data Ingestion: 2026-09-02T09:04:11.979014+00:00
+2026-09-02 16:04:11  [INFO    ]  Config: category=cars-for-sale, province=ALL, max_pages=1, mode=feed_window, enrich_details=True
+2026-09-02 16:04:11  [INFO    ]  =================================================================
+2026-09-02 16:04:12  [INFO    ]  Cloudflare Worker relay enabled.
+2026-09-02 16:04:12  [INFO    ]  [cars-for-sale] Page 1/1  offset=0  collected=0
+2026-09-02 16:04:12  [INFO    ]  Fetching details concurrently for 40 listings (workers=4)...
+2026-09-02 16:04:21  [INFO    ]  Scrape complete. Collected 40 records in this batch.
+2026-09-02 16:04:21  [INFO    ]  Extraction complete in 9.27s: 40 total listings collected.
+2026-09-02 16:04:21  [INFO    ]  Batch summary: 40 total listings collected (8 new IDs, 32 recurring/tracked IDs).
+2026-09-02 16:04:21  [INFO    ]  Saved 40 raw records to Parquet -> data\bronze\cars_2026-09-02.parquet
+2026-09-02 16:04:21  [INFO    ]  Saved 40 full raw records from today's run to CSV -> data\bronze\khmer24_cars.csv
+2026-09-02 16:04:21  [INFO    ]  Saved ingestion run manifest -> data\bronze\ingestion_manifest.json
+2026-09-02 16:04:21  [INFO    ]  Bronze Parquet -> data\bronze\cars_2026-09-02.parquet
+2026-09-02 16:04:21  [INFO    ]  Full Run CSV   -> data\bronze\khmer24_cars.csv
+2026-09-02 16:04:21  [INFO    ]  Manifest       -> data\bronze\ingestion_manifest.json
+2026-09-02 16:04:21  [INFO    ]  ┌────────────────────────────────────────────────────┐
+2026-09-02 16:04:21  [INFO    ]  │  BRONZE INGESTION QUALITY SUMMARY (40 records)     │
+2026-09-02 16:04:21  [INFO    ]  ├────────────────────────────────────┬───────────────┤
+2026-09-02 16:04:21  [INFO    ]  │  Price Field Coverage              │  100.0%       │
+2026-09-02 16:04:21  [INFO    ]  │  Brand Field Coverage              │  100.0%       │
+2026-09-02 16:04:21  [INFO    ]  │  Model Field Coverage              │   95.0%       │
+2026-09-02 16:04:21  [INFO    ]  │  Year Field Coverage               │   45.0%       │
+2026-09-02 16:04:21  [INFO    ]  │  Province Field Coverage           │  100.0%       │
+2026-09-02 16:04:21  [INFO    ]  │  Mileage Field Coverage            │    0.0%       │
+2026-09-02 16:04:21  [INFO    ]  │  Transmission Field Coverage       │   85.0%       │
+2026-09-02 16:04:21  [INFO    ]  │  Fuel Type Field Coverage          │   90.0%       │
+2026-09-02 16:04:21  [INFO    ]  │  Detail Enrichment Rate            │  100.0%       │
+2026-09-02 16:04:21  [INFO    ]  ├────────────────────────────────────┴───────────────┤
+2026-09-02 16:04:21  [INFO    ]  │  Cumulative Unique Marketplace IDs :  7,358              │
+2026-09-02 16:04:21  [INFO    ]  └────────────────────────────────────────────────────┘
+2026-09-02 16:04:21  [INFO    ]  EL stage complete. 40 listings processed in this batch.
+2026-09-02 16:05:43  [INFO    ]  =================================================================
+2026-09-02 16:05:43  [INFO    ]  Starting Bronze Data Ingestion: 2026-09-02T09:05:43.165153+00:00
+2026-09-02 16:05:43  [INFO    ]  Config: category=cars-for-sale, province=ALL, max_pages=20, mode=feed_window, enrich_details=True
+2026-09-02 16:05:43  [INFO    ]  =================================================================
+2026-09-02 16:05:43  [INFO    ]  Cloudflare Worker relay enabled.
+2026-09-02 16:05:43  [INFO    ]  [cars-for-sale] Page 1/20  offset=0  collected=0
+2026-09-02 16:05:43  [INFO    ]  Fetching details concurrently for 40 listings (workers=4)...
+2026-09-02 16:05:50  [INFO    ]  [cars-for-sale] Page 2/20  offset=30  collected=40  total=20162
+2026-09-02 16:05:50  [INFO    ]  Fetching details concurrently for 22 listings (workers=4)...
+2026-09-02 16:05:54  [INFO    ]  [cars-for-sale] Page 3/20  offset=60  collected=62  total=20162
+2026-09-02 16:05:54  [INFO    ]  Fetching details concurrently for 22 listings (workers=4)...
+2026-09-02 16:05:58  [INFO    ]  [cars-for-sale] Page 4/20  offset=90  collected=84  total=20162
+2026-09-02 16:05:59  [INFO    ]  Fetching details concurrently for 28 listings (workers=4)...
+2026-09-02 16:06:03  [INFO    ]  [cars-for-sale] Page 5/20  offset=120  collected=112  total=20162
+2026-09-02 16:06:04  [INFO    ]  Fetching details concurrently for 29 listings (workers=4)...
+2026-09-02 16:06:08  [INFO    ]  [cars-for-sale] Page 6/20  offset=150  collected=141  total=20162
+2026-09-02 16:06:08  [INFO    ]  Fetching details concurrently for 30 listings (workers=4)...
+2026-09-02 16:06:13  [INFO    ]  [cars-for-sale] Page 7/20  offset=180  collected=171  total=20162
+2026-09-02 16:06:14  [INFO    ]  Fetching details concurrently for 31 listings (workers=4)...
+2026-09-02 16:06:20  [INFO    ]  [cars-for-sale] Page 8/20  offset=210  collected=202  total=20162
+2026-09-02 16:06:20  [INFO    ]  Fetching details concurrently for 20 listings (workers=4)...
+2026-09-02 16:06:24  [INFO    ]  [cars-for-sale] Page 9/20  offset=240  collected=222  total=20162
+2026-09-02 16:06:24  [INFO    ]  Fetching details concurrently for 30 listings (workers=4)...
+2026-09-02 16:06:28  [INFO    ]  [cars-for-sale] Page 10/20  offset=270  collected=252  total=20162
+2026-09-02 16:06:29  [INFO    ]  Fetching details concurrently for 3 listings (workers=4)...
+2026-09-02 16:06:30  [INFO    ]  [cars-for-sale] Page 11/20  offset=300  collected=255  total=20162
+2026-09-02 16:06:30  [INFO    ]  Fetching details concurrently for 30 listings (workers=4)...
+2026-09-02 16:06:36  [INFO    ]  [cars-for-sale] Page 12/20  offset=330  collected=285  total=20162
+2026-09-02 16:06:36  [INFO    ]  Fetching details concurrently for 19 listings (workers=4)...
+2026-09-02 16:06:40  [INFO    ]  [cars-for-sale] Page 13/20  offset=360  collected=304  total=20162
+2026-09-02 16:06:40  [INFO    ]  Fetching details concurrently for 31 listings (workers=4)...
+2026-09-02 16:06:45  [INFO    ]  [cars-for-sale] Page 14/20  offset=390  collected=335  total=20162
+2026-09-02 16:06:46  [INFO    ]  Fetching details concurrently for 30 listings (workers=4)...
+2026-09-02 16:06:50  [INFO    ]  [cars-for-sale] Page 15/20  offset=420  collected=365  total=20162
+2026-09-02 16:06:50  [INFO    ]  Fetching details concurrently for 13 listings (workers=4)...
+2026-09-02 16:06:53  [INFO    ]  [cars-for-sale] Page 16/20  offset=450  collected=378  total=20162
+2026-09-02 16:06:53  [INFO    ]  Fetching details concurrently for 19 listings (workers=4)...
+2026-09-02 16:06:57  [INFO    ]  [cars-for-sale] Page 17/20  offset=480  collected=397  total=20162
+2026-09-02 16:06:58  [INFO    ]  Fetching details concurrently for 32 listings (workers=4)...
+2026-09-02 16:07:02  [INFO    ]  [cars-for-sale] Page 18/20  offset=510  collected=429  total=20162
+2026-09-02 16:07:03  [INFO    ]  Fetching details concurrently for 12 listings (workers=4)...
+2026-09-02 16:07:05  [INFO    ]  [cars-for-sale] Page 19/20  offset=540  collected=441  total=20162
+2026-09-02 16:07:06  [INFO    ]  Fetching details concurrently for 20 listings (workers=4)...
+2026-09-02 16:07:09  [INFO    ]  [cars-for-sale] Page 20/20  offset=570  collected=461  total=20162
+2026-09-02 16:07:09  [INFO    ]  Fetching details concurrently for 29 listings (workers=4)...
+2026-09-02 16:07:15  [INFO    ]  Scrape complete. Collected 490 records in this batch.
+2026-09-02 16:07:15  [INFO    ]  Extraction complete in 92.27s: 490 total listings collected.
+2026-09-02 16:07:15  [INFO    ]  Batch summary: 490 total listings collected (162 new IDs, 328 recurring/tracked IDs).
+2026-09-02 16:07:17  [INFO    ]  Saved 490 raw records to Parquet -> data\bronze\cars_2026-09-02.parquet
+2026-09-02 16:07:17  [INFO    ]  Saved 490 full raw records from today's run to CSV -> data\bronze\khmer24_cars.csv
+2026-09-02 16:07:17  [INFO    ]  Saved ingestion run manifest -> data\bronze\ingestion_manifest.json
+2026-09-02 16:07:17  [INFO    ]  Bronze Parquet -> data\bronze\cars_2026-09-02.parquet
+2026-09-02 16:07:17  [INFO    ]  Full Run CSV   -> data\bronze\khmer24_cars.csv
+2026-09-02 16:07:17  [INFO    ]  Manifest       -> data\bronze\ingestion_manifest.json
+2026-09-02 16:07:17  [INFO    ]  ┌────────────────────────────────────────────────────┐
+2026-09-02 16:07:17  [INFO    ]  │  BRONZE INGESTION QUALITY SUMMARY (490 records)    │
+2026-09-02 16:07:17  [INFO    ]  ├────────────────────────────────────┬───────────────┤
+2026-09-02 16:07:17  [INFO    ]  │  Price Field Coverage              │  100.0%       │
+2026-09-02 16:07:17  [INFO    ]  │  Brand Field Coverage              │   99.8%       │
+2026-09-02 16:07:17  [INFO    ]  │  Model Field Coverage              │   98.6%       │
+2026-09-02 16:07:17  [INFO    ]  │  Year Field Coverage               │   31.8%       │
+2026-09-02 16:07:17  [INFO    ]  │  Province Field Coverage           │  100.0%       │
+2026-09-02 16:07:17  [INFO    ]  │  Mileage Field Coverage            │    0.0%       │
+2026-09-02 16:07:17  [INFO    ]  │  Transmission Field Coverage       │   86.9%       │
+2026-09-02 16:07:17  [INFO    ]  │  Fuel Type Field Coverage          │   91.4%       │
+2026-09-02 16:07:17  [INFO    ]  │  Detail Enrichment Rate            │  100.0%       │
+2026-09-02 16:07:17  [INFO    ]  ├────────────────────────────────────┴───────────────┤
+2026-09-02 16:07:17  [INFO    ]  │  Cumulative Unique Marketplace IDs :  7,340              │
+2026-09-02 16:07:17  [INFO    ]  └────────────────────────────────────────────────────┘
+2026-09-02 16:07:17  [INFO    ]  EL stage complete. 490 listings processed in this batch.
+2026-09-02 16:27:12  [INFO    ]  =================================================================
+2026-09-02 16:27:12  [INFO    ]  Starting Bronze Data Ingestion: 2026-09-02T09:27:12.507917+00:00
+2026-09-02 16:27:12  [INFO    ]  Config: category=cars-for-sale, province=ALL, max_pages=1, mode=feed_window, enrich_details=True
+2026-09-02 16:27:12  [INFO    ]  =================================================================
+2026-09-02 16:27:12  [INFO    ]  Cloudflare Worker relay enabled.
+2026-09-02 16:27:12  [INFO    ]  [cars-for-sale] Page 1/1  offset=0  collected=0
+2026-09-02 16:27:14  [INFO    ]  Fetching details concurrently for 40 listings (workers=4)...
+2026-09-02 16:27:22  [INFO    ]  Scrape complete. Collected 40 records in this batch.
+2026-09-02 16:27:22  [INFO    ]  Extraction complete in 9.81s: 40 total listings collected.
+2026-09-02 16:27:22  [INFO    ]  Batch summary: 40 total listings collected (10 new IDs, 30 recurring/tracked IDs).
+2026-09-02 16:27:22  [INFO    ]  Saved 40 raw records to Parquet -> data\bronze\cars_2026-09-02.parquet
+2026-09-02 16:27:22  [INFO    ]  Saved 40 full raw records from today's run to CSV -> data\bronze\khmer24_cars.csv
+2026-09-02 16:27:22  [INFO    ]  Saved ingestion run manifest -> data\bronze\ingestion_manifest.json
+2026-09-02 16:27:22  [INFO    ]  Bronze Parquet -> data\bronze\cars_2026-09-02.parquet
+2026-09-02 16:27:22  [INFO    ]  Full Run CSV   -> data\bronze\khmer24_cars.csv
+2026-09-02 16:27:22  [INFO    ]  Manifest       -> data\bronze\ingestion_manifest.json
+2026-09-02 16:27:22  [INFO    ]  ┌────────────────────────────────────────────────────┐
+2026-09-02 16:27:22  [INFO    ]  │  BRONZE INGESTION QUALITY SUMMARY (40 records)     │
+2026-09-02 16:27:22  [INFO    ]  ├────────────────────────────────────┬───────────────┤
+2026-09-02 16:27:22  [INFO    ]  │  Price Field Coverage              │  100.0%       │
+2026-09-02 16:27:22  [INFO    ]  │  Brand Field Coverage              │  100.0%       │
+2026-09-02 16:27:22  [INFO    ]  │  Model Field Coverage              │  100.0%       │
+2026-09-02 16:27:22  [INFO    ]  │  Year Field Coverage               │  100.0%       │
+2026-09-02 16:27:22  [INFO    ]  │  Province Field Coverage           │  100.0%       │
+2026-09-02 16:27:22  [INFO    ]  │  Mileage Field Coverage            │    0.0%       │
+2026-09-02 16:27:22  [INFO    ]  │  Transmission Field Coverage       │   90.0%       │
+2026-09-02 16:27:22  [INFO    ]  │  Fuel Type Field Coverage          │   90.0%       │
+2026-09-02 16:27:22  [INFO    ]  │  Detail Enrichment Rate            │  100.0%       │
+2026-09-02 16:27:22  [INFO    ]  ├────────────────────────────────────┴───────────────┤
+2026-09-02 16:27:22  [INFO    ]  │  Cumulative Unique Marketplace IDs :  7,344              │
+2026-09-02 16:27:22  [INFO    ]  └────────────────────────────────────────────────────┘
+2026-09-02 16:27:22  [INFO    ]  EL stage complete. 40 listings processed in this batch.
+2026-09-02 16:29:50  [INFO    ]  =================================================================
+2026-09-02 16:29:50  [INFO    ]  Starting Bronze Data Ingestion: 2026-09-02T09:29:50.999649+00:00
+2026-09-02 16:29:50  [INFO    ]  Config: category=cars-for-sale, province=ALL, max_pages=20, mode=feed_window, enrich_details=True
+2026-09-02 16:29:50  [INFO    ]  =================================================================
+2026-09-02 16:29:51  [INFO    ]  Cloudflare Worker relay enabled.
+2026-09-02 16:29:51  [INFO    ]  [cars-for-sale] Page 1/20  offset=0  collected=0
+2026-09-02 16:29:51  [INFO    ]  Fetching details concurrently for 40 listings (workers=4)...
+2026-09-02 16:29:57  [INFO    ]  [cars-for-sale] Page 2/20  offset=30  collected=40  total=20168
+2026-09-02 16:29:58  [INFO    ]  Fetching details concurrently for 17 listings (workers=4)...
+2026-09-02 16:30:03  [INFO    ]  [cars-for-sale] Page 3/20  offset=60  collected=57  total=20168
+2026-09-02 16:30:04  [INFO    ]  Fetching details concurrently for 20 listings (workers=4)...
+2026-09-02 16:30:07  [INFO    ]  [cars-for-sale] Page 4/20  offset=90  collected=77  total=20168
+2026-09-02 16:30:08  [INFO    ]  Fetching details concurrently for 28 listings (workers=4)...
+2026-09-02 16:30:12  [INFO    ]  [cars-for-sale] Page 5/20  offset=120  collected=105  total=20168
+2026-09-02 16:30:12  [INFO    ]  Fetching details concurrently for 31 listings (workers=4)...
+2026-09-02 16:30:18  [INFO    ]  [cars-for-sale] Page 6/20  offset=150  collected=136  total=20168
+2026-09-02 16:30:18  [INFO    ]  Fetching details concurrently for 30 listings (workers=4)...
+2026-09-02 16:30:23  [INFO    ]  [cars-for-sale] Page 7/20  offset=180  collected=166  total=20168
+2026-09-02 16:30:23  [INFO    ]  Fetching details concurrently for 14 listings (workers=4)...
+2026-09-02 16:30:25  [INFO    ]  [cars-for-sale] Page 8/20  offset=210  collected=180  total=20168
+2026-09-02 16:30:26  [INFO    ]  Fetching details concurrently for 2 listings (workers=4)...
+2026-09-02 16:30:27  [INFO    ]  [cars-for-sale] Page 9/20  offset=240  collected=182  total=20168
+2026-09-02 16:30:27  [INFO    ]  Fetching details concurrently for 30 listings (workers=4)...
+2026-09-02 16:30:31  [INFO    ]  [cars-for-sale] Page 10/20  offset=270  collected=212  total=20168
+2026-09-02 16:30:31  [INFO    ]  Fetching details concurrently for 30 listings (workers=4)...
+2026-09-02 16:30:37  [INFO    ]  [cars-for-sale] Page 11/20  offset=300  collected=242  total=20168
+2026-09-02 16:30:37  [INFO    ]  Fetching details concurrently for 31 listings (workers=4)...
+2026-09-02 16:30:43  [INFO    ]  [cars-for-sale] Page 12/20  offset=330  collected=273  total=20168
+2026-09-02 16:30:43  [INFO    ]  Fetching details concurrently for 30 listings (workers=4)...
+2026-09-02 16:30:48  [INFO    ]  [cars-for-sale] Page 13/20  offset=360  collected=303  total=20168
+2026-09-02 16:30:48  [INFO    ]  Fetching details concurrently for 31 listings (workers=4)...
+2026-09-02 16:30:53  [INFO    ]  [cars-for-sale] Page 14/20  offset=390  collected=334  total=20168
+2026-09-02 16:30:53  [INFO    ]  Fetching details concurrently for 31 listings (workers=4)...
+2026-09-02 16:31:01  [INFO    ]  [cars-for-sale] Page 15/20  offset=420  collected=365  total=20168
+2026-09-02 16:31:02  [INFO    ]  Fetching details concurrently for 6 listings (workers=4)...
+2026-09-02 16:31:04  [INFO    ]  [cars-for-sale] Page 16/20  offset=450  collected=371  total=20168
+2026-09-02 16:31:04  [INFO    ]  Fetching details concurrently for 30 listings (workers=4)...
+2026-09-02 16:31:10  [INFO    ]  [cars-for-sale] Page 17/20  offset=480  collected=401  total=20168
+2026-09-02 16:31:11  [INFO    ]  Fetching details concurrently for 30 listings (workers=4)...
+2026-09-02 16:31:17  [INFO    ]  [cars-for-sale] Page 18/20  offset=510  collected=431  total=20168
+2026-09-02 16:31:18  [INFO    ]  Fetching details concurrently for 14 listings (workers=4)...
+2026-09-02 16:31:20  [INFO    ]  [cars-for-sale] Page 19/20  offset=540  collected=445  total=20168
+2026-09-02 16:31:21  [INFO    ]  Fetching details concurrently for 31 listings (workers=4)...
+2026-09-02 16:31:27  [INFO    ]  [cars-for-sale] Page 20/20  offset=570  collected=476  total=20168
+2026-09-02 16:31:28  [INFO    ]  Fetching details concurrently for 27 listings (workers=4)...
+2026-09-02 16:31:33  [INFO    ]  Scrape complete. Collected 503 records in this batch.
+2026-09-02 16:31:33  [INFO    ]  Extraction complete in 102.86s: 503 total listings collected.
+2026-09-02 16:31:33  [INFO    ]  Batch summary: 503 total listings collected (193 new IDs, 310 recurring/tracked IDs).
+2026-09-02 16:31:35  [INFO    ]  Saved 503 raw records to Parquet -> data\bronze\cars_2026-09-02.parquet
+2026-09-02 16:31:35  [INFO    ]  Saved 503 full raw records from today's run to CSV -> data\bronze\khmer24_cars.csv
+2026-09-02 16:31:35  [INFO    ]  Saved ingestion run manifest -> data\bronze\ingestion_manifest.json
+2026-09-02 16:31:35  [INFO    ]  Bronze Parquet -> data\bronze\cars_2026-09-02.parquet
+2026-09-02 16:31:35  [INFO    ]  Full Run CSV   -> data\bronze\khmer24_cars.csv
+2026-09-02 16:31:35  [INFO    ]  Manifest       -> data\bronze\ingestion_manifest.json
+2026-09-02 16:31:35  [INFO    ]  ┌────────────────────────────────────────────────────┐
+2026-09-02 16:31:35  [INFO    ]  │  BRONZE INGESTION QUALITY SUMMARY (503 records)    │
+2026-09-02 16:31:35  [INFO    ]  ├────────────────────────────────────┬───────────────┤
+2026-09-02 16:31:35  [INFO    ]  │  Price Field Coverage              │  100.0%       │
+2026-09-02 16:31:35  [INFO    ]  │  Brand Field Coverage              │  100.0%       │
+2026-09-02 16:31:35  [INFO    ]  │  Model Field Coverage              │   99.0%       │
+2026-09-02 16:31:35  [INFO    ]  │  Year Field Coverage               │  100.0%       │
+2026-09-02 16:31:35  [INFO    ]  │  Province Field Coverage           │  100.0%       │
+2026-09-02 16:31:35  [INFO    ]  │  Mileage Field Coverage            │    0.0%       │
+2026-09-02 16:31:35  [INFO    ]  │  Transmission Field Coverage       │   88.5%       │
+2026-09-02 16:31:35  [INFO    ]  │  Fuel Type Field Coverage          │   90.7%       │
+2026-09-02 16:31:35  [INFO    ]  │  Detail Enrichment Rate            │  100.0%       │
+2026-09-02 16:31:35  [INFO    ]  ├────────────────────────────────────┴───────────────┤
+2026-09-02 16:31:35  [INFO    ]  │  Cumulative Unique Marketplace IDs :  7,372              │
+2026-09-02 16:31:35  [INFO    ]  └────────────────────────────────────────────────────┘
+2026-09-02 16:31:36  [INFO    ]  EL stage complete. 503 listings processed in this batch.
+2026-09-02 16:48:45  [INFO    ]  Inspecting single listing: 13560905
+2026-09-02 16:48:45  [INFO    ]  Cloudflare Worker relay enabled.
+2026-09-02 16:49:20  [INFO    ]  Inspecting single listing: 13560905
+2026-09-02 16:49:20  [INFO    ]  Cloudflare Worker relay enabled.
+2026-09-02 16:51:11  [INFO    ]  =================================================================
+2026-09-02 16:51:11  [INFO    ]  Starting Bronze Data Ingestion: 2026-09-02T09:51:11.758404+00:00
+2026-09-02 16:51:11  [INFO    ]  Config: category=cars-for-sale, province=ALL, max_pages=50, mode=feed_window, enrich_details=True
+2026-09-02 16:51:11  [INFO    ]  =================================================================
+2026-09-02 16:51:11  [INFO    ]  Cloudflare Worker relay enabled.
+2026-09-02 16:51:11  [INFO    ]  [cars-for-sale] Page 1/50  offset=0  collected=0
+2026-09-02 16:51:12  [INFO    ]  Fetching details concurrently for 40 listings (workers=4)...
+2026-09-02 16:51:20  [INFO    ]  [cars-for-sale] Page 2/50  offset=30  collected=40  total=20170
+2026-09-02 16:51:20  [INFO    ]  Fetching details concurrently for 17 listings (workers=4)...
+2026-09-02 16:51:23  [INFO    ]  [cars-for-sale] Page 3/50  offset=60  collected=57  total=20170
+2026-09-02 16:51:23  [INFO    ]  Fetching details concurrently for 23 listings (workers=4)...
+2026-09-02 16:51:28  [INFO    ]  [cars-for-sale] Page 4/50  offset=90  collected=80  total=20170
+2026-09-02 16:51:28  [INFO    ]  Fetching details concurrently for 26 listings (workers=4)...
+2026-09-02 16:51:34  [INFO    ]  [cars-for-sale] Page 5/50  offset=120  collected=106  total=20170
+2026-09-02 16:51:34  [INFO    ]  Fetching details concurrently for 28 listings (workers=4)...
+2026-09-02 16:51:39  [INFO    ]  [cars-for-sale] Page 6/50  offset=150  collected=134  total=20170
+2026-09-02 16:51:39  [INFO    ]  Fetching details concurrently for 27 listings (workers=4)...
+2026-09-02 16:51:44  [INFO    ]  [cars-for-sale] Page 7/50  offset=180  collected=161  total=20170
+2026-09-02 16:51:44  [INFO    ]  Fetching details concurrently for 32 listings (workers=4)...
+2026-09-02 16:51:50  [INFO    ]  [cars-for-sale] Page 8/50  offset=210  collected=193  total=20170
+2026-09-02 16:51:51  [INFO    ]  Fetching details concurrently for 29 listings (workers=4)...
+2026-09-02 16:51:55  [INFO    ]  [cars-for-sale] Page 9/50  offset=240  collected=222  total=20170
+2026-09-02 16:51:55  [INFO    ]  Fetching details concurrently for 31 listings (workers=4)...
+2026-09-02 16:52:01  [INFO    ]  [cars-for-sale] Page 10/50  offset=270  collected=253  total=20170
+2026-09-02 16:52:01  [INFO    ]  Fetching details concurrently for 19 listings (workers=4)...
+2026-09-02 16:52:05  [INFO    ]  [cars-for-sale] Page 11/50  offset=300  collected=272  total=20170
+2026-09-02 16:52:05  [INFO    ]  Fetching details concurrently for 30 listings (workers=4)...
+2026-09-02 16:52:15  [INFO    ]  [cars-for-sale] Page 12/50  offset=330  collected=302  total=20170
+2026-09-02 16:52:15  [INFO    ]  Fetching details concurrently for 30 listings (workers=4)...
+2026-09-02 16:52:25  [INFO    ]  [cars-for-sale] Page 13/50  offset=360  collected=332  total=20170
+2026-09-02 16:52:25  [INFO    ]  Fetching details concurrently for 32 listings (workers=4)...
+2026-09-02 16:52:32  [INFO    ]  [cars-for-sale] Page 14/50  offset=390  collected=364  total=20170
+2026-09-02 16:52:32  [INFO    ]  Fetching details concurrently for 30 listings (workers=4)...
+2026-09-02 16:52:39  [INFO    ]  [cars-for-sale] Page 15/50  offset=420  collected=394  total=20170
+2026-09-02 16:52:39  [INFO    ]  Fetching details concurrently for 30 listings (workers=4)...
+2026-09-02 16:52:46  [INFO    ]  [cars-for-sale] Page 16/50  offset=450  collected=424  total=20170
+2026-09-02 16:52:46  [INFO    ]  Fetching details concurrently for 29 listings (workers=4)...
+2026-09-02 16:52:53  [INFO    ]  [cars-for-sale] Page 17/50  offset=480  collected=453  total=20170
+2026-09-02 16:52:53  [INFO    ]  Fetching details concurrently for 29 listings (workers=4)...
+2026-09-02 16:53:00  [INFO    ]  [cars-for-sale] Page 18/50  offset=510  collected=482  total=20170
+2026-09-02 16:53:00  [INFO    ]  Fetching details concurrently for 26 listings (workers=4)...
+2026-09-02 16:53:06  [INFO    ]  [cars-for-sale] Page 19/50  offset=540  collected=508  total=20170
+2026-09-02 16:53:06  [INFO    ]  Fetching details concurrently for 30 listings (workers=4)...
+2026-09-02 16:53:12  [INFO    ]  [cars-for-sale] Page 20/50  offset=570  collected=538  total=20170
+2026-09-02 16:53:12  [INFO    ]  Fetching details concurrently for 24 listings (workers=4)...
+2026-09-02 16:53:16  [INFO    ]  [cars-for-sale] Page 21/50  offset=600  collected=562  total=20170
+2026-09-02 16:53:16  [INFO    ]  Fetching details concurrently for 29 listings (workers=4)...
+2026-09-02 16:53:23  [INFO    ]  [cars-for-sale] Page 22/50  offset=630  collected=591  total=20170
+2026-09-02 16:53:24  [INFO    ]  [cars-for-sale] Page 23/50  offset=660  collected=591  total=20170
+2026-09-02 16:53:24  [INFO    ]  Fetching details concurrently for 20 listings (workers=4)...
+2026-09-02 16:53:28  [INFO    ]  [cars-for-sale] Page 24/50  offset=690  collected=611  total=20170
+2026-09-02 16:53:28  [INFO    ]  Fetching details concurrently for 31 listings (workers=4)...
+2026-09-02 16:53:35  [INFO    ]  [cars-for-sale] Page 25/50  offset=720  collected=642  total=20170
+2026-09-02 16:53:35  [INFO    ]  Fetching details concurrently for 30 listings (workers=4)...
+2026-09-02 16:53:43  [INFO    ]  [cars-for-sale] Page 26/50  offset=750  collected=672  total=20170
+2026-09-02 16:53:43  [INFO    ]  Fetching details concurrently for 31 listings (workers=4)...
+2026-09-02 16:53:50  [INFO    ]  [cars-for-sale] Page 27/50  offset=780  collected=703  total=20170
+2026-09-02 16:53:51  [INFO    ]  [cars-for-sale] Page 28/50  offset=810  collected=703  total=20170
+2026-09-02 16:53:51  [INFO    ]  Fetching details concurrently for 9 listings (workers=4)...
+2026-09-02 16:53:54  [INFO    ]  [cars-for-sale] Page 29/50  offset=840  collected=712  total=20170
+2026-09-02 16:53:54  [INFO    ]  Fetching details concurrently for 30 listings (workers=4)...
+2026-09-02 16:54:00  [INFO    ]  [cars-for-sale] Page 30/50  offset=870  collected=742  total=20170
+2026-09-02 16:54:00  [INFO    ]  Fetching details concurrently for 31 listings (workers=4)...
+2026-09-02 16:54:06  [INFO    ]  [cars-for-sale] Page 31/50  offset=900  collected=773  total=20170
+2026-09-02 16:54:07  [INFO    ]  Fetching details concurrently for 30 listings (workers=4)...
+2026-09-02 16:54:14  [INFO    ]  [cars-for-sale] Page 32/50  offset=930  collected=803  total=20170
+2026-09-02 16:54:14  [INFO    ]  Fetching details concurrently for 31 listings (workers=4)...
+2026-09-02 16:54:21  [INFO    ]  [cars-for-sale] Page 33/50  offset=960  collected=834  total=20170
+2026-09-02 16:54:21  [INFO    ]  Fetching details concurrently for 29 listings (workers=4)...
+2026-09-02 16:54:25  [INFO    ]  [cars-for-sale] Page 34/50  offset=990  collected=863  total=20170
+2026-09-02 16:54:25  [INFO    ]  Fetching details concurrently for 30 listings (workers=4)...
+2026-09-02 16:54:30  [INFO    ]  [cars-for-sale] Page 35/50  offset=1020  collected=893  total=20170
+2026-09-02 16:54:30  [INFO    ]  Fetching details concurrently for 30 listings (workers=4)...
+2026-09-02 16:54:36  [INFO    ]  [cars-for-sale] Page 36/50  offset=1050  collected=923  total=20170
+2026-09-02 16:54:36  [INFO    ]  Fetching details concurrently for 30 listings (workers=4)...
+2026-09-02 16:54:41  [INFO    ]  [cars-for-sale] Page 37/50  offset=1080  collected=953  total=20170
+2026-09-02 16:54:41  [INFO    ]  Fetching details concurrently for 30 listings (workers=4)...
+2026-09-02 16:54:47  [INFO    ]  [cars-for-sale] Page 38/50  offset=1110  collected=983  total=20170
+2026-09-02 16:54:47  [INFO    ]  Fetching details concurrently for 28 listings (workers=4)...
+2026-09-02 16:54:53  [INFO    ]  [cars-for-sale] Page 39/50  offset=1140  collected=1011  total=20170
+2026-09-02 16:54:53  [INFO    ]  Fetching details concurrently for 30 listings (workers=4)...
+2026-09-02 16:55:00  [INFO    ]  [cars-for-sale] Page 40/50  offset=1170  collected=1041  total=20170
+2026-09-02 16:55:00  [INFO    ]  Fetching details concurrently for 31 listings (workers=4)...
+2026-09-02 16:55:11  [INFO    ]  [cars-for-sale] Page 41/50  offset=1200  collected=1072  total=20170
+2026-09-02 16:55:11  [INFO    ]  Fetching details concurrently for 31 listings (workers=4)...
+2026-09-02 16:55:18  [INFO    ]  [cars-for-sale] Page 42/50  offset=1230  collected=1103  total=20170
+2026-09-02 16:55:18  [INFO    ]  Fetching details concurrently for 29 listings (workers=4)...
+2026-09-02 16:55:23  [INFO    ]  [cars-for-sale] Page 43/50  offset=1260  collected=1132  total=20170
+2026-09-02 16:55:23  [INFO    ]  Fetching details concurrently for 31 listings (workers=4)...
+2026-09-02 16:55:28  [INFO    ]  [cars-for-sale] Page 44/50  offset=1290  collected=1163  total=20170
+2026-09-02 16:55:28  [INFO    ]  Fetching details concurrently for 30 listings (workers=4)...
+2026-09-02 16:55:33  [INFO    ]  [cars-for-sale] Page 45/50  offset=1320  collected=1193  total=20170
+2026-09-02 16:55:33  [INFO    ]  Fetching details concurrently for 30 listings (workers=4)...
+2026-09-02 16:55:38  [INFO    ]  [cars-for-sale] Page 46/50  offset=1350  collected=1223  total=20170
+2026-09-02 16:55:39  [INFO    ]  Fetching details concurrently for 30 listings (workers=4)...
+2026-09-02 16:55:43  [INFO    ]  [cars-for-sale] Page 47/50  offset=1380  collected=1253  total=20170
+2026-09-02 16:55:43  [INFO    ]  Fetching details concurrently for 30 listings (workers=4)...
+2026-09-02 16:55:47  [INFO    ]  [cars-for-sale] Page 48/50  offset=1410  collected=1283  total=20170
+2026-09-02 16:55:47  [INFO    ]  Fetching details concurrently for 30 listings (workers=4)...
+2026-09-02 16:55:53  [INFO    ]  [cars-for-sale] Page 49/50  offset=1440  collected=1313  total=20170
+2026-09-02 16:55:53  [INFO    ]  Fetching details concurrently for 30 listings (workers=4)...
+2026-09-02 16:55:58  [INFO    ]  [cars-for-sale] Page 50/50  offset=1470  collected=1343  total=20170
+2026-09-02 16:55:58  [INFO    ]  Fetching details concurrently for 30 listings (workers=4)...
+2026-09-02 16:56:03  [INFO    ]  Scrape complete. Collected 1373 records in this batch.
+2026-09-02 16:56:03  [INFO    ]  Extraction complete in 291.83s: 1,373 total listings collected.
+2026-09-02 16:56:03  [INFO    ]  Batch summary: 1,373 total listings collected (377 new IDs, 996 recurring/tracked IDs).
+2026-09-02 16:56:09  [INFO    ]  Saved 1373 raw records to Parquet -> data\bronze\cars_2026-09-02.parquet
+2026-09-02 16:56:09  [INFO    ]  Saved 1373 full raw records from today's run to CSV -> data\bronze\khmer24_cars.csv
+2026-09-02 16:56:09  [INFO    ]  Saved ingestion run manifest -> data\bronze\ingestion_manifest.json
+2026-09-02 16:56:09  [INFO    ]  Bronze Parquet -> data\bronze\cars_2026-09-02.parquet
+2026-09-02 16:56:09  [INFO    ]  Full Run CSV   -> data\bronze\khmer24_cars.csv
+2026-09-02 16:56:09  [INFO    ]  Manifest       -> data\bronze\ingestion_manifest.json
+2026-09-02 16:56:09  [INFO    ]  ┌────────────────────────────────────────────────────┐
+2026-09-02 16:56:09  [INFO    ]  │  BRONZE INGESTION QUALITY SUMMARY (1,373 records)  │
+2026-09-02 16:56:09  [INFO    ]  ├────────────────────────────────────┬───────────────┤
+2026-09-02 16:56:09  [INFO    ]  │  Price Field Coverage              │  100.0%       │
+2026-09-02 16:56:09  [INFO    ]  │  Brand Field Coverage              │  100.0%       │
+2026-09-02 16:56:09  [INFO    ]  │  Model Field Coverage              │   99.3%       │
+2026-09-02 16:56:09  [INFO    ]  │  Year Field Coverage               │  100.0%       │
+2026-09-02 16:56:09  [INFO    ]  │  Province Field Coverage           │  100.0%       │
+2026-09-02 16:56:09  [INFO    ]  │  Mileage Field Coverage            │    0.0%       │
+2026-09-02 16:56:09  [INFO    ]  │  Transmission Field Coverage       │   86.5%       │
+2026-09-02 16:56:09  [INFO    ]  │  Fuel Type Field Coverage          │   88.9%       │
+2026-09-02 16:56:09  [INFO    ]  │  Detail Enrichment Rate            │  100.0%       │
+2026-09-02 16:56:09  [INFO    ]  ├────────────────────────────────────┴───────────────┤
+2026-09-02 16:56:09  [INFO    ]  │  Cumulative Unique Marketplace IDs :  7,739              │
+2026-09-02 16:56:09  [INFO    ]  └────────────────────────────────────────────────────┘
+2026-09-02 16:56:09  [INFO    ]  EL stage complete. 1,373 listings processed in this batch.
+>>>>>>> d3963e3 (feat(pipeline): implement medallion architecture, robust spec extraction, star schema, and comprehensive data dictionary)

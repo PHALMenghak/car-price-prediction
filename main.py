@@ -30,10 +30,10 @@ if sys.stderr.encoding and sys.stderr.encoding.lower() != "utf-8":
 
 from pipeline.extract_load import run as run_el
 from src.config import (
+    BRONZE_DATA_DIR,
     ENRICH_DETAILS,
     LOGS_DIR,
     MAX_PAGES,
-    RAW_DATA_DIR,
     SCRAPE_MODE,
     TARGET_CATEGORY,
     TARGET_PROVINCE,
@@ -82,12 +82,34 @@ def main() -> None:
     parser.add_argument("--province", default=TARGET_PROVINCE, help="Province slug (e.g. phnom-penh)")
     parser.add_argument("--max-pages", type=int, default=MAX_PAGES, help="Max pages to scrape")
     parser.add_argument("--mode", default=SCRAPE_MODE, choices=["feed_window", "delta_only"], help="Scrape mode")
-    parser.add_argument("--enrich-details", action="store_true", default=ENRICH_DETAILS, help="Enrich post specs from detail pages")
+    parser.add_argument(
+        "--enrich-details",
+        action=argparse.BooleanOptionalAction,
+        default=ENRICH_DETAILS,
+        help="Enrich post specs from detail pages (use --no-enrich-details to disable)",
+    )
+    parser.add_argument("--post-id", type=str, default=None, help="Scrape and inspect a single listing ID")
     parser.add_argument("--transform", action="store_true", default=False, help="Run dbt transformations immediately after scraping")
     parser.add_argument("--dbt-test", action="store_true", default=False, help="Run dbt tests after transformation")
-    parser.add_argument("--output-dir", default=RAW_DATA_DIR, help="Output directory for raw data")
+    parser.add_argument("--output-dir", default=BRONZE_DATA_DIR, help="Output directory for raw bronze data")
 
     args = parser.parse_args()
+
+    # Handle Single Post Inspection
+    if args.post_id:
+        logger.info(f"Inspecting single listing: {args.post_id}")
+        import json
+        from src.client import Khmer24Client
+        with Khmer24Client() as client:
+            detail, src, raw_json = client.fetch_raw_post_detail(args.post_id)
+            listing = client._map_raw_listing(
+                item={"id": args.post_id},
+                detail=detail,
+                detail_source=src,
+                raw_detail_json=raw_json,
+            )
+            print(json.dumps(listing.model_dump(exclude={"raw_feed_payload", "raw_detail_payload"}), indent=2, ensure_ascii=False))
+        return
 
     try:
         result_count = run_el(

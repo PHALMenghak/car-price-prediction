@@ -1,10 +1,10 @@
 -- dbt/models/staging/stg_khmer24_cars.sql
 -- ─────────────────────────────────────────────────────────────────────────────
--- BRONZE LAYER: Multi-day snapshot ingestion, deduplication & market signals
+-- BRONZE LAYER (STAGING): Multi-day raw snapshot ingestion & deduplication
 -- ─────────────────────────────────────────────────────────────────────────────
--- Reads all daily raw Parquet snapshots from data/raw/cars_*.parquet via DuckDB.
--- Deduplicates listings across scrape dates using ROW_NUMBER() window function.
--- Generates longitudinal time-series market signals per listing_id:
+-- Reads daily raw Parquet snapshots from data/bronze/cars_*.parquet via DuckDB.
+-- Deduplicates listings across scrape dates using latest snapshot.
+-- Generates longitudinal time-series market signals:
 --   • days_on_market  — how long the listing has been active
 --   • initial_price   — first observed price (to detect price drops)
 --   • price_drop_amount / has_price_drop — seller negotiation signals
@@ -13,46 +13,54 @@
 
 WITH raw_snapshots AS (
     SELECT *
-    FROM read_parquet('data/raw/cars_*.parquet', union_by_name=true)
+    FROM read_parquet('data/bronze/cars_*.parquet', union_by_name=true)
 ),
 
 ranked_snapshots AS (
     SELECT
         listing_id,
-        listing_title,
-        price,
-        vehicle_brand,
-        vehicle_model,
-        vehicle_model_year,
-        vehicle_condition,
-        vehicle_tax_type,
-        vehicle_fuel_type,
-        vehicle_transmission,
-        vehicle_color,
-        vehicle_mileage_km,
-        vehicle_engine_cc,
-        province,
-        seller_type,
+        raw_title,
+        TRY_CAST(raw_price AS DOUBLE) AS price,
+        raw_currency,
+        raw_spec_brand,
+        raw_spec_model,
+        raw_spec_year,
+        raw_spec_mileage,
+        raw_spec_engine_size,
+        raw_spec_fuel_type,
+        raw_spec_transmission,
+        raw_spec_color,
+        raw_spec_condition,
+        raw_spec_tax_type,
+        raw_spec_steering,
+        raw_spec_body_type,
+        raw_province,
+        raw_district,
         seller_id,
         seller_name,
-        view_count,
+        seller_type_code,
+        seller_username,
+        seller_phones,
+        raw_description,
+        thumbnail_url,
+        listing_url,
+        TRY_CAST(view_count AS BIGINT) AS view_count,
         posted_at,
         scraped_at,
         renewed_at,
 
-        -- ── Deduplication rank: latest snapshot wins ──────────────────────
+        -- ── Deduplication rank: latest snapshot wins ──────────────────────────
         ROW_NUMBER() OVER (
             PARTITION BY listing_id
             ORDER BY scraped_at DESC
         ) AS _row_num,
 
-        -- ── Time-series market dynamics aggregated per listing ────────────
+        -- ── Longitudinal aggregation ──────────────────────────────────────────
         MIN(posted_at) OVER (
             PARTITION BY listing_id
         ) AS _first_posted_at,
 
-        -- Initial price (oldest observed snapshot)
-        FIRST_VALUE(price) OVER (
+        FIRST_VALUE(TRY_CAST(raw_price AS DOUBLE)) OVER (
             PARTITION BY listing_id
             ORDER BY scraped_at ASC
             ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
@@ -64,29 +72,45 @@ ranked_snapshots AS (
 
 SELECT
     listing_id,
-    listing_title,
+    raw_title,
 
-    -- ── Price & Price-Change Signals ─────────────────────────────────────
-    TRY_CAST(price AS DOUBLE)                                     AS price,
-    TRY_CAST(_initial_price AS DOUBLE)                            AS initial_price,
-    GREATEST(
-        TRY_CAST(_initial_price AS DOUBLE) - TRY_CAST(price AS DOUBLE),
-        0.0
-    )                                                             AS price_drop_amount,
-    CASE
-        WHEN (TRY_CAST(_initial_price AS DOUBLE) - TRY_CAST(price AS DOUBLE)) > 0
-        THEN 1 ELSE 0
-    END                                                           AS has_price_drop,
-    GREATEST(
-        TRY_CAST(price AS DOUBLE) - TRY_CAST(_initial_price AS DOUBLE),
-        0.0
-    )                                                             AS price_increase_amount,
-    CASE
-        WHEN (TRY_CAST(price AS DOUBLE) - TRY_CAST(_initial_price AS DOUBLE)) > 0
-        THEN 1 ELSE 0
-    END                                                           AS has_price_increase,
+    -- ── Price & Price-Change Signals ─────────────────────────────────────────
+    price,
+    _initial_price                                                AS initial_price,
+    GREATEST(_initial_price - price, 0.0)                         AS price_drop_amount,
+    CASE WHEN (_initial_price - price) > 0 THEN 1 ELSE 0 END      AS has_price_drop,
+    GREATEST(price - _initial_price, 0.0)                         AS price_increase_amount,
+    CASE WHEN (price - _initial_price) > 0 THEN 1 ELSE 0 END      AS has_price_increase,
 
-    -- ── Temporal Market Signals ───────────────────────────────────────────
+    -- ── Specifications ───────────────────────────────────────────────────────
+    raw_spec_brand,
+    raw_spec_model,
+    raw_spec_year,
+    raw_spec_mileage,
+    raw_spec_engine_size,
+    raw_spec_fuel_type,
+    raw_spec_transmission,
+    raw_spec_color,
+    raw_spec_condition,
+    raw_spec_tax_type,
+    raw_spec_steering,
+    raw_spec_body_type,
+
+    -- ── Location & Seller ────────────────────────────────────────────────────
+    raw_province,
+    raw_district,
+    seller_id,
+    seller_name,
+    CASE WHEN seller_type_code = '2' THEN 'store' ELSE 'individual' END AS seller_type,
+    seller_username,
+    seller_phones,
+
+    -- ── Content ──────────────────────────────────────────────────────────────
+    raw_description,
+    thumbnail_url,
+    listing_url,
+
+    -- ── Longitudinal Market Dynamics ─────────────────────────────────────────
     ROUND(
         GREATEST(
             DATE_DIFF(
@@ -99,9 +123,8 @@ SELECT
         1
     )                                                             AS days_on_market,
 
-    -- View velocity: views per day on market (demand proxy)
     ROUND(
-        COALESCE(TRY_CAST(view_count AS DOUBLE), 0.0) /
+        COALESCE(view_count, 0) /
         GREATEST(
             DATE_DIFF(
                 'second',
@@ -113,29 +136,10 @@ SELECT
         2
     )                                                             AS view_velocity,
 
-    -- ── Vehicle Core Fields (type-cast & default fill) ────────────────────
-    TRIM(COALESCE(NULLIF(vehicle_brand, ''), 'Unknown'))          AS vehicle_brand,
-    TRIM(COALESCE(NULLIF(vehicle_model, ''), 'Unknown'))          AS vehicle_model,
-    TRY_CAST(vehicle_model_year AS INTEGER)                       AS vehicle_model_year,
-    LOWER(TRIM(COALESCE(NULLIF(vehicle_condition, ''), 'used')))  AS vehicle_condition,
-    TRIM(COALESCE(NULLIF(vehicle_tax_type, ''), 'Unknown'))       AS vehicle_tax_type,
-    TRIM(COALESCE(NULLIF(vehicle_fuel_type, ''), 'Unknown'))      AS vehicle_fuel_type,
-    TRIM(COALESCE(NULLIF(vehicle_transmission, ''), 'Unknown'))   AS vehicle_transmission,
-    TRIM(COALESCE(NULLIF(vehicle_color, ''), 'Unknown'))          AS vehicle_color,
-    TRY_CAST(vehicle_mileage_km AS DOUBLE)                        AS vehicle_mileage_km,
-    TRY_CAST(vehicle_engine_cc AS DOUBLE)                         AS vehicle_engine_cc,
-
-    -- ── Location & Seller ─────────────────────────────────────────────────
-    TRIM(COALESCE(NULLIF(province, ''), 'Unknown'))               AS province,
-    LOWER(TRIM(COALESCE(NULLIF(seller_type, ''), 'individual')))  AS seller_type,
-    seller_id,
-    seller_name,
-    COALESCE(TRY_CAST(view_count AS INTEGER), 0)                  AS view_count,
-
-    -- ── Timestamps ────────────────────────────────────────────────────────
-    TRY_CAST(posted_at AS TIMESTAMPTZ)                            AS posted_at,
-    TRY_CAST(scraped_at AS TIMESTAMPTZ)                           AS scraped_at,
-    TRY_CAST(renewed_at AS TIMESTAMPTZ)                           AS renewed_at
+    COALESCE(view_count, 0)                                       AS view_count,
+    posted_at,
+    scraped_at,
+    renewed_at
 
 FROM ranked_snapshots
-WHERE _row_num = 1  -- Keep only the most recent snapshot per listing
+WHERE _row_num = 1

@@ -1,78 +1,77 @@
-# src/storage.py — Parquet & CSV persistence for AdListingModel records
+# src/storage.py — Parquet & CSV persistence for RawCarListing records
+# Stores structured raw data in Bronze layer without transformation.
 
+import glob
 import json
 import logging
 import os
-import glob
-from typing import Any, Dict, List, Literal, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 import pandas as pd
 import pyarrow.parquet as pq
 
-from src.config import RAW_DATA_DIR, PARQUET_FILENAME
-from src.schemas import AdListingModel
+from src.config import BRONZE_DATA_DIR, PARQUET_FILENAME, RAW_CSV_FILENAME
+from src.schemas import RawCarListing
 
 logger = logging.getLogger(__name__)
-
-SampleSize = Literal[30, 60]
 
 
 def _ensure_dir(path: str) -> None:
     os.makedirs(path, exist_ok=True)
 
 
-# ── Column Ordering (Logical grouping with zero renaming) ──────────────────────
+# ── Column Ordering (Logical grouping of structured raw data) ─────────────────
 
 REORDERED_COLUMNS: List[str] = [
-    # 1. Identity & Title
+    # 1. Identity & Pricing
     "listing_id",
-    "listing_title",
-    # 2. Target Variable & Pricing
-    "price",
-    "currency",
-    # 3. Core Car Specs (ML Features)
-    "vehicle_brand",
-    "vehicle_model",
-    "vehicle_model_year",
-    "vehicle_condition",
-    "vehicle_tax_type",
-    "vehicle_transmission",
-    "vehicle_fuel_type",
-    "vehicle_mileage_km",
-    "vehicle_engine_cc",
-    "vehicle_color",
-    # 4. Location & Category
-    "province",
-    "district",
-    "location_full",
-    "category",
-    "category_slug",
-    "province_slug",
-    # 5. Seller & Engagement
+    "raw_title",
+    "raw_price",
+    "raw_currency",
+    # 2. Raw Vehicle Specs (Direct from Detail Page / Feed)
+    "raw_spec_brand",
+    "raw_spec_model",
+    "raw_spec_year",
+    "raw_spec_mileage",
+    "raw_spec_engine_size",
+    "raw_spec_fuel_type",
+    "raw_spec_transmission",
+    "raw_spec_color",
+    "raw_spec_condition",
+    "raw_spec_tax_type",
+    "raw_spec_steering",
+    "raw_spec_body_type",
+    # 3. Location
+    "raw_province",
+    "raw_district",
+    # 4. Seller & Contact
     "seller_id",
     "seller_name",
-    "seller_type",
+    "seller_type_code",
     "seller_username",
-    "seller_avatar",
     "seller_phones",
-    "view_count",
-    # 6. Timestamps
-    "posted_at",
-    "renewed_at",
-    "scraped_at",
-    # 7. URLs, Media & Raw Payloads
+    # 5. Content & Media
+    "raw_description",
     "thumbnail_url",
     "listing_url",
     "images",
-    "description",
-    "raw_specs",
+    # 6. Timestamps & Lineage
+    "view_count",
+    "posted_at",
+    "renewed_at",
+    "scraped_at",
+    "detail_source",
+    "has_detail",
+    # 7. Audit Blobs
+    "raw_feed_payload",
+    "raw_detail_payload",
 ]
 
-_COMPLEX_COLS = {"seller_phones", "raw_specs", "images"}
+_COMPLEX_COLS = {"seller_phones", "images", "raw_specs"}
 
 
 def reorder_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """Reorder DataFrame columns logically without renaming any column."""
+    """Reorder DataFrame columns logically without dropping any column."""
     ordered = [c for c in REORDERED_COLUMNS if c in df.columns]
     extra = [c for c in df.columns if c not in REORDERED_COLUMNS]
     return df[ordered + extra]
@@ -80,7 +79,7 @@ def reorder_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 # ── Fast Historical ID Discovery ───────────────────────────────────────────────
 
-def get_historical_ids(directory: str = RAW_DATA_DIR) -> Set[str]:
+def get_historical_ids(directory: str = BRONZE_DATA_DIR) -> Set[str]:
     """
     Fast discovery of all historical unique listing IDs across all Parquet files.
     Reads only the ID column (zero full-data loading) for optimal performance.
@@ -116,31 +115,23 @@ def get_historical_ids(directory: str = RAW_DATA_DIR) -> Set[str]:
     return historical_ids
 
 
-# ── Parquet ────────────────────────────────────────────────────────────────────
+# ── Parquet & Full CSV Persistence ─────────────────────────────────────────────
 
 def save_to_parquet(
-    listings: List[AdListingModel],
+    listings: List[RawCarListing],
     filename: str = PARQUET_FILENAME,
-    directory: str = RAW_DATA_DIR,
+    directory: str = BRONZE_DATA_DIR,
 ) -> str:
     """
-    Serialize all ``AdListingModel`` records to a Parquet file with logical column ordering.
-
-    List/dict columns (``seller_phones``, ``raw_specs``, ``images``) are JSON-encoded so the
-    Parquet schema stays flat, consistent, and portable across tools.
-
-    Returns the path to the written file.
+    Serialize all ``RawCarListing`` records to a Bronze Parquet file with logical column ordering.
     """
     _ensure_dir(directory)
     path = os.path.join(directory, filename)
 
     rows = [item.model_dump() for item in listings]
     df = pd.DataFrame(rows)
-
-    # Reorder columns into logical groups
     df = reorder_columns(df)
 
-    # Parquet cannot store arbitrary Python objects — serialize known complex columns to JSON.
     for col in _COMPLEX_COLS:
         if col in df.columns:
             df[col] = df[col].apply(
@@ -148,11 +139,55 @@ def save_to_parquet(
             )
 
     df.to_parquet(path, index=False)
-    logger.info(f"Saved {len(df)} records to Parquet -> {path}")
+    logger.info(f"Saved {len(df)} raw records to Parquet -> {path}")
     return path
 
 
-_JSON_RESTORE_COLS = ("seller_phones", "raw_specs", "images", "phone_numbers", "specs")
+def save_to_csv(
+    listings: List[RawCarListing],
+    filename: str = RAW_CSV_FILENAME,
+    directory: str = BRONZE_DATA_DIR,
+) -> str:
+    """
+    Serialize 100% of today's scraped ``RawCarListing`` records to a single full Bronze CSV file
+    for fast human inspection and review.
+    Uses UTF-8 with BOM (utf-8-sig) to guarantee Khmer Unicode renders properly in Excel.
+    """
+    _ensure_dir(directory)
+    path = os.path.join(directory, filename)
+
+    rows = [item.model_dump() for item in listings]
+    df = pd.DataFrame(rows)
+    df = reorder_columns(df)
+
+    # Exclude massive raw audit payloads from CSV inspection if present
+    drop_from_csv = [c for c in ("raw_feed_payload", "raw_detail_payload") if c in df.columns]
+    df_csv = df.drop(columns=drop_from_csv)
+
+    # Convert complex collections to readable string representations
+    for col in _COMPLEX_COLS:
+        if col in df_csv.columns:
+            df_csv[col] = df_csv[col].apply(
+                lambda x: json.dumps(x, ensure_ascii=False) if isinstance(x, (list, dict)) else x
+            )
+
+    df_csv.to_csv(path, index=False, encoding="utf-8-sig")
+    logger.info(f"Saved {len(df_csv)} full raw records from today's run to CSV -> {path}")
+    return path
+
+
+def save_sample_csv(
+    listings: List[RawCarListing],
+    n: int = 60,
+    directory: str = BRONZE_DATA_DIR,
+) -> str:
+    """
+    Backward-compatible alias for saving CSV data.
+    """
+    return save_to_csv(listings, filename=RAW_CSV_FILENAME, directory=directory)
+
+
+_JSON_RESTORE_COLS = ("seller_phones", "images", "raw_specs", "phone_numbers")
 
 
 def _restore_json_columns(df: pd.DataFrame) -> pd.DataFrame:
@@ -169,21 +204,16 @@ def _restore_json_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 def load_from_parquet(
     filename: str = PARQUET_FILENAME,
-    directory: str = RAW_DATA_DIR,
+    directory: str = BRONZE_DATA_DIR,
 ) -> pd.DataFrame:
-    """
-    Load listings from an existing Parquet file, restoring serialized columns.
-    """
+    """Load listings from an existing Bronze Parquet file."""
     path = os.path.join(directory, filename)
     df = pd.read_parquet(path)
     return _restore_json_columns(df)
 
 
-def load_all_parquet(directory: str = RAW_DATA_DIR) -> pd.DataFrame:
-    """
-    Load and concatenate all raw Parquet files from `directory` (including subdirectories).
-    Restores serialized complex columns (JSON strings -> python objects).
-    """
+def load_all_parquet(directory: str = BRONZE_DATA_DIR) -> pd.DataFrame:
+    """Load and concatenate all raw Parquet files from `directory`."""
     files = sorted(
         set(
             glob.glob(os.path.join(directory, "**", "*.parquet"), recursive=True)
@@ -209,57 +239,15 @@ def load_all_parquet(directory: str = RAW_DATA_DIR) -> pd.DataFrame:
     return _restore_json_columns(combined)
 
 
-def save_sample_csv(
-    listings: List[AdListingModel],
-    n: SampleSize = 30,
-    directory: str = RAW_DATA_DIR,
-) -> str:
-    """
-    Save a random sample of ``n`` listings (30 or 60) to a CSV file.
-
-    Only the human-readable columns are included — large blobs like ``specs``
-    and ``raw_specs`` are omitted to keep the CSV clean and easy to open
-    in Excel / Google Sheets.
-
-    Args:
-        listings: Full list of scraped ``AdListingModel`` records.
-        n:        Sample size — either ``30`` or ``60``.
-        directory: Output directory (default: ``data/raw/``).
-
-    Returns:
-        Path to the written CSV file.
-    """
-    if n not in (30, 60):
-        raise ValueError(f"Sample size must be 30 or 60, got {n}")
-
-    _ensure_dir(directory)
-    filename = f"khmer24_cars_sample_{n}.csv"
-    path = os.path.join(directory, filename)
-
-    df = pd.DataFrame([item.model_dump() for item in listings])
-    df = reorder_columns(df)
-
-    # Random sample (seed fixed for reproducibility); cap at total available
-    sample_size = min(n, len(df))
-    df_sample = df.sample(n=sample_size, random_state=42).reset_index(drop=True)
-
-    df_sample.to_csv(path, index=False, encoding="utf-8-sig")  # utf-8-sig for Excel compat
-    logger.info(f"Saved {sample_size}-row CSV sample -> {path}")
-    return path
-
-
 def save_run_manifest(
     manifest_data: Dict[str, Any],
     filename: str = "ingestion_manifest.json",
-    directory: str = RAW_DATA_DIR,
+    directory: str = BRONZE_DATA_DIR,
 ) -> str:
-    """
-    Save run metadata and metrics to a JSON manifest for auditability and observability.
-    """
+    """Save run metadata and metrics to a JSON manifest for auditability."""
     _ensure_dir(directory)
     path = os.path.join(directory, filename)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(manifest_data, f, indent=2, ensure_ascii=False)
     logger.info(f"Saved ingestion run manifest -> {path}")
     return path
-

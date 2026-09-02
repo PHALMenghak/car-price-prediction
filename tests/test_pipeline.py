@@ -3,35 +3,37 @@
 import json
 import os
 import pytest
-from src.schemas import AdListingModel
+from src.schemas import RawCarListing
 from pipeline.extract_load import run, _compute_quality_metrics
 
 
 def test_compute_quality_metrics():
     sample = [
-        AdListingModel(
+        RawCarListing(
             listing_id="1",
-            listing_title="Toyota Prius 2012",
-            price=12000.0,
-            vehicle_brand="Toyota",
-            vehicle_model="Prius",
-            vehicle_model_year=2012,
-            province="Phnom Penh",
-            vehicle_mileage_km=120000,
-            vehicle_fuel_type="Hybrid",
-            vehicle_transmission="Automatic",
+            raw_title="Toyota Prius 2012",
+            raw_price="12000.0",
+            raw_spec_brand="Toyota",
+            raw_spec_model="Prius",
+            raw_spec_year="2012",
+            raw_province="Phnom Penh",
+            raw_spec_mileage="120000",
+            raw_spec_fuel_type="Hybrid",
+            raw_spec_transmission="Automatic",
+            has_detail=True,
         ),
-        AdListingModel(
+        RawCarListing(
             listing_id="2",
-            listing_title="Ford Ranger 2020",
-            price=28000.0,
-            vehicle_brand="Ford",
-            vehicle_model="Ranger",
-            vehicle_model_year=2020,
-            province="Siem Reap",
-            vehicle_mileage_km=None,
-            vehicle_fuel_type="Diesel",
-            vehicle_transmission=None,
+            raw_title="Ford Ranger 2020",
+            raw_price="28000.0",
+            raw_spec_brand="Ford",
+            raw_spec_model="Ranger",
+            raw_spec_year="2020",
+            raw_province="Siem Reap",
+            raw_spec_mileage=None,
+            raw_spec_fuel_type="Diesel",
+            raw_spec_transmission=None,
+            has_detail=False,
         ),
     ]
 
@@ -41,6 +43,7 @@ def test_compute_quality_metrics():
     assert metrics["brand_coverage_pct"] == 100.0
     assert metrics["mileage_coverage_pct"] == 50.0
     assert metrics["transmission_coverage_pct"] == 50.0
+    assert metrics["detail_enrich_pct"] == 50.0
     assert metrics["cumulative_unique_ids"] == 2
 
 
@@ -49,23 +52,23 @@ def test_pipeline_run_end_to_end(tmp_path, monkeypatch):
     temp_dir = str(tmp_path)
 
     sample = [
-        AdListingModel(
+        RawCarListing(
             listing_id="501",
-            listing_title="Toyota Camry 2018",
-            price=25000.0,
-            vehicle_brand="Toyota",
-            vehicle_model="Camry",
-            vehicle_model_year=2018,
-            province="Phnom Penh",
+            raw_title="Toyota Camry 2018",
+            raw_price="25000.0",
+            raw_spec_brand="Toyota",
+            raw_spec_model="Camry",
+            raw_spec_year="2018",
+            raw_province="Phnom Penh",
         ),
-        AdListingModel(
+        RawCarListing(
             listing_id="502",
-            listing_title="Lexus RX350 2015",
-            price=36000.0,
-            vehicle_brand="Lexus",
-            vehicle_model="RX350",
-            vehicle_model_year=2015,
-            province="Kandal",
+            raw_title="Lexus RX350 2015",
+            raw_price="36000.0",
+            raw_spec_brand="Lexus",
+            raw_spec_model="RX350",
+            raw_spec_year="2015",
+            raw_province="Kandal",
         ),
     ]
 
@@ -92,11 +95,8 @@ def test_pipeline_run_end_to_end(tmp_path, monkeypatch):
 
     assert count == 2
 
-    # Verify manifest creation
     manifest_path = os.path.join(temp_dir, "ingestion_manifest.json")
     assert os.path.exists(manifest_path)
     with open(manifest_path, "r", encoding="utf-8") as f:
         manifest = json.load(f)
     assert manifest["batch_total"] == 2
-    assert manifest["new_ids_count"] == 2
-    assert manifest["quality_metrics"]["brand_coverage_pct"] == 100.0

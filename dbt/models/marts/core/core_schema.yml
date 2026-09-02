@@ -1,0 +1,78 @@
+# dbt/models/marts/core/core_schema.yml
+# Data contracts and quality governance for Gold Star Schema (Dimensions & Fact Table).
+
+version: 2
+
+models:
+  - name: dim_car_model
+    description: "Gold Dimension: Unique vehicle makes, models, body styles, and brand tiers."
+    columns:
+      - name: model_key
+        description: "Primary key (hash of brand, model, and body style)."
+        tests:
+          - unique
+          - not_null
+      - name: vehicle_brand
+        description: "Standardized automotive brand name."
+        tests:
+          - not_null
+
+  - name: dim_location
+    description: "Gold Dimension: Cambodia geographic market segmentation."
+    columns:
+      - name: location_key
+        description: "Primary key (hash of province and district)."
+        tests:
+          - unique
+          - not_null
+      - name: province
+        description: "Province name."
+        tests:
+          - not_null
+
+  - name: dim_seller
+    description: "Gold Dimension: Seller identity and commercial store tiering."
+    columns:
+      - name: seller_key
+        description: "Primary key (hash of seller ID)."
+        tests:
+          - unique
+          - not_null
+
+  - name: dim_powertrain
+    description: "Gold Dimension: Fuel type, transmission, and engine size classification."
+    columns:
+      - name: powertrain_key
+        description: "Primary key (hash of fuel type, transmission, engine cc)."
+        tests:
+          - unique
+          - not_null
+
+  - name: fct_car_listings
+    description: "Gold Fact Table: Core marketplace transactions, prices, and dynamics."
+    columns:
+      - name: listing_id
+        description: "Primary key."
+        tests:
+          - unique
+          - not_null
+      - name: model_key
+        description: "Foreign key to dim_car_model."
+        tests:
+          - not_null
+      - name: location_key
+        description: "Foreign key to dim_location."
+        tests:
+          - not_null
+      - name: seller_key
+        description: "Foreign key to dim_seller."
+        tests:
+          - not_null
+      - name: powertrain_key
+        description: "Foreign key to dim_powertrain."
+        tests:
+          - not_null
+      - name: price
+        description: "Validated vehicle price in USD."
+        tests:
+          - not_null

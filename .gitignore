@@ -1,10 +1,14 @@
 # .gitignore
 
-# Python cache
+# Python cache & tooling
 __pycache__/
 *.py[cod]
 *.pyo
 *.egg-info/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
 
 # Virtual environments
 .venv/
@@ -14,14 +18,15 @@ env/
 # Environment secrets — NEVER commit this
 .env
 
-# Scraped data output — tracked by git so GitHub Actions can push results back.
-# Exclude only local DB files which are never needed in the repo.
+# Local database & cache artifacts
 data/**/*.db
 *.duckdb*
 .backfill_cache.json
-data/raw/.backfill_cache.json
+
+# dbt compilation & package targets
 dbt/target/
 dbt/dbt_packages/
+dbt/logs/
 
 # Log files — broad exclusion first, then allow daily and latest scraper logs
 *.log
@@ -40,6 +45,3 @@ Thumbs.db
 # IDE files
 .idea/
 .vscode/
-
-docs/
-

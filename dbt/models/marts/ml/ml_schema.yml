@@ -1,0 +1,71 @@
+# dbt/models/marts/ml/ml_schema.yml
+# Data contracts and quality governance for Gold ML Feature Store.
+
+version: 2
+
+models:
+  - name: fct_cars_ml_features
+    description: >
+      Gold Layer: Production-ready ML feature store for Cambodia car price regression.
+      Materializes the complete feature matrix with hierarchical median imputations.
+    columns:
+      - name: listing_id
+        description: "Unique listing identifier."
+        tests:
+          - unique
+          - not_null
+      - name: price
+        description: "Validated USD asking price (regression target)."
+        tests:
+          - not_null
+      - name: log_price
+        description: "Symmetrical log-transformed target: ln(1 + price)."
+        tests:
+          - not_null
+      - name: vehicle_model_year
+        description: "Imputed vehicle release year."
+        tests:
+          - not_null
+      - name: vehicle_mileage_km
+        description: "Imputed odometer reading."
+        tests:
+          - not_null
+      - name: vehicle_engine_cc
+        description: "Imputed engine displacement in cc."
+        tests:
+          - not_null
+      - name: brand_category
+        description: "Market tier classification."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Luxury', 'Mass_Market', 'Chinese_EV', 'Other']
+      - name: location_tier
+        description: "Geographic market tier."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Tier_1', 'Tier_2', 'Tier_3']
+      - name: vehicle_condition
+        description: "Listing condition."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['new', 'used']
+      - name: vehicle_fuel_type
+        description: "Inferred fuel type."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Petrol', 'Diesel', 'Hybrid', 'Electric', 'LPG', 'Unknown']
+      - name: vehicle_transmission
+        description: "Inferred transmission."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Automatic', 'Manual']

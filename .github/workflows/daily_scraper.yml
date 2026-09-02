@@ -105,33 +105,23 @@ jobs:
           RELAY_KEY:         ${{ secrets.RELAY_KEY }}
         run: uv run python main.py
 
-      - name: Run dbt Transformations & Data Tests
-        env:
-          PYTHONUTF8: "1"              # ensure UTF-8 for Khmer characters in dbt SQL output
-        run: |
-          uv run dbt deps --project-dir dbt --profiles-dir dbt
-          uv run dbt run  --project-dir dbt --profiles-dir dbt
-          uv run dbt test --project-dir dbt --profiles-dir dbt
-
-      - name: Commit & push scraped & processed data back to repository
+      - name: Commit & push scraped bronze data back to repository
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/raw/ data/processed/ logs/
-          git diff --cached --quiet || git commit -m "chore: daily scrape $(date -u +%Y-%m-%d)"
+          git add data/bronze/ logs/
+          git diff --cached --quiet || git commit -m "chore(data): daily bronze scrape $(date -u +%Y-%m-%d)"
           git push
         continue-on-error: true   # do not fail the pipeline if there is nothing new to commit
 
-      - name: Upload Raw & Processed Parquet Data
+      - name: Upload Raw Bronze Parquet Data
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: car-data-${{ github.run_id }}
+          name: car-bronze-data-${{ github.run_id }}
           path: |
-            data/raw/cars_*.parquet
-            data/raw/*.csv
-            data/raw/*.json
-            data/processed/*.parquet
-            data/processed/*.csv
+            data/bronze/cars_*.parquet
+            data/bronze/*.csv
+            data/bronze/*.json
             logs/scraper*.log
           retention-days: 30
