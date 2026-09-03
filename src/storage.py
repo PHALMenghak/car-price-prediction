@@ -132,6 +132,10 @@ def save_to_parquet(
     df = pd.DataFrame(rows)
     df = reorder_columns(df)
 
+    # Exclude massive raw audit payloads from Parquet file to keep files lightweight (<1MB) and avoid GitHub's 100MB limit
+    drop_from_parquet = [c for c in ("raw_feed_payload", "raw_detail_payload") if c in df.columns]
+    df = df.drop(columns=drop_from_parquet)
+
     for col in _COMPLEX_COLS:
         if col in df.columns:
             df[col] = df[col].apply(
