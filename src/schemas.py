@@ -32,7 +32,6 @@ class RawCarListing(BaseModel):
     raw_spec_color: Optional[str] = None
     raw_spec_condition: Optional[str] = None
     raw_spec_tax_type: Optional[str] = None
-    raw_spec_steering: Optional[str] = None
     raw_spec_body_type: Optional[str] = None
 
     # ── 3. Location ─────────────────────────────────────────────────────────────
@@ -53,7 +52,6 @@ class RawCarListing(BaseModel):
     images: List[str] = Field(default_factory=list)
 
     # ── 6. Timestamps & Ingestion Lineage ───────────────────────────────────────
-    view_count: int = 0
     posted_at: Optional[str] = None
     renewed_at: Optional[str] = None
     scraped_at: str = Field(

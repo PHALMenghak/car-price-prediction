@@ -39,7 +39,6 @@ REORDERED_COLUMNS: List[str] = [
     "raw_spec_color",
     "raw_spec_condition",
     "raw_spec_tax_type",
-    "raw_spec_steering",
     "raw_spec_body_type",
     # 3. Location
     "raw_province",
@@ -56,7 +55,6 @@ REORDERED_COLUMNS: List[str] = [
     "listing_url",
     "images",
     # 6. Timestamps & Lineage
-    "view_count",
     "posted_at",
     "renewed_at",
     "scraped_at",

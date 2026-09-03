@@ -101,8 +101,6 @@ SELECT
     has_price_drop,
     price_increase_amount,
     has_price_increase,
-    view_count,
-    view_velocity,
 
     -- ── NLP Option Signals (from Listing Title) ───────────────────────────────
     {{ extract_title_options('listing_title') }},

@@ -32,7 +32,6 @@ ranked_snapshots AS (
         raw_spec_color,
         raw_spec_condition,
         raw_spec_tax_type,
-        raw_spec_steering,
         raw_spec_body_type,
         raw_province,
         raw_district,
@@ -44,7 +43,6 @@ ranked_snapshots AS (
         raw_description,
         thumbnail_url,
         listing_url,
-        TRY_CAST(view_count AS BIGINT) AS view_count,
         posted_at,
         scraped_at,
         renewed_at,
@@ -93,7 +91,6 @@ SELECT
     raw_spec_color,
     raw_spec_condition,
     raw_spec_tax_type,
-    raw_spec_steering,
     raw_spec_body_type,
 
     -- ── Location & Seller ────────────────────────────────────────────────────
@@ -123,20 +120,6 @@ SELECT
         1
     )                                                             AS days_on_market,
 
-    ROUND(
-        COALESCE(view_count, 0) /
-        GREATEST(
-            DATE_DIFF(
-                'second',
-                TRY_CAST(_first_posted_at AS TIMESTAMPTZ),
-                TRY_CAST(scraped_at AS TIMESTAMPTZ)
-            ) / 86400.0,
-            1.0
-        ),
-        2
-    )                                                             AS view_velocity,
-
-    COALESCE(view_count, 0)                                       AS view_count,
     posted_at,
     scraped_at,
     renewed_at

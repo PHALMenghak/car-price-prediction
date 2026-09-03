@@ -34,8 +34,6 @@ parsed_entities AS (
         price_increase_amount,
         has_price_increase,
         days_on_market,
-        view_velocity,
-        view_count,
 
         -- ── Brand & Model ─────────────────────────────────────────────────────
         {{ extract_brand_from_raw('raw_spec_brand', 'raw_title') }} AS vehicle_brand,
@@ -53,7 +51,6 @@ parsed_entities AS (
         {{ normalize_raw_transmission('raw_spec_transmission', 'raw_title') }} AS vehicle_transmission,
         {{ normalize_raw_tax_type('raw_spec_tax_type') }} AS vehicle_tax_type,
         {{ normalize_raw_condition('raw_spec_condition') }} AS vehicle_condition,
-        raw_spec_steering,
         raw_spec_body_type,
 
         -- ── Location & Seller ─────────────────────────────────────────────────
@@ -90,8 +87,6 @@ conformed AS (
         price_increase_amount,
         has_price_increase,
         days_on_market,
-        view_velocity,
-        view_count,
 
         -- Final brand & model
         vehicle_brand,
@@ -114,7 +109,6 @@ conformed AS (
         vehicle_color,
         vehicle_condition,
         vehicle_tax_type,
-        raw_spec_steering AS vehicle_steering,
         raw_spec_body_type AS vehicle_body_type,
 
         province,
@@ -144,8 +138,6 @@ SELECT
     price_increase_amount,
     has_price_increase,
     days_on_market,
-    view_velocity,
-    view_count,
     vehicle_brand,
     vehicle_model,
     vehicle_model_year,
@@ -156,7 +148,6 @@ SELECT
     vehicle_color,
     vehicle_condition,
     vehicle_tax_type,
-    vehicle_steering,
     vehicle_body_type,
     province,
     district,

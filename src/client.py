@@ -440,7 +440,6 @@ class Khmer24Client:
         raw_spec_tax_type = _get_spec("tax-type", "tax_type") or (
             item.get("tax_type") or (detail.get("tax_type") if isinstance(detail, dict) else None)
         )
-        raw_spec_steering = _get_spec("steering", "wheel")
         raw_spec_body_type = _get_spec("body-type", "body_type")
 
         # Condition
@@ -490,7 +489,6 @@ class Khmer24Client:
         # ── Timestamps ───────────────────────────────────────────────────────
         posted_at = str(item.get("posted_date") or item.get("created_at") or "") or None
         renewed_at = str(item.get("renew_date") or "") or None
-        view_count = int(item.get("views") or 0)
 
         raw_feed_payload = json.dumps(item, ensure_ascii=False)
 
@@ -509,7 +507,6 @@ class Khmer24Client:
             raw_spec_color=raw_spec_color,
             raw_spec_condition=raw_spec_condition,
             raw_spec_tax_type=raw_spec_tax_type,
-            raw_spec_steering=raw_spec_steering,
             raw_spec_body_type=raw_spec_body_type,
             raw_province=province,
             raw_district=district,
@@ -522,7 +519,6 @@ class Khmer24Client:
             thumbnail_url=thumbnail,
             listing_url=listing_url,
             images=images,
-            view_count=view_count,
             posted_at=posted_at,
             renewed_at=renewed_at,
             detail_source=detail_source,

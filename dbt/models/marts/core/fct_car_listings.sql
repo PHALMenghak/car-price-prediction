@@ -41,8 +41,6 @@ SELECT
 
     -- ── Engagement & Market Liquidity ─────────────────────────────────────────
     days_on_market,
-    view_count,
-    view_velocity,
 
     -- ── Timestamps ────────────────────────────────────────────────────────────
     posted_at,
