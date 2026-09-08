@@ -1,0 +1,180 @@
+brand,raw_alias,standardized_model
+Toyota,land cruiser,Land Cruiser
+Toyota,lc,Land Cruiser
+Toyota,lc200,Land Cruiser
+Toyota,lc300,Land Cruiser
+Toyota,landcruiser,Land Cruiser
+Toyota,prado,Land Cruiser Prado
+Toyota,lc prado,Land Cruiser Prado
+Toyota,land cruiser prado,Land Cruiser Prado
+Toyota,hilux revo,Hilux Revo
+Toyota,revo,Hilux Revo
+Toyota,hilux vigo,Hilux Vigo
+Toyota,vigo,Hilux Vigo
+Toyota,hilux,Hilux
+Toyota,fortuner,Fortuner
+Toyota,camry,Camry
+Toyota,corolla,Corolla
+Toyota,corolla cross,Corolla Cross
+Toyota,prius,Prius
+Toyota,rav4,RAV4
+Toyota,rav 4,RAV4
+Toyota,highlander,Highlander
+Toyota,alphard,Alphard
+Toyota,vellfire,Vellfire
+Toyota,yaris,Yaris
+Toyota,vitz,Vitz
+Toyota,rush,Rush
+Toyota,avanza,Avanza
+Toyota,crown,Crown
+Toyota,sienna,Sienna
+Toyota,4runner,4Runner
+Toyota,tacoma,Tacoma
+Toyota,tundra,Tundra
+Toyota,raize,Raize
+Toyota,yaris cross,Yaris Cross
+Toyota,bz4x,bZ4X
+Lexus,rx300,RX300
+Lexus,rx330,RX330
+Lexus,rx350,RX350
+Lexus,rx450h,RX450h
+Lexus,rx450,RX450h
+Lexus,rx200t,RX200t
+Lexus,nx200t,NX200t
+Lexus,nx300,NX300
+Lexus,nx300h,NX300
+Lexus,lx570,LX570
+Lexus,lx600,LX600
+Lexus,lx470,LX470
+Lexus,gx460,GX460
+Lexus,gx470,GX470
+Lexus,es350,ES350
+Lexus,es300,ES300
+Lexus,es300h,ES300h
+Lexus,ct200h,CT200h
+Lexus,is250,IS250
+Lexus,gs300,GS300
+Honda,civic,Civic
+Honda,accord,Accord
+Honda,crv,CR-V
+Honda,cr-v,CR-V
+Honda,cr v,CR-V
+Honda,hrv,HR-V
+Honda,hr-v,HR-V
+Honda,hr v,HR-V
+Honda,pilot,Pilot
+Honda,odyssey,Odyssey
+Honda,jazz,Jazz
+Honda,fit,Fit
+Honda,freed,Freed
+Honda,vezel,Vezel
+Ford,ranger,Ranger
+Ford,ranger raptor,Ranger Raptor
+Ford,raptor,Ranger Raptor
+Ford,ranger wildtrak,Ranger Wildtrak
+Ford,wildtrak,Ranger Wildtrak
+Ford,everest,Everest
+Ford,explorer,Explorer
+Ford,territory,Territory
+Ford,f150,F-150
+Ford,f-150,F-150
+Ford,f 150,F-150
+Ford,mustang,Mustang
+Hyundai,starex,Starex
+Hyundai,grand starex,Starex
+Hyundai,santa fe,Santa Fe
+Hyundai,santafe,Santa Fe
+Hyundai,tucson,Tucson
+Hyundai,palisade,Palisade
+Hyundai,custin,Custin
+Hyundai,creta,Creta
+Hyundai,elantra,Elantra
+Hyundai,ioniq 5,Ioniq 5
+Kia,morning,Morning
+Kia,carnival,Carnival
+Kia,sorento,Sorento
+Kia,sportage,Sportage
+Kia,seltos,Seltos
+Kia,sonet,Sonet
+Kia,k5,K5
+Kia,ev6,EV6
+Mitsubishi,pajero sport,Pajero Sport
+Mitsubishi,pajero,Pajero
+Mitsubishi,triton,Triton
+Mitsubishi,xpander,Xpander
+Mitsubishi,outlander,Outlander
+Mitsubishi,eclipse cross,Eclipse Cross
+Mazda,cx-5,CX-5
+Mazda,cx5,CX-5
+Mazda,cx 5,CX-5
+Mazda,cx-9,CX-9
+Mazda,cx9,CX-9
+Mazda,cx-30,CX-30
+Mazda,cx30,CX-30
+Mazda,cx-8,CX-8
+Mazda,cx8,CX-8
+Mazda,bt-50,BT-50
+Mazda,bt50,BT-50
+Mazda,bt 50,BT-50
+Mazda,mazda3,Mazda 3
+Mazda,mazda 3,Mazda 3
+Mazda,mazda2,Mazda 2
+Mazda,mazda 2,Mazda 2
+BMW,x5,X5
+BMW,x6,X6
+BMW,x7,X7
+BMW,x3,X3
+BMW,x1,X1
+BMW,3 series,3 Series
+BMW,320i,3 Series
+BMW,328i,3 Series
+BMW,330i,3 Series
+BMW,5 series,5 Series
+BMW,520i,5 Series
+BMW,528i,5 Series
+BMW,530i,5 Series
+BMW,7 series,7 Series
+BMW,730li,7 Series
+BMW,740li,7 Series
+Nissan,navara,Navara
+Nissan,x-trail,X-Trail
+Nissan,x trail,X-Trail
+Nissan,patrol,Patrol
+Nissan,juke,Juke
+Nissan,terra,Terra
+Nissan,almera,Almera
+Mercedes-Benz,e class,E-Class
+Mercedes-Benz,e200,E-Class
+Mercedes-Benz,e220d,E-Class
+Mercedes-Benz,c class,C-Class
+Mercedes-Benz,c200,C-Class
+Mercedes-Benz,glc,GLC
+Mercedes-Benz,glc300,GLC
+Mercedes-Benz,gle,GLE
+Mercedes-Benz,s class,S-Class
+Mercedes-Benz,s500,S-Class
+Isuzu,d-max,D-Max
+Isuzu,d max,D-Max
+Isuzu,dmax,D-Max
+Isuzu,mu-x,MU-X
+Isuzu,mu x,MU-X
+Isuzu,mux,MU-X
+Isuzu,trooper,Trooper
+Suzuki,swift,Swift
+Suzuki,vitara,Vitara
+Suzuki,ertiga,Ertiga
+Suzuki,xl7,XL7
+Subaru,forester,Forester
+Subaru,outback,Outback
+Subaru,xv,XV
+BYD,atto 3,Atto 3
+BYD,atto3,Atto 3
+BYD,dolphin,Dolphin
+BYD,seal,Seal
+BYD,han,Han
+BYD,tang,Tang
+AVATR,avatr 11,AVATR 11
+AVATR,avatr 12,AVATR 12
+MG,hs,HS
+MG,zs,ZS
+MG,5,MG 5

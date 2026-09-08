@@ -1,15 +1,6 @@
 -- dbt/models/staging/stg_khmer24_cars.sql
--- ─────────────────────────────────────────────────────────────────────────────
--- BRONZE LAYER (STAGING): Multi-day raw snapshot ingestion & deduplication
--- ─────────────────────────────────────────────────────────────────────────────
--- Reads daily raw Parquet snapshots from data/bronze/cars_*.parquet via DuckDB.
--- Deduplicates listings across scrape dates using latest snapshot.
--- Generates longitudinal time-series market signals:
---   • days_on_market  — how long the listing has been active
---   • initial_price   — first observed price (to detect price drops)
---   • price_drop_amount / has_price_drop — seller negotiation signals
---   • view_velocity   — views/day as a demand proxy
--- Materialization: view (no storage cost, always fresh on query)
+-- Ingests raw Parquet snapshots from Khmer24 while preserving the historical daily snapshot grain (listing_id + scrape_date).
+-- Removes only intra-day duplicate scrapes (same listing on the same date).
 
 WITH raw_snapshots AS (
     SELECT *
@@ -20,7 +11,8 @@ ranked_snapshots AS (
     SELECT
         listing_id,
         raw_title,
-        TRY_CAST(raw_price AS DOUBLE) AS price,
+        TRY_CAST(raw_price AS DOUBLE)                               AS price,
+        raw_price                                                   AS price_raw,
         raw_currency,
         raw_spec_brand,
         raw_spec_model,
@@ -37,7 +29,7 @@ ranked_snapshots AS (
         raw_district,
         seller_id,
         seller_name,
-        seller_type_code,
+        CASE WHEN seller_type_code = '2' THEN 'store' ELSE 'individual' END AS seller_type,
         seller_username,
         seller_phones,
         raw_description,
@@ -45,19 +37,16 @@ ranked_snapshots AS (
         listing_url,
         posted_at,
         scraped_at,
-        renewed_at,
+        TRY_CAST(scraped_at AS DATE)                                AS scrape_date,
 
-        -- ── Deduplication rank: latest snapshot wins ──────────────────────────
+        -- Intra-day deduplication: keep latest scrape per day per listing
         ROW_NUMBER() OVER (
-            PARTITION BY listing_id
+            PARTITION BY listing_id, TRY_CAST(scraped_at AS DATE)
             ORDER BY scraped_at DESC
-        ) AS _row_num,
+        ) AS _intra_day_row_num,
 
-        -- ── Longitudinal aggregation ──────────────────────────────────────────
-        MIN(posted_at) OVER (
-            PARTITION BY listing_id
-        ) AS _first_posted_at,
-
+        -- Longitudinal initial price & first observed post time across all time
+        MIN(posted_at) OVER (PARTITION BY listing_id) AS _first_posted_at,
         FIRST_VALUE(TRY_CAST(raw_price AS DOUBLE)) OVER (
             PARTITION BY listing_id
             ORDER BY scraped_at ASC
@@ -71,16 +60,12 @@ ranked_snapshots AS (
 SELECT
     listing_id,
     raw_title,
-
-    -- ── Price & Price-Change Signals ─────────────────────────────────────────
     price,
-    _initial_price                                                AS initial_price,
-    GREATEST(_initial_price - price, 0.0)                         AS price_drop_amount,
-    CASE WHEN (_initial_price - price) > 0 THEN 1 ELSE 0 END      AS has_price_drop,
-    GREATEST(price - _initial_price, 0.0)                         AS price_increase_amount,
-    CASE WHEN (price - _initial_price) > 0 THEN 1 ELSE 0 END      AS has_price_increase,
+    price_raw,
+    _initial_price                                                  AS initial_price,
+    GREATEST(_initial_price - price, 0.0)                           AS price_drop_amount,
+    CASE WHEN (_initial_price - price) > 0 THEN 1 ELSE 0 END        AS has_price_drop,
 
-    -- ── Specifications ───────────────────────────────────────────────────────
     raw_spec_brand,
     raw_spec_model,
     raw_spec_year,
@@ -93,36 +78,29 @@ SELECT
     raw_spec_tax_type,
     raw_spec_body_type,
 
-    -- ── Location & Seller ────────────────────────────────────────────────────
     raw_province,
     raw_district,
     seller_id,
     seller_name,
-    CASE WHEN seller_type_code = '2' THEN 'store' ELSE 'individual' END AS seller_type,
+    seller_type,
     seller_username,
     seller_phones,
 
-    -- ── Content ──────────────────────────────────────────────────────────────
     raw_description,
     thumbnail_url,
     listing_url,
 
-    -- ── Longitudinal Market Dynamics ─────────────────────────────────────────
     ROUND(
         GREATEST(
-            DATE_DIFF(
-                'second',
-                TRY_CAST(_first_posted_at AS TIMESTAMPTZ),
-                TRY_CAST(scraped_at AS TIMESTAMPTZ)
-            ) / 86400.0,
+            DATE_DIFF('second', TRY_CAST(_first_posted_at AS TIMESTAMPTZ), TRY_CAST(scraped_at AS TIMESTAMPTZ)) / 86400.0,
             0.0
         ),
         1
-    )                                                             AS days_on_market,
+    ) AS days_on_market,
 
     posted_at,
     scraped_at,
-    renewed_at
+    scrape_date
 
 FROM ranked_snapshots
-WHERE _row_num = 1
+WHERE _intra_day_row_num = 1
