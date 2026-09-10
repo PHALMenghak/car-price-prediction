@@ -356,20 +356,23 @@ def load_audit_sample(
     if not os.path.exists(SILVER_PATH):
         return pd.DataFrame()
 
-    if not statuses:
-        statuses = ["QUARANTINED", "INVALID", "SUSPICIOUS"]
+    where_conds = []
+    if statuses:
+        valid_statuses = [s.strip().upper() for s in statuses if s and s.strip().upper() != "ALL"]
+        if valid_statuses:
+            status_list = ", ".join(f"'{s}'" for s in valid_statuses)
+            where_conds.append(f"s.data_quality_status IN ({status_list})")
+    else:
+        where_conds.append("s.data_quality_status IN ('QUARANTINED', 'INVALID', 'SUSPICIOUS')")
 
-    status_list = ", ".join(f"'{s}'" for s in statuses)
-    reason_clause = (
-        f"AND s.data_quality_reasons ILIKE '%{reason_filter}%'"
-        if reason_filter.strip()
-        else ""
-    )
-    date_clause = (
-        f"AND CAST(s.scrape_date AS VARCHAR) = '{scrape_date}'"
-        if scrape_date
-        else ""
-    )
+    if reason_filter and reason_filter.strip() and reason_filter.strip().upper() != "ALL":
+        rf = reason_filter.strip().replace("'", "''")
+        where_conds.append(f"s.data_quality_reasons ILIKE '%{rf}%'")
+
+    if scrape_date and scrape_date.strip() and scrape_date.strip().upper() != "ALL":
+        where_conds.append(f"CAST(s.scrape_date AS VARCHAR) = '{scrape_date.strip()}'")
+
+    where_clause = ("WHERE " + " AND ".join(where_conds)) if where_conds else ""
 
     con = _con()
     has_bronze = len(list(_BRONZE_DIR.glob("cars_*.parquet"))) > 0
@@ -396,9 +399,7 @@ def load_audit_sample(
                         s.title_clean,
                         s.listing_url
                     FROM read_parquet('{SILVER_PATH}') s
-                    WHERE s.data_quality_status IN ({status_list})
-                    {reason_clause}
-                    {date_clause}
+                    {where_clause}
                     ORDER BY s.scrape_date DESC, s.data_quality_status
                     LIMIT {limit}
                 ),
@@ -467,9 +468,7 @@ def load_audit_sample(
                     s.title_clean,
                     s.listing_url
                 FROM read_parquet('{SILVER_PATH}') s
-                WHERE s.data_quality_status IN ({status_list})
-                {reason_clause}
-                {date_clause}
+                {where_clause}
                 ORDER BY s.scrape_date DESC, s.data_quality_status
                 LIMIT {limit}
             """).df()
@@ -1416,7 +1415,11 @@ def load_price_year_anomaly_sample(limit: int = 2500, scrape_date: str | None = 
     if not os.path.exists(SILVER_PATH):
         return pd.DataFrame()
 
-    date_filter = f"WHERE CAST(scrape_date AS VARCHAR) = '{scrape_date}'" if scrape_date else ""
+    where_parts = ["price IS NOT NULL", "vehicle_year IS NOT NULL"]
+    if scrape_date:
+        where_parts.append(f"CAST(scrape_date AS VARCHAR) = '{scrape_date}'")
+    where_sql = "WHERE " + " AND ".join(where_parts)
+
     con = _con()
     try:
         df = con.execute(f"""
@@ -1426,6 +1429,7 @@ def load_price_year_anomaly_sample(limit: int = 2500, scrape_date: str | None = 
                 price,
                 vehicle_brand,
                 vehicle_model,
+                province,
                 data_quality_status,
                 is_down_payment,
                 is_price_outlier,
@@ -1439,8 +1443,7 @@ def load_price_year_anomaly_sample(limit: int = 2500, scrape_date: str | None = 
                     ELSE 'Warning Spec'
                 END AS anomaly_group
             FROM read_parquet('{SILVER_PATH}')
-            {date_filter}
-            WHERE price IS NOT NULL AND vehicle_year IS NOT NULL
+            {where_sql}
             ORDER BY RANDOM()
             LIMIT {limit}
         """).df()

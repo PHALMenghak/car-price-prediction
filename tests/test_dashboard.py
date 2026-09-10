@@ -196,4 +196,15 @@ def test_feature_correlation_matrix():
         assert corr_df.loc["log_price", "log_price"] == pytest.approx(1.0, 0.01)
 
 
-
+def test_load_audit_sample():
+    audit_df = data_loader.load_audit_sample(limit=20)
+    assert isinstance(audit_df, pd.DataFrame)
+    if not audit_df.empty:
+        assert "listing_id" in audit_df.columns
+        assert "status" in audit_df.columns
+        assert "clean_brand" in audit_df.columns
+        assert "clean_price" in audit_df.columns
+        assert "raw_title" in audit_df.columns
+        assert "title_clean" in audit_df.columns
+        assert "is_year_healed" in audit_df.columns
+        assert len(audit_df) <= 20
