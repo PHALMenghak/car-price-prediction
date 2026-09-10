@@ -3,5 +3,6 @@
 
 SELECT listing_id, vehicle_model_year
 FROM {{ ref('fct_cars_ml_features') }}
-WHERE vehicle_model_year < 1990
+WHERE vehicle_model_year IS NULL
+   OR vehicle_model_year < 1990
    OR vehicle_model_year > (CAST(date_part('year', CURRENT_DATE) AS INTEGER) + 1)

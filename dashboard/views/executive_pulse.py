@@ -280,30 +280,24 @@ def _render_status_banner(
         msg = " · ".join(issues)
 
     st.markdown(
-        f"""
-        <div style='background:{bg}; border:1px solid {bar}30; border-left:5px solid {bar};
-                    border-radius:8px; padding:12px 18px; margin-bottom:16px;
-                    display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;'>
-            <div>
-                <div style='font-size:0.85rem; font-weight:800; color:{fg}; letter-spacing:0.3px;'>
-                    {badge}
-                </div>
-                <div style='font-size:0.78rem; color:#475569; margin-top:3px;'>
-                    {msg}
-                </div>
-            </div>
-            <div style='display:flex; gap:16px; align-items:center; flex-shrink:0;'>
-                <div style='text-align:right;'>
-                    <div style='font-size:1.15rem; font-weight:800; color:{fg};'>{gates_pass}/4</div>
-                    <div style='font-size:0.65rem; font-weight:700; color:#64748b; text-transform:uppercase;'>SLA GATES</div>
-                </div>
-                <div style='text-align:right;'>
-                    <div style='font-size:1.15rem; font-weight:800; color:#0f172a;'>{snapshot_date}</div>
-                    <div style='font-size:0.65rem; font-weight:700; color:#64748b; text-transform:uppercase;'>SNAPSHOT</div>
-                </div>
-            </div>
-        </div>
-        """,
+        f"<div style='background:{bg}; border:1px solid {bar}30; border-left:5px solid {bar}; "
+        f"border-radius:8px; padding:12px 18px; margin-bottom:16px; "
+        f"display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;'>"
+        f"<div>"
+        f"<div style='font-size:0.85rem; font-weight:800; color:{fg}; letter-spacing:0.3px;'>{badge}</div>"
+        f"<div style='font-size:0.78rem; color:#475569; margin-top:3px;'>{msg}</div>"
+        f"</div>"
+        f"<div style='display:flex; gap:16px; align-items:center; flex-shrink:0;'>"
+        f"<div style='text-align:right;'>"
+        f"<div style='font-size:1.15rem; font-weight:800; color:{fg};'>{gates_pass}/4</div>"
+        f"<div style='font-size:0.65rem; font-weight:700; color:#64748b; text-transform:uppercase;'>SLA GATES</div>"
+        f"</div>"
+        f"<div style='text-align:right;'>"
+        f"<div style='font-size:1.15rem; font-weight:800; color:#0f172a;'>{snapshot_date}</div>"
+        f"<div style='font-size:0.65rem; font-weight:700; color:#64748b; text-transform:uppercase;'>SNAPSHOT</div>"
+        f"</div>"
+        f"</div>"
+        f"</div>",
         unsafe_allow_html=True,
     )
 
@@ -441,17 +435,15 @@ def _render_funnel(funnel_df: pd.DataFrame) -> None:
             w   = max(4, min(100, int(pct)))
             c   = colors[i % len(colors)]
             st.markdown(
-                f"""
-                <div style='margin-bottom:10px;'>
-                    <div style='display:flex; justify-content:space-between; font-size:0.78rem; font-weight:700; color:#334155; margin-bottom:3px;'>
-                        <span>{row['stage']}</span>
-                        <span style='color:{c}; font-weight:800;'>{cnt:,} <span style='color:#94a3b8; font-weight:500;'>({pct:.1f}%)</span></span>
-                    </div>
-                    <div style='background:#f1f5f9; border-radius:4px; height:8px;'>
-                        <div style='width:{w}%; background:{c}; height:8px; border-radius:4px;'></div>
-                    </div>
-                </div>
-                """,
+                f"<div style='margin-bottom:10px;'>"
+                f"<div style='display:flex; justify-content:space-between; font-size:0.78rem; font-weight:700; color:#334155; margin-bottom:3px;'>"
+                f"<span>{row['stage']}</span>"
+                f"<span style='color:{c}; font-weight:800;'>{cnt:,} <span style='color:#94a3b8; font-weight:500;'>({pct:.1f}%)</span></span>"
+                f"</div>"
+                f"<div style='background:#f1f5f9; border-radius:4px; height:8px;'>"
+                f"<div style='width:{w}%; background:{c}; height:8px; border-radius:4px;'></div>"
+                f"</div>"
+                f"</div>",
                 unsafe_allow_html=True,
             )
 
@@ -511,14 +503,12 @@ def _render_sla_scorecard(dhi_score, freshness_hrs, quar_cnt, total, dbt_status,
         fg_c  = "#166534" if passed else "#991b1b"
         icon  = "✅" if passed else "❌"
         col.markdown(
-            f"""
-            <div style='background:{bg_c}; border:1px solid {bar_c}30; border-top:3px solid {bar_c};
-                        border-radius:6px; padding:10px 8px; text-align:center;'>
-                <div style='font-size:1.1rem; margin-bottom:2px;'>{icon}</div>
-                <div style='font-size:0.68rem; font-weight:800; color:{fg_c}; line-height:1.2; margin-bottom:3px;'>{label}</div>
-                <div style='font-size:0.78rem; font-weight:700; color:#0f172a;'>{actual}</div>
-                <div style='font-size:0.62rem; color:#94a3b8; margin-top:2px;'>Target: {target}</div>
-            </div>
-            """,
+            f"<div style='background:{bg_c}; border:1px solid {bar_c}30; border-top:3px solid {bar_c}; "
+            f"border-radius:6px; padding:10px 8px; text-align:center;'>"
+            f"<div style='font-size:1.1rem; margin-bottom:2px;'>{icon}</div>"
+            f"<div style='font-size:0.68rem; font-weight:800; color:{fg_c}; line-height:1.2; margin-bottom:3px;'>{label}</div>"
+            f"<div style='font-size:0.78rem; font-weight:700; color:#0f172a;'>{actual}</div>"
+            f"<div style='font-size:0.62rem; color:#94a3b8; margin-top:2px;'>Target: {target}</div>"
+            f"</div>",
             unsafe_allow_html=True,
         )

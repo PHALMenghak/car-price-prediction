@@ -30,6 +30,7 @@ The system automatically collects car listings from **Khmer24**, cleans multilin
   - [2. Inspect a Single Car Listing](#2-inspect-a-single-car-listing)
   - [3. Run Data Cleaning (dbt)](#3-run-data-cleaning-dbt)
   - [4. Run Automated Tests](#4-run-automated-tests)
+  - [5. Launch Observability Console](#5-launch-observability-console)
 - [Documentation & Data Dictionary](#-documentation--data-dictionary)
 - [Project Roadmap](#-project-roadmap)
 - [Author & Internship Information](#-author--internship-information)
@@ -216,6 +217,13 @@ Execute the Python unit test suite:
 uv run pytest tests/ -v
 ```
 
+### 5. Launch Observability Console
+Launch the interactive 3-pillar Data Pipeline & Quality Observability Console (Executive Pulse, Pipeline Monitoring, and Data Quality Lineage Audit):
+
+```bash
+uv run streamlit run dashboard/app.py
+```
+
 ---
 
 ## 📖 Documentation & Data Dictionary
@@ -233,7 +241,7 @@ For complete documentation on every column, data type, cleaning rule, and formul
 | :--- | :--- | :---: |
 | **Phase 1** | Automated raw data collection (Bronze Layer) & daily GitHub Actions | ✅ **Completed** |
 | **Phase 2** | Data cleaning pipeline with dbt + DuckDB (Silver & Gold Layers) | ✅ **Completed** |
-| **Phase 3** | Data quality governance (51 automated dbt contract tests) | ✅ **Completed** |
+| **Phase 3** | Data quality governance & 3-pillar observability console (dbt + Streamlit) | ✅ **Completed** |
 | **Phase 4** | Exploratory data analysis (EDA) & market price trend analysis | 🔄 **In Progress** |
 | **Phase 5** | Machine learning price prediction models (LightGBM, XGBoost, CatBoost) | 🔲 **Next Up** |
 | **Phase 6** | Feature importance and price driver analysis (SHAP values) | 🔲 Planned |

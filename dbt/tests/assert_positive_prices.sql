@@ -3,4 +3,4 @@
 
 SELECT listing_id, price
 FROM {{ ref('fct_cars_ml_features') }}
-WHERE price < 500
+WHERE price IS NULL OR price < 500

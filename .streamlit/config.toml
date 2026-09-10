@@ -1,11 +1,16 @@
 [theme]
-# Cambodia Car Price Prediction — Executive DQ Dashboard Theme
-# Default: Light mode (professional executive look)
-primaryColor             = "#2e7d32"   # Pipeline green
-backgroundColor          = "#ffffff"   # Clean white
-secondaryBackgroundColor = "#f0f2f6"   # Light grey sidebar
-textColor                = "#1a1a2e"   # Near-black text
+primaryColor             = "#1e3a8a"
+backgroundColor          = "#ffffff"
+secondaryBackgroundColor = "#f8fafc"
+textColor                = "#0f172a"
 font                     = "sans serif"
 
 [server]
-headless = false
+headless             = true
+enableCORS           = false
+enableXsrfProtection = true
+port                 = 8501
+address              = "0.0.0.0"
+
+[browser]
+gatherUsageStats     = false

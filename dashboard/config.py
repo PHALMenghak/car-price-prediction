@@ -205,12 +205,12 @@ def apply_plot_theme(
 def section_header(title: str, subtitle: str = "") -> str:
     """Render a professional section title block."""
     sub = f"<div style='font-size:0.82rem; color:#64748b; margin-top:2px;'>{subtitle}</div>" if subtitle else ""
-    return f"""
-    <div style='border-left:4px solid #1e3a8a; padding-left:12px; margin-bottom:12px;'>
-        <div style='font-size:1.0rem; font-weight:700; color:#0f172a;'>{title}</div>
-        {sub}
-    </div>
-    """
+    return (
+        f"<div style='border-left:4px solid #1e3a8a; padding-left:12px; margin-bottom:12px;'>"
+        f"<div style='font-size:1.0rem; font-weight:700; color:#0f172a;'>{title}</div>"
+        f"{sub}"
+        f"</div>"
+    )
 
 
 def status_badge(status: str) -> str:
@@ -265,22 +265,22 @@ def kpi_card(
         if subtitle else ""
     )
 
-    return f"""
-    <div style='background:#ffffff; border:1px solid #e2e8f0; border-top:3.5px solid {accent_color};
-                border-radius:8px; padding:14px 16px 12px; box-shadow:0 1px 3px rgba(0,0,0,0.04);
-                margin-bottom:8px; min-height:104px; display:flex; flex-direction:column; justify-content:space-between;'>
-        <div>
-            <div style='font-size:0.70rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.5px;'>
-                {icon_html}{title}
-            </div>
-            <div style='display:flex; align-items:baseline; margin-top:4px; flex-wrap:wrap; gap:4px;'>
-                <span style='font-size:1.75rem; font-weight:800; color:#0f172a; line-height:1.15;'>{value}</span>
-                {delta_html}
-            </div>
-        </div>
-        {sub_html}
-    </div>
-    """
+    return (
+        f"<div style='background:#ffffff; border:1px solid #e2e8f0; border-top:3.5px solid {accent_color}; "
+        f"border-radius:8px; padding:14px 16px 12px; box-shadow:0 1px 3px rgba(0,0,0,0.04); "
+        f"margin-bottom:8px; min-height:104px; display:flex; flex-direction:column; justify-content:space-between;'>"
+        f"<div>"
+        f"<div style='font-size:0.70rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.5px;'>"
+        f"{icon_html}{title}"
+        f"</div>"
+        f"<div style='display:flex; align-items:baseline; margin-top:4px; flex-wrap:wrap; gap:4px;'>"
+        f"<span style='font-size:1.75rem; font-weight:800; color:#0f172a; line-height:1.15;'>{value}</span>"
+        f"{delta_html}"
+        f"</div>"
+        f"</div>"
+        f"{sub_html}"
+        f"</div>"
+    )
 
 
 # ── Backward-compatibility aliases (used by data_loader.py) ───────────────────
