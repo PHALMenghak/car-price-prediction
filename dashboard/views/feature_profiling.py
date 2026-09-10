@@ -48,7 +48,7 @@ def render(active_date: str | None = None) -> None:
         unsafe_allow_html=True,
     )
 
-    num_stats = load_feature_numeric_stats("silver")
+    num_stats = load_feature_numeric_stats("silver", scrape_date=active_date)
     if not num_stats.empty:
         # Friendly labels
         label_map = {
@@ -103,7 +103,7 @@ def render(active_date: str | None = None) -> None:
         unsafe_allow_html=True,
     )
 
-    dist_sample = load_feature_distribution_sample("silver", limit=5000)
+    dist_sample = load_feature_distribution_sample("silver", limit=5000, scrape_date=active_date)
 
     if not dist_sample.empty:
         num_cols = [
@@ -193,7 +193,7 @@ def render(active_date: str | None = None) -> None:
         unsafe_allow_html=True,
     )
 
-    cat_card = load_categorical_cardinality("silver")
+    cat_card = load_categorical_cardinality("silver", scrape_date=active_date)
     if not cat_card.empty:
         # Friendly names
         cat_label_map = {
@@ -238,7 +238,7 @@ def render(active_date: str | None = None) -> None:
         with c2:
             top_n = st.slider("Top N:", min_value=5, max_value=20, value=10)
 
-        cat_dist = load_categorical_distribution(selected_cat, top_n=top_n, target_dataset="silver")
+        cat_dist = load_categorical_distribution(selected_cat, top_n=top_n, target_dataset="silver", scrape_date=active_date)
         if not cat_dist.empty:
             feat_display = cat_label_map.get(selected_cat, selected_cat)
             fig_c = go.Figure(go.Bar(

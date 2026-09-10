@@ -58,39 +58,6 @@ html, body, [class*="css"] {
     max-width: 98% !important;
 }
 
-/* Hide arrow icons on st.metric delta */
-[data-testid="stMetricDelta"] svg { display: none; }
-
-/* Metric cards — clean white with navy top border */
-[data-testid="stMetric"] {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-top: 3.5px solid #1e3a8a;
-    border-radius: 8px;
-    padding: 14px 18px 12px 18px !important;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-}
-
-[data-testid="stMetricLabel"] {
-    font-size: 0.72rem !important;
-    font-weight: 700 !important;
-    color: #64748b !important;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-[data-testid="stMetricValue"] {
-    font-size: 1.75rem !important;
-    font-weight: 800 !important;
-    color: #0f172a !important;
-    line-height: 1.15 !important;
-}
-
-[data-testid="stMetricDelta"] {
-    font-size: 0.75rem !important;
-    font-weight: 600 !important;
-}
-
 /* Sidebar styling */
 [data-testid="stSidebar"] {
     background-color: #f8fafc;

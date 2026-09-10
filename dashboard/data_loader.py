@@ -208,39 +208,6 @@ def load_bronze_volume() -> pd.DataFrame:
 
 # ── 7. Price validity breakdown ───────────────────────────────────────────────
 
-@st.cache_data(ttl=CACHE_TTL)
-def load_price_violations(scrape_date: str | None = None) -> pd.DataFrame:
-    """Counts of specific price violation reason codes."""
-    if not os.path.exists(SILVER_PATH):
-        return pd.DataFrame()
-
-    date_filter = (
-        f"WHERE CAST(scrape_date AS VARCHAR) = '{scrape_date}'"
-        if scrape_date
-        else ""
-    )
-
-    con = _con()
-    try:
-        df = con.execute(f"""
-            SELECT
-                'Price = NULL'              AS issue, COUNT(*) FILTER (WHERE price IS NULL)         AS count FROM read_parquet('{SILVER_PATH}') {date_filter}
-            UNION ALL SELECT 'Price ≤ 0',          COUNT(*) FILTER (WHERE price IS NOT NULL AND price <= 0)   FROM read_parquet('{SILVER_PATH}') {date_filter}
-            UNION ALL SELECT 'Price < $500',        COUNT(*) FILTER (WHERE price > 0 AND price < 500)         FROM read_parquet('{SILVER_PATH}') {date_filter}
-            UNION ALL SELECT 'Price > $300K',       COUNT(*) FILTER (WHERE price > 300000)                    FROM read_parquet('{SILVER_PATH}') {date_filter}
-            UNION ALL SELECT 'Price anomaly / outlier', COUNT(*) FILTER (WHERE is_price_outlier = 1)        FROM read_parquet('{SILVER_PATH}') {date_filter}
-            ORDER BY count DESC
-        """).df()
-    except Exception:
-        df = pd.DataFrame()
-    finally:
-        con.close()
-
-    return df[df["count"] > 0] if not df.empty else df
-
-
-
-
 # ── 9. Top quarantine / quality reasons ───────────────────────────────────────
 
 @st.cache_data(ttl=CACHE_TTL)
@@ -280,64 +247,6 @@ def load_top_reasons(top_n: int = 12, scrape_date: str | None = None) -> pd.Data
         con.close()
 
     return df
-
-
-# ── 10. Brand x Failure Reason 2D Matrix ──────────────────────────────────────
-
-@st.cache_data(ttl=CACHE_TTL)
-def load_reason_brand_matrix(top_n_brands: int = 8, top_n_reasons: int = 6) -> pd.DataFrame:
-    """
-    Returns a 2D cross-tabulation of Brand x Failure Reason across all flagged records.
-    Used to render a real executive heatmap of error hotspots.
-    """
-    if not os.path.exists(SILVER_PATH):
-        return pd.DataFrame()
-
-    con = _con()
-    try:
-        df = con.execute(f"""
-            WITH exploded AS (
-                SELECT
-                    COALESCE(vehicle_brand, '(Unknown)') AS brand,
-                    TRIM(UNNEST(STRING_SPLIT(data_quality_reasons, '|'))) AS reason
-                FROM read_parquet('{SILVER_PATH}')
-                WHERE data_quality_reasons IS NOT NULL AND data_quality_reasons != ''
-            ),
-            top_brands AS (
-                SELECT brand
-                FROM exploded
-                WHERE reason != ''
-                GROUP BY 1
-                ORDER BY COUNT(*) DESC
-                LIMIT {top_n_brands}
-            ),
-            top_reasons AS (
-                SELECT reason
-                FROM exploded
-                WHERE reason != ''
-                GROUP BY 1
-                ORDER BY COUNT(*) DESC
-                LIMIT {top_n_reasons}
-            )
-            SELECT
-                e.brand,
-                e.reason,
-                COUNT(*) AS count
-            FROM exploded e
-            JOIN top_brands tb ON e.brand = tb.brand
-            JOIN top_reasons tr ON e.reason = tr.reason
-            WHERE e.reason != ''
-            GROUP BY 1, 2
-        """).df()
-    except Exception:
-        df = pd.DataFrame()
-    finally:
-        con.close()
-
-    if df.empty:
-        return pd.DataFrame()
-
-    return df.pivot(index="brand", columns="reason", values="count").fillna(0).astype(int)
 
 
 # ── 11. Audit lineage with side-by-side Bronze vs Silver values ───────────────
@@ -518,20 +427,19 @@ def load_daily_missingness_trend() -> pd.DataFrame:
 def load_completeness_detail(scrape_date: str | None = None) -> pd.DataFrame:
     """
     Detailed column completeness breakdown with counts, percentages, and priority tiers.
+    Optimized to compute all field statistics in a single Parquet scan.
     """
     if not os.path.exists(SILVER_PATH):
         return pd.DataFrame()
 
-    critical = ["price", "scrape_date"]
-    high     = ["vehicle_brand", "vehicle_model", "vehicle_year", "province"]
+    critical = ["price", "vehicle_brand", "vehicle_model", "vehicle_year", "province"]
     medium   = ["vehicle_mileage_km", "vehicle_engine_cc", "vehicle_fuel_type",
                 "vehicle_transmission", "vehicle_body_type", "vehicle_tax_type"]
     low      = ["vehicle_color", "vehicle_condition", "description_clean"]
 
-    fields = critical + high + medium + low
+    fields = critical + medium + low
     priority_map = (
         {f: "🔴 Critical" for f in critical}
-        | {f: "🟠 High" for f in high}
         | {f: "🟡 Medium" for f in medium}
         | {f: "🟢 Low" for f in low}
     )
@@ -542,26 +450,35 @@ def load_completeness_detail(scrape_date: str | None = None) -> pd.DataFrame:
         else ""
     )
 
-    exprs = []
-    for f in fields:
-        exprs.append(f"""
-            SELECT
-                '{f}' AS field,
-                COUNT(*) AS total_records,
-                COUNT({f}) AS non_null_count,
-                COUNT(*) FILTER (WHERE {f} IS NULL) AS null_count,
-                ROUND(100.0 * COUNT({f}) / NULLIF(COUNT(*), 0), 2) AS completeness_pct,
-                ROUND(100.0 * COUNT(*) FILTER (WHERE {f} IS NULL) / NULLIF(COUNT(*), 0), 2) AS null_pct
-            FROM read_parquet('{SILVER_PATH}')
-            {date_filter}
-        """)
-
-    full_query = " UNION ALL ".join(exprs)
     con = _con()
     try:
-        df = con.execute(full_query).df()
-        df["priority"] = df["field"].map(priority_map)
-        df = df.sort_values(by=["priority", "completeness_pct"], ascending=[True, False])
+        agg_exprs = ", ".join([f"COUNT({f}) AS cnt_{f}" for f in fields])
+        query = f"SELECT COUNT(*) AS total_records, {agg_exprs} FROM read_parquet('{SILVER_PATH}') {date_filter}"
+        row = con.execute(query).fetchone()
+        if not row:
+            return pd.DataFrame()
+
+        total = int(row[0] or 0)
+        records = []
+        for i, f in enumerate(fields, start=1):
+            non_null = int(row[i] or 0)
+            null_cnt = total - non_null
+            comp_pct = round(100.0 * non_null / total, 2) if total > 0 else 0.0
+            null_pct = round(100.0 * null_cnt / total, 2) if total > 0 else 0.0
+            records.append({
+                "field": f,
+                "total_records": total,
+                "non_null_count": non_null,
+                "null_count": null_cnt,
+                "completeness_pct": comp_pct,
+                "null_pct": null_pct,
+                "priority": priority_map.get(f, "🟢 Low"),
+            })
+
+        df = pd.DataFrame(records)
+        priority_rank = {"🔴 Critical": 1, "🟡 Medium": 2, "🟢 Low": 3}
+        df["rank"] = df["priority"].map(priority_rank)
+        df = df.sort_values(by=["rank", "completeness_pct"], ascending=[True, False]).drop(columns=["rank"])
     except Exception:
         df = pd.DataFrame()
     finally:
@@ -843,7 +760,7 @@ def load_cleaning_impact_stats(scrape_date: str | None = None) -> dict:
 
 
 @st.cache_data(ttl=CACHE_TTL)
-def load_raw_vs_conformed_comparison() -> pd.DataFrame:
+def load_raw_vs_conformed_comparison(scrape_date: str | None = None) -> pd.DataFrame:
     """
     Compares raw Bronze fill rate vs conformed Silver fill rate for key attributes.
     Highlights data engineering value added by dbt transformations.
@@ -852,12 +769,14 @@ def load_raw_vs_conformed_comparison() -> pd.DataFrame:
         return pd.DataFrame()
 
     con = _con()
+    b_date_filter = f"WHERE TRY_CAST(scraped_at AS DATE) = '{scrape_date}'" if scrape_date else ""
+    s_date_filter = f"WHERE CAST(scrape_date AS VARCHAR) = '{scrape_date}'" if scrape_date else ""
+
     try:
         df = con.execute(f"""
             WITH bronze_latest AS (
                 SELECT
                     listing_id,
-                    raw_title,
                     raw_spec_brand,
                     raw_spec_model,
                     raw_spec_year,
@@ -865,6 +784,7 @@ def load_raw_vs_conformed_comparison() -> pd.DataFrame:
                     raw_spec_fuel_type,
                     ROW_NUMBER() OVER (PARTITION BY listing_id ORDER BY scraped_at DESC) as _rn
                 FROM read_parquet('{BRONZE_GLOB}', union_by_name=true)
+                {b_date_filter}
             ),
             silver_latest AS (
                 SELECT
@@ -876,46 +796,48 @@ def load_raw_vs_conformed_comparison() -> pd.DataFrame:
                     vehicle_fuel_type,
                     ROW_NUMBER() OVER (PARTITION BY listing_id ORDER BY scraped_at DESC) as _rn
                 FROM read_parquet('{SILVER_PATH}')
+                {s_date_filter}
+            ),
+            joined AS (
+                SELECT
+                    b.raw_spec_brand, s.vehicle_brand,
+                    b.raw_spec_model, s.vehicle_model,
+                    b.raw_spec_year, s.vehicle_year,
+                    b.raw_spec_transmission, s.vehicle_transmission,
+                    b.raw_spec_fuel_type, s.vehicle_fuel_type
+                FROM silver_latest s
+                JOIN bronze_latest b ON s.listing_id = b.listing_id AND b._rn = 1
+                WHERE s._rn = 1
             )
             SELECT
                 'Brand' AS attribute,
-                ROUND(100.0 * COUNT(b.raw_spec_brand) / COUNT(*), 1) AS raw_bronze_fill_pct,
-                ROUND(100.0 * COUNT(s.vehicle_brand) / COUNT(*), 1) AS conformed_silver_fill_pct
-            FROM silver_latest s
-            JOIN bronze_latest b ON s.listing_id = b.listing_id AND b._rn = 1
-            WHERE s._rn = 1
+                ROUND(100.0 * COUNT(raw_spec_brand) / NULLIF(COUNT(*), 0), 1) AS raw_bronze_fill_pct,
+                ROUND(100.0 * COUNT(vehicle_brand) / NULLIF(COUNT(*), 0), 1) AS conformed_silver_fill_pct
+            FROM joined
             UNION ALL
             SELECT
-                'Model' AS attribute,
-                ROUND(100.0 * COUNT(b.raw_spec_model) / COUNT(*), 1) AS raw_bronze_fill_pct,
-                ROUND(100.0 * COUNT(s.vehicle_model) / COUNT(*), 1) AS conformed_silver_fill_pct
-            FROM silver_latest s
-            JOIN bronze_latest b ON s.listing_id = b.listing_id AND b._rn = 1
-            WHERE s._rn = 1
+                'Model',
+                ROUND(100.0 * COUNT(raw_spec_model) / NULLIF(COUNT(*), 0), 1),
+                ROUND(100.0 * COUNT(vehicle_model) / NULLIF(COUNT(*), 0), 1)
+            FROM joined
             UNION ALL
             SELECT
-                'Year' AS attribute,
-                ROUND(100.0 * COUNT(b.raw_spec_year) / COUNT(*), 1) AS raw_bronze_fill_pct,
-                ROUND(100.0 * COUNT(s.vehicle_year) / COUNT(*), 1) AS conformed_silver_fill_pct
-            FROM silver_latest s
-            JOIN bronze_latest b ON s.listing_id = b.listing_id AND b._rn = 1
-            WHERE s._rn = 1
+                'Year',
+                ROUND(100.0 * COUNT(raw_spec_year) / NULLIF(COUNT(*), 0), 1),
+                ROUND(100.0 * COUNT(vehicle_year) / NULLIF(COUNT(*), 0), 1)
+            FROM joined
             UNION ALL
             SELECT
-                'Transmission' AS attribute,
-                ROUND(100.0 * COUNT(b.raw_spec_transmission) / COUNT(*), 1) AS raw_bronze_fill_pct,
-                ROUND(100.0 * COUNT(s.vehicle_transmission) / COUNT(*), 1) AS conformed_silver_fill_pct
-            FROM silver_latest s
-            JOIN bronze_latest b ON s.listing_id = b.listing_id AND b._rn = 1
-            WHERE s._rn = 1
+                'Transmission',
+                ROUND(100.0 * COUNT(raw_spec_transmission) / NULLIF(COUNT(*), 0), 1),
+                ROUND(100.0 * COUNT(vehicle_transmission) / NULLIF(COUNT(*), 0), 1)
+            FROM joined
             UNION ALL
             SELECT
-                'Fuel Type' AS attribute,
-                ROUND(100.0 * COUNT(b.raw_spec_fuel_type) / COUNT(*), 1) AS raw_bronze_fill_pct,
-                ROUND(100.0 * COUNT(s.vehicle_fuel_type) / COUNT(*), 1) AS conformed_silver_fill_pct
-            FROM silver_latest s
-            JOIN bronze_latest b ON s.listing_id = b.listing_id AND b._rn = 1
-            WHERE s._rn = 1
+                'Fuel Type',
+                ROUND(100.0 * COUNT(raw_spec_fuel_type) / NULLIF(COUNT(*), 0), 1),
+                ROUND(100.0 * COUNT(vehicle_fuel_type) / NULLIF(COUNT(*), 0), 1)
+            FROM joined
         """).df()
         df["uplift_pct"] = (df["conformed_silver_fill_pct"] - df["raw_bronze_fill_pct"]).round(1)
     except Exception:
@@ -1073,7 +995,7 @@ def load_raw_ingestion_summary() -> dict:
     """
     Returns batch ledger and overall metadata for all raw Bronze Parquet files.
     """
-    parquet_files = sorted(list(_BRONZE_DIR.glob("cars_*.parquet")))
+    parquet_files = sorted(list(_BRONZE_DIR.glob("cars_*.parquet")), reverse=True)
     if not parquet_files:
         return {
             "available": False,
@@ -1090,8 +1012,10 @@ def load_raw_ingestion_summary() -> dict:
         for p in parquet_files:
             size_kb = round(os.path.getsize(p) / 1024.0, 1)
             p_posix = p.as_posix()
-            cnt, dist_cnt = con.execute(f"SELECT count(*), count(DISTINCT listing_id) FROM read_parquet('{p_posix}')").fetchone()
-            date_val = con.execute(f"SELECT CAST(TRY_CAST(MIN(scraped_at) AS DATE) AS VARCHAR) FROM read_parquet('{p_posix}')").fetchone()[0]
+            cnt, dist_cnt, date_val = con.execute(f"""
+                SELECT count(*), count(DISTINCT listing_id), CAST(TRY_CAST(MIN(scraped_at) AS DATE) AS VARCHAR)
+                FROM read_parquet('{p_posix}')
+            """).fetchone()
             batch_rows.append({
                 "file_name": p.name,
                 "scrape_date": date_val or "Unknown",
@@ -1172,7 +1096,7 @@ def load_cleaning_rules_summary() -> pd.DataFrame:
 # ── 14. Feature Statistics & Profiling (Numeric) ─────────────────────────────
 
 @st.cache_data(ttl=CACHE_TTL)
-def load_feature_numeric_stats(target_dataset: str = "silver") -> pd.DataFrame:
+def load_feature_numeric_stats(target_dataset: str = "silver", scrape_date: str | None = None) -> pd.DataFrame:
     """
     Computes summary descriptive statistics for numeric features.
     target_dataset: 'silver' or 'gold_ml'
@@ -1182,6 +1106,8 @@ def load_feature_numeric_stats(target_dataset: str = "silver") -> pd.DataFrame:
         return pd.DataFrame()
 
     con = _con()
+    date_filter = f"AND CAST(scrape_date AS VARCHAR) = '{scrape_date}'" if (scrape_date and target_dataset == "silver") else ""
+
     try:
         if target_dataset == "gold_ml":
             query = f"""
@@ -1224,17 +1150,17 @@ def load_feature_numeric_stats(target_dataset: str = "silver") -> pd.DataFrame:
         else:
             query = f"""
                 WITH unpivoted AS (
-                    SELECT 'price' AS feature, price AS val FROM read_parquet('{path}') WHERE price > 0
+                    SELECT 'price' AS feature, price AS val FROM read_parquet('{path}') WHERE price > 0 {date_filter}
                     UNION ALL
-                    SELECT 'log_price', LN(1.0 + price) FROM read_parquet('{path}') WHERE price > 0
+                    SELECT 'log_price', LN(1.0 + price) FROM read_parquet('{path}') WHERE price > 0 {date_filter}
                     UNION ALL
-                    SELECT 'vehicle_year', CAST(vehicle_year AS DOUBLE) FROM read_parquet('{path}') WHERE vehicle_year IS NOT NULL
+                    SELECT 'vehicle_year', CAST(vehicle_year AS DOUBLE) FROM read_parquet('{path}') WHERE vehicle_year IS NOT NULL {date_filter}
                     UNION ALL
-                    SELECT 'vehicle_age', CAST(GREATEST(date_part('year', scrape_date) - vehicle_year, 0) AS DOUBLE) FROM read_parquet('{path}') WHERE vehicle_year IS NOT NULL
+                    SELECT 'vehicle_age', CAST(GREATEST(date_part('year', scrape_date) - vehicle_year, 0) AS DOUBLE) FROM read_parquet('{path}') WHERE vehicle_year IS NOT NULL {date_filter}
                     UNION ALL
-                    SELECT 'vehicle_mileage_km', CAST(vehicle_mileage_km AS DOUBLE) FROM read_parquet('{path}') WHERE vehicle_mileage_km IS NOT NULL
+                    SELECT 'vehicle_mileage_km', CAST(vehicle_mileage_km AS DOUBLE) FROM read_parquet('{path}') WHERE vehicle_mileage_km IS NOT NULL {date_filter}
                     UNION ALL
-                    SELECT 'vehicle_engine_cc', CAST(vehicle_engine_cc AS DOUBLE) FROM read_parquet('{path}') WHERE vehicle_engine_cc IS NOT NULL
+                    SELECT 'vehicle_engine_cc', CAST(vehicle_engine_cc AS DOUBLE) FROM read_parquet('{path}') WHERE vehicle_engine_cc IS NOT NULL {date_filter}
                 )
                 SELECT
                     feature,
@@ -1271,7 +1197,7 @@ def load_feature_numeric_stats(target_dataset: str = "silver") -> pd.DataFrame:
 # ── 15. Categorical Cardinality & Top Frequencies ────────────────────────────
 
 @st.cache_data(ttl=CACHE_TTL)
-def load_categorical_cardinality(target_dataset: str = "silver") -> pd.DataFrame:
+def load_categorical_cardinality(target_dataset: str = "silver", scrape_date: str | None = None) -> pd.DataFrame:
     """
     Computes distinct count, top 3 values, and nullity for categorical features.
     """
@@ -1286,16 +1212,24 @@ def load_categorical_cardinality(target_dataset: str = "silver") -> pd.DataFrame
         if target_dataset == "gold_ml"
         else ["vehicle_brand", "vehicle_model", "vehicle_fuel_type", "vehicle_transmission", "vehicle_body_type", "province", "brand_tier", "seller_type"]
     )
+    date_filter = f"WHERE CAST(scrape_date AS VARCHAR) = '{scrape_date}'" if (scrape_date and target_dataset == "silver") else ""
 
     try:
-        total = con.execute(f"SELECT COUNT(*) FROM read_parquet('{path}')").fetchone()[0]
+        where_total = date_filter
+        total = con.execute(f"SELECT COUNT(*) FROM read_parquet('{path}') {where_total}").fetchone()[0]
+        if total == 0:
+            return pd.DataFrame()
+
         for col in cat_cols:
-            null_count = con.execute(f"SELECT COUNT(*) FROM read_parquet('{path}') WHERE {col} IS NULL").fetchone()[0]
-            distinct_count = con.execute(f"SELECT COUNT(DISTINCT {col}) FROM read_parquet('{path}')").fetchone()[0]
+            col_filter = f"{date_filter} AND {col} IS NULL" if date_filter else f"WHERE {col} IS NULL"
+            col_notnull = f"{date_filter} AND {col} IS NOT NULL" if date_filter else f"WHERE {col} IS NOT NULL"
+
+            null_count = con.execute(f"SELECT COUNT(*) FROM read_parquet('{path}') {col_filter}").fetchone()[0]
+            distinct_count = con.execute(f"SELECT COUNT(DISTINCT {col}) FROM read_parquet('{path}') {col_notnull}").fetchone()[0]
             top3 = con.execute(f"""
                 SELECT {col} AS val, COUNT(*) AS cnt, ROUND(100.0 * COUNT(*) / {total}, 1) AS pct
                 FROM read_parquet('{path}')
-                WHERE {col} IS NOT NULL
+                {col_notnull}
                 GROUP BY 1
                 ORDER BY 2 DESC
                 LIMIT 3
@@ -1323,7 +1257,7 @@ def load_categorical_cardinality(target_dataset: str = "silver") -> pd.DataFrame
 # ── 16. Categorical Frequency Distribution for Charting ──────────────────────
 
 @st.cache_data(ttl=CACHE_TTL)
-def load_categorical_distribution(feature_name: str, top_n: int = 10, target_dataset: str = "silver") -> pd.DataFrame:
+def load_categorical_distribution(feature_name: str, top_n: int = 10, target_dataset: str = "silver", scrape_date: str | None = None) -> pd.DataFrame:
     """
     Returns top N values and their counts/percentages for a specific categorical feature.
     """
@@ -1332,15 +1266,20 @@ def load_categorical_distribution(feature_name: str, top_n: int = 10, target_dat
         return pd.DataFrame()
 
     con = _con()
+    date_clause = f"AND CAST(scrape_date AS VARCHAR) = '{scrape_date}'" if (scrape_date and target_dataset == "silver") else ""
+
     try:
-        total = con.execute(f"SELECT COUNT(*) FROM read_parquet('{path}') WHERE {feature_name} IS NOT NULL").fetchone()[0]
+        total = con.execute(f"SELECT COUNT(*) FROM read_parquet('{path}') WHERE {feature_name} IS NOT NULL {date_clause}").fetchone()[0]
+        if total == 0:
+            return pd.DataFrame()
+
         df = con.execute(f"""
             SELECT
                 COALESCE(CAST({feature_name} AS VARCHAR), 'Unknown') AS category,
                 COUNT(*) AS count,
                 ROUND(100.0 * COUNT(*) / {total}, 1) AS pct
             FROM read_parquet('{path}')
-            WHERE {feature_name} IS NOT NULL
+            WHERE {feature_name} IS NOT NULL {date_clause}
             GROUP BY 1
             ORDER BY 2 DESC
             LIMIT {top_n}
@@ -1356,15 +1295,18 @@ def load_categorical_distribution(feature_name: str, top_n: int = 10, target_dat
 # ── 17. Feature Values for Distribution Plots (Histograms & Boxplots) ─────────
 
 @st.cache_data(ttl=CACHE_TTL)
-def load_feature_distribution_sample(target_dataset: str = "silver", limit: int = 5000) -> pd.DataFrame:
+def load_feature_distribution_sample(target_dataset: str = "silver", limit: int = 5000, scrape_date: str | None = None) -> pd.DataFrame:
     """
     Returns sampled records for rendering distribution plots and boxplots.
+    Uses random sampling to prevent temporal partition bias.
     """
     path = GOLD_ML_PATH if target_dataset == "gold_ml" else SILVER_PATH
     if not os.path.exists(path):
         return pd.DataFrame()
 
     con = _con()
+    date_filter = f"AND CAST(scrape_date AS VARCHAR) = '{scrape_date}'" if (scrape_date and target_dataset == "silver") else ""
+
     try:
         if target_dataset == "gold_ml":
             df = con.execute(f"""
@@ -1379,6 +1321,7 @@ def load_feature_distribution_sample(target_dataset: str = "silver", limit: int 
                     vehicle_body_type,
                     vehicle_fuel_type
                 FROM read_parquet('{path}')
+                ORDER BY RANDOM()
                 LIMIT {limit}
             """).df()
         else:
@@ -1394,7 +1337,8 @@ def load_feature_distribution_sample(target_dataset: str = "silver", limit: int 
                     vehicle_body_type,
                     vehicle_fuel_type
                 FROM read_parquet('{path}')
-                WHERE price > 0
+                WHERE price > 0 {date_filter}
+                ORDER BY RANDOM()
                 LIMIT {limit}
             """).df()
     except Exception:
@@ -1512,11 +1456,16 @@ def generate_markdown_report(scrape_date: str | None = None) -> str:
     dhi = float(row.get("dhi", 97.0))
     total = int(row.get("total", 0))
     valid = int(row.get("valid", 0))
+    warning = int(row.get("warning", 0))
+    suspicious = int(row.get("suspicious", 0))
     quarantined = int(row.get("quarantined", 0))
-    now_utc = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    usable = valid + warning
 
+    usable_pct = round(100.0 * usable / total, 1) if total > 0 else 0.0
     valid_pct = round(100.0 * valid / total, 1) if total > 0 else 0.0
     quar_pct = round(100.0 * quarantined / total, 2) if total > 0 else 0.0
+    susp_pct = round(100.0 * suspicious / total, 2) if total > 0 else 0.0
+    now_utc = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
     report = f"""# Executive Data Quality & Pipeline Observability Audit Report
 **Source Platform:** Khmer24 Automotive Marketplace  
@@ -1530,12 +1479,14 @@ def generate_markdown_report(scrape_date: str | None = None) -> str:
 ## 1. Executive Summary & Quality Health
 - **Data Health Index (DHI):** **{dhi:.2f}%** (Target: ≥ 95.0%)
 - **Active Marketplace Inventory:** **{total:,}** records
-- **Valid (ML/BI Ready):** **{valid:,}** ({valid_pct}%)
+- **Analysis-Ready (Valid + Warning):** **{usable:,}** ({usable_pct}%) — full integrity; optional fields (e.g. mileage) missing
+- **Strictly Complete (Valid):** **{valid:,}** ({valid_pct}%)
+- **Suspicious / Price Outliers:** **{suspicious:,}** ({susp_pct}%)
 - **Quarantined (Excluded from Marts):** **{quarantined:,}** ({quar_pct}%)
 
 ## 2. Medallion Pipeline Throughput & Deduplication
-- **Bronze Raw Ingested:** {dup_stats.get('bronze_total', 0):,} records
-- **Conformed Silver Snapshots:** {dup_stats.get('silver_total', 0):,} records
+- **Cumulative Bronze Ingested:** {dup_stats.get('bronze_total', 0):,} records
+- **Conformed Silver Snapshots (Cumulative):** {dup_stats.get('silver_total', 0):,} records
 - **Distinct Vehicles Tracked:** {dup_stats.get('silver_unique', 0):,} unique listings
 - **Intra-Day Duplicates Absorbed:** {dup_stats.get('intra_day_deduped_count', 0):,} rows (100% 1-row grain enforced)
 

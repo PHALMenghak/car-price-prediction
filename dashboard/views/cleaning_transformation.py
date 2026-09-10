@@ -27,7 +27,7 @@ def render(active_date: str | None = None) -> None:
     impact     = load_cleaning_impact_stats(active_date)
     funnel_df  = load_pipeline_funnel(active_date)
     rules_df   = load_cleaning_rules_summary()
-    comp_df    = load_raw_vs_conformed_comparison()
+    comp_df    = load_raw_vs_conformed_comparison(active_date)
     quality_df = load_quality_summary()
 
     st.markdown(
@@ -254,6 +254,7 @@ def _render_before_after(comp_df: pd.DataFrame) -> None:
             barmode="group",
             yaxis=dict(title="Fill Rate (%)", range=[0, 106]),
             xaxis_title=None,
+            margin=dict(l=10, r=10, t=10, b=40),
         )
         st.plotly_chart(fig, use_container_width=True)
 
@@ -350,7 +351,7 @@ def _render_model_source_breakdown(impact: dict, total: int) -> None:
             sort=False,
         ))
         config.apply_plot_theme(fig, height=260, show_legend=True, legend_orientation="h")
-        fig.update_layout(margin=dict(l=0, r=0, t=10, b=10))
+        fig.update_layout(margin=dict(l=0, r=0, t=10, b=40))
         st.plotly_chart(fig, use_container_width=True)
 
     with col_text:

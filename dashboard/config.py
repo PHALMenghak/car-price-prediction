@@ -84,11 +84,11 @@ DHI_WEIGHTS = {
 # ── Quality Status System ─────────────────────────────────────────────────────
 # Record-level status (dbt int_cars_cleaned output)
 STATUS_COLORS = {
-    "VALID":       "#166534",   # dark green
-    "WARNING":     "#92400e",   # amber/brown
-    "SUSPICIOUS":  "#c2410c",   # orange-red
-    "INVALID":     "#991b1b",   # dark red
-    "QUARANTINED": "#374151",   # dark gray
+    "VALID":       "#10b981",   # emerald green
+    "WARNING":     "#f59e0b",   # amber
+    "SUSPICIOUS":  "#f97316",   # orange
+    "INVALID":     "#ef4444",   # red
+    "QUARANTINED": "#64748b",   # slate gray
 }
 
 STATUS_BG = {
@@ -109,14 +109,86 @@ STATUS_DOT = {
     "QUARANTINED": "⚫",
 }
 
+
+def evaluate_sla_gates(
+    dhi_score: float,
+    total: int,
+    freshness_hrs: float | None,
+    quar_pct: float,
+    dbt_status: dict,
+    enrich_pct: float | None = None,
+) -> list[dict]:
+    """
+    Unified evaluation of all 6 SLA gates.
+    Consumed by both the status banner and the SLA scorecard to guarantee consistency.
+    """
+    dbt_ok = dbt_status.get("failed", 0) == 0 if dbt_status.get("available") else False
+    fresh_ok = freshness_hrs is not None and freshness_hrs <= SLA_MAX_FRESHNESS_HOURS
+    dhi_ok = dhi_score >= SLA_MIN_DHI
+    vol_ok = total >= SLA_MIN_RECORDS_PER_DAY
+    quar_ok = quar_pct <= SLA_MAX_QUARANTINE_PCT
+    enrich_ok = enrich_pct is not None and enrich_pct >= SLA_MIN_DETAIL_ENRICH_PCT
+
+    return [
+        {
+            "id": "dhi",
+            "name": "Data Health Index",
+            "target": f"≥ {SLA_MIN_DHI:.0f}%",
+            "passed": dhi_ok,
+            "actual": f"{dhi_score:.1f}%",
+            "critical": True,
+        },
+        {
+            "id": "volume",
+            "name": "Daily Ingestion SLA",
+            "target": f"≥ {SLA_MIN_RECORDS_PER_DAY:,}",
+            "passed": vol_ok,
+            "actual": f"{total:,} recs",
+            "critical": False,
+        },
+        {
+            "id": "freshness",
+            "name": "Pipeline Freshness",
+            "target": f"< {SLA_MAX_FRESHNESS_HOURS:.0f}h",
+            "passed": fresh_ok,
+            "actual": f"{freshness_hrs:.1f}h ago" if freshness_hrs is not None else "—",
+            "critical": True,
+        },
+        {
+            "id": "quarantine",
+            "name": "Quarantine Ratio",
+            "target": f"< {SLA_MAX_QUARANTINE_PCT}%",
+            "passed": quar_ok,
+            "actual": f"{quar_pct:.2f}%",
+            "critical": True,
+        },
+        {
+            "id": "dbt",
+            "name": "dbt Contract Tests",
+            "target": "All pass",
+            "passed": dbt_ok,
+            "actual": f"{dbt_status.get('passed', 0)}/{dbt_status.get('total', 0)}" if dbt_status.get("available") else "Not run",
+            "critical": True,
+        },
+        {
+            "id": "enrichment",
+            "name": "Detail Enrichment",
+            "target": f"≥ {SLA_MIN_DETAIL_ENRICH_PCT:.0f}%",
+            "passed": enrich_ok,
+            "actual": f"{enrich_pct:.1f}%" if enrich_pct is not None else "N/A",
+            "critical": False,
+        },
+    ]
+
+
 # ── Issue severity ────────────────────────────────────────────────────────────
 SEVERITY_ORDER  = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]
 SEVERITY_COLORS = {
-    "CRITICAL": "#991b1b",
-    "HIGH":     "#c2410c",
-    "MEDIUM":   "#92400e",
-    "LOW":      "#166534",
-    "INFO":     "#1d4ed8",
+    "CRITICAL": "#ef4444",
+    "HIGH":     "#f97316",
+    "MEDIUM":   "#f59e0b",
+    "LOW":      "#10b981",
+    "INFO":     "#0284c7",
 }
 SEVERITY_BG = {
     "CRITICAL": "#fee2e2",
@@ -133,16 +205,15 @@ PRIORITY_ORDER = ["🔴 Critical", "🟠 High", "🟡 Medium", "🟢 Low"]
 THEME = {
     "navy":       "#1e3a8a",
     "blue":       "#0284c7",
-    "green":      "#16a34a",
-    "amber":      "#d97706",
-    "red":        "#dc2626",
+    "green":      "#10b981",
+    "amber":      "#f59e0b",
+    "red":        "#ef4444",
     "gray":       "#64748b",
     "light_gray": "#f1f5f9",
     "grid":       "rgba(148, 163, 184, 0.2)",
 }
 
-# Chart color sequences
-CHART_COLORS = ["#1e3a8a", "#0284c7", "#16a34a", "#d97706", "#dc2626", "#7c3aed", "#db2777"]
+CHART_COLORS = ["#1e3a8a", "#0284c7", "#10b981", "#f59e0b", "#ef4444", "#7c3aed", "#ec4899"]
 
 
 def apply_plot_theme(
@@ -155,6 +226,7 @@ def apply_plot_theme(
     Applies unified professional chart styling:
     clean white backgrounds, subtle gridlines, Inter font.
     """
+    bottom_margin = 42 if (show_legend and legend_orientation == "h") else 14
     fig.update_layout(
         font=dict(
             family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
@@ -164,7 +236,7 @@ def apply_plot_theme(
         plot_bgcolor="rgba(0,0,0,0)",
         paper_bgcolor="rgba(0,0,0,0)",
         height=height,
-        margin=dict(l=12, r=16, t=28, b=12),
+        margin=dict(l=12, r=16, t=28, b=bottom_margin),
         showlegend=show_legend,
     )
     if show_legend:

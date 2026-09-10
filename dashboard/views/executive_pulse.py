@@ -69,33 +69,43 @@ def render(active_date: str | None = None) -> None:
     silver_ready_pct = round(100.0 * silver_ready_cnt / total, 1) if total > 0 else 0.0
 
     # Bronze raw volume resolution
-    b_total = dup_stats.get("bronze_total", int(bronze_df["raw_count"].sum()) if not bronze_df.empty else total)
     b_distinct = dup_stats.get("bronze_unique", raw_summary.get("total_distinct", total))
+    if active_date and not bronze_df.empty:
+        b_match = bronze_df[bronze_df["scrape_date"].astype(str) == active_date]
+        b_total = int(b_match["raw_count"].iloc[0]) if not b_match.empty else total
+        b_sub = f"{b_distinct:,} distinct all-time"
+    else:
+        b_total = dup_stats.get("bronze_total", int(bronze_df["raw_count"].sum()) if not bronze_df.empty else total)
+        b_sub = f"{b_distinct:,} distinct listings"
 
-    # Day-over-day delta
+    # Day-over-day delta comparing with chronologically preceding snapshot
     vol_delta_str = ""
     vol_delta_col = "normal"
     if len(quality_df) >= 2:
-        prev = int(quality_df.iloc[1]["total"])
-        delta = total - prev
-        delta_pct = round(100.0 * delta / prev, 1) if prev > 0 else 0.0
-        vol_delta_str = f"{delta:+,} ({delta_pct:+.1f}%)"
-        vol_delta_col = "normal" if delta >= 0 else "amber"
+        matches = quality_df.index[quality_df["scrape_date"] == snapshot_dt].tolist()
+        curr_idx = matches[0] if matches else 0
+        if curr_idx + 1 < len(quality_df):
+            prev = int(quality_df.iloc[curr_idx + 1]["total"])
+            delta = total - prev
+            delta_pct = round(100.0 * delta / prev, 1) if prev > 0 else 0.0
+            vol_delta_str = f"{delta:+,} ({delta_pct:+.1f}%)"
+            vol_delta_col = "normal" if delta >= 0 else "amber"
+        else:
+            vol_delta_str = "Baseline"
+            vol_delta_col = "normal"
 
     # Freshness calculation
-    freshness_hrs = None
-    last_scrape_str = scraper.get("last_run", "") or manifest.get("timestamp", "")
-    if last_scrape_str:
-        try:
-            last_dt = datetime.fromisoformat(last_scrape_str.replace("Z", "+00:00"))
-            if last_dt.tzinfo is None:
-                last_dt = last_dt.replace(tzinfo=timezone.utc)
-            freshness_hrs = round((datetime.now(tz=timezone.utc) - last_dt).total_seconds() / 3600, 1)
-        except ValueError:
-            pass
+    freshness_hrs = scraper.get("hours_ago")
+    if freshness_hrs == 999.0 or freshness_hrs is None:
+        freshness_hrs = None
+
+    # Unified SLA gate evaluation
+    enrich_pct = manifest.get("quality_metrics", {}).get("detail_enrich_pct") if manifest else None
+    quar_pct = round(100.0 * quar_cnt / total, 2) if total > 0 else 0.0
+    sla_gates = config.evaluate_sla_gates(dhi_score, total, freshness_hrs, quar_pct, dbt_status, enrich_pct)
 
     # ── 1. Pipeline Health Status Banner ──────────────────────────────────────
-    _render_status_banner(dhi_score, freshness_hrs, quar_cnt, total, dbt_status, snapshot_dt)
+    _render_status_banner(sla_gates, snapshot_dt, total, dhi_score)
 
     # ── 2. Top-Level Executive KPI Cards ──────────────────────────────────────
     fresh_badge = "Fresh" if (freshness_hrs is not None and freshness_hrs <= config.SLA_MAX_FRESHNESS_HOURS) else "Delayed"
@@ -111,7 +121,7 @@ def render(active_date: str | None = None) -> None:
             config.kpi_card(
                 title="Raw Ingested",
                 value=f"{b_total:,}",
-                subtitle=f"{b_distinct:,} distinct listings",
+                subtitle=b_sub,
                 accent_color="#0284c7",
                 icon="📥",
             ),
@@ -229,7 +239,7 @@ def render(active_date: str | None = None) -> None:
 
     # ── 5. SLA Contract Scorecard (Collapsible) ───────────────────────────────
     with st.expander("📋 SLA Contract Compliance Scorecard & Gate Details", expanded=False):
-        _render_sla_scorecard(dhi_score, freshness_hrs, quar_cnt, total, dbt_status, manifest)
+        _render_sla_scorecard(sla_gates)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -237,46 +247,34 @@ def render(active_date: str | None = None) -> None:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _render_status_banner(
-    dhi_score: float,
-    freshness_hrs: float | None,
-    quar_cnt: int,
-    total: int,
-    dbt_status: dict,
+    sla_gates: list[dict],
     snapshot_date: str,
+    total: int,
+    dhi_score: float,
 ) -> None:
-    dbt_ok   = dbt_status.get("failed", 0) == 0 if dbt_status.get("available") else True
-    fresh_ok = freshness_hrs is not None and freshness_hrs <= config.SLA_MAX_FRESHNESS_HOURS
-    dhi_ok   = dhi_score >= config.SLA_MIN_DHI
-    quar_pct = round(100.0 * quar_cnt / total, 2) if total > 0 else 0.0
-    quar_ok  = quar_pct <= config.SLA_MAX_QUARANTINE_PCT
+    passed_count = sum(1 for g in sla_gates if g["passed"])
+    total_gates = len(sla_gates)
+    all_passed = passed_count == total_gates
 
-    gates = [dbt_ok, fresh_ok, dhi_ok, quar_ok]
-    gates_pass = sum(gates)
+    failed_gates = [g for g in sla_gates if not g["passed"]]
+    critical_failures = [g for g in failed_gates if g.get("critical", False)]
 
-    if all(gates):
+    if all_passed:
         bg, bar, fg = "#f0fdf4", "#16a34a", "#166534"
-        badge = "● ALL SYSTEMS OPERATIONAL — 4/4 GATES COMPLIANT"
-        msg   = (
+        badge = f"● ALL SYSTEMS OPERATIONAL — {total_gates}/{total_gates} GATES COMPLIANT"
+        msg = (
             f"Silver layer conforming within SLA targets (DHI: {dhi_score:.1f}%). "
             f"Active conformed records: {total:,} · Zero critical test contract failures."
         )
-    elif not fresh_ok or not dbt_ok:
+    elif critical_failures:
         bg, bar, fg = "#fef2f2", "#dc2626", "#991b1b"
-        badge = "● PIPELINE ATTENTION REQUIRED"
-        issues = []
-        if not fresh_ok and freshness_hrs is not None:
-            issues.append(f"Scraper data is {freshness_hrs:.1f}h old (target < {config.SLA_MAX_FRESHNESS_HOURS:.0f}h)")
-        if not dbt_ok:
-            issues.append(f"{dbt_status.get('failed', '?')} dbt test contract failures")
+        badge = f"● PIPELINE ATTENTION REQUIRED — {len(failed_gates)} GATE{'S' if len(failed_gates) > 1 else ''} FAILING"
+        issues = [f"{g['name']}: {g['actual']} (target: {g['target']})" for g in failed_gates]
         msg = " · ".join(issues)
     else:
         bg, bar, fg = "#fffbeb", "#d97706", "#92400e"
-        badge = "● QUALITY MONITORING ALERT"
-        issues = []
-        if not dhi_ok:
-            issues.append(f"DHI score ({dhi_score:.1f}%) below {config.SLA_MIN_DHI:.0f}% SLA target")
-        if not quar_ok:
-            issues.append(f"Quarantine rate ({quar_pct:.2f}%) exceeds {config.SLA_MAX_QUARANTINE_PCT}% limit")
+        badge = f"● QUALITY MONITORING ALERT — {len(failed_gates)} GATE{'S' if len(failed_gates) > 1 else ''} BELOW TARGET"
+        issues = [f"{g['name']}: {g['actual']} (target: {g['target']})" for g in failed_gates]
         msg = " · ".join(issues)
 
     st.markdown(
@@ -289,7 +287,7 @@ def _render_status_banner(
         f"</div>"
         f"<div style='display:flex; gap:16px; align-items:center; flex-shrink:0;'>"
         f"<div style='text-align:right;'>"
-        f"<div style='font-size:1.15rem; font-weight:800; color:{fg};'>{gates_pass}/4</div>"
+        f"<div style='font-size:1.15rem; font-weight:800; color:{fg};'>{passed_count}/{total_gates}</div>"
         f"<div style='font-size:0.65rem; font-weight:700; color:#64748b; text-transform:uppercase;'>SLA GATES</div>"
         f"</div>"
         f"<div style='text-align:right;'>"
@@ -378,14 +376,20 @@ def _render_collection_trend(bronze_df: pd.DataFrame, quality_df: pd.DataFrame) 
         )
 
     config.apply_plot_theme(fig, height=290, show_legend=True, legend_orientation="h")
-    fig.update_layout(barmode="overlay", hovermode="x unified", margin=dict(l=10, r=10, t=10, b=10))
+    fig.update_layout(barmode="overlay", hovermode="x unified", margin=dict(l=10, r=10, t=10, b=40))
     st.plotly_chart(fig, use_container_width=True)
 
 
 def _render_quality_pie(valid: int, warn: int, susp: int, inv: int, quar: int, total: int) -> None:
     counts = [valid, warn, susp, inv, quar]
     labels = ["Valid", "Warning", "Suspicious", "Invalid", "Quarantined"]
-    colors = ["#10b981", "#f59e0b", "#f97316", "#ef4444", "#64748b"]
+    colors = [
+        config.STATUS_COLORS.get("VALID", "#10b981"),
+        config.STATUS_COLORS.get("WARNING", "#f59e0b"),
+        config.STATUS_COLORS.get("SUSPICIOUS", "#f97316"),
+        config.STATUS_COLORS.get("INVALID", "#ef4444"),
+        config.STATUS_COLORS.get("QUARANTINED", "#64748b"),
+    ]
 
     ready_pct = round(100.0 * (valid + warn) / total, 1) if total > 0 else 0.0
     center_c  = "#10b981" if ready_pct >= 90 else "#f59e0b"
@@ -452,7 +456,9 @@ def _render_batch_ledger(raw_summary: dict, scraper: dict) -> None:
     batches_df = raw_summary.get("batches", pd.DataFrame())
     if not batches_df.empty:
         display_df = batches_df.head(6).copy()
-        if "file_size_bytes" in display_df.columns:
+        if "size_kb" in display_df.columns:
+            display_df["size_kb"] = display_df["size_kb"].round(0).astype(int)
+        elif "file_size_bytes" in display_df.columns:
             display_df["size_kb"] = (display_df["file_size_bytes"] / 1024).round(0).astype(int)
         else:
             display_df["size_kb"] = 0
@@ -482,22 +488,10 @@ def _render_batch_ledger(raw_summary: dict, scraper: dict) -> None:
     st.caption(f"Last Scraper Run Mode: `{mode}` · Duration: `{duration:.1f}s` · Files: `{raw_summary.get('total_files', 0)}`")
 
 
-def _render_sla_scorecard(dhi_score, freshness_hrs, quar_cnt, total, dbt_status, manifest) -> None:
-    enrich_pct = manifest.get("quality_metrics", {}).get("detail_enrich_pct") if manifest else None
-    dbt_passed = dbt_status.get("failed", 0) == 0 if dbt_status.get("available") else False
-    quar_pct   = round(100.0 * quar_cnt / total, 2) if total > 0 else 0.0
-
-    gates = [
-        ("Data Health Index", f"≥ {config.SLA_MIN_DHI:.0f}%", dhi_score >= config.SLA_MIN_DHI, f"{dhi_score:.1f}%"),
-        ("Daily Ingestion SLA", f"≥ {config.SLA_MIN_RECORDS_PER_DAY:,}", total >= config.SLA_MIN_RECORDS_PER_DAY, f"{total:,} recs"),
-        ("Pipeline Freshness", f"< {config.SLA_MAX_FRESHNESS_HOURS:.0f}h", freshness_hrs is not None and freshness_hrs <= config.SLA_MAX_FRESHNESS_HOURS, f"{freshness_hrs:.1f}h ago" if freshness_hrs else "—"),
-        ("Quarantine Ratio", f"< {config.SLA_MAX_QUARANTINE_PCT}%", quar_pct <= config.SLA_MAX_QUARANTINE_PCT, f"{quar_pct:.2f}%"),
-        ("dbt Contract Tests", "All pass", dbt_passed, f"{dbt_status.get('passed', 0)}/{dbt_status.get('total', 0)}" if dbt_status.get("available") else "Not run"),
-        ("Detail Enrichment", f"≥ {config.SLA_MIN_DETAIL_ENRICH_PCT:.0f}%", enrich_pct is not None and enrich_pct >= config.SLA_MIN_DETAIL_ENRICH_PCT, f"{enrich_pct:.1f}%" if enrich_pct is not None else "N/A"),
-    ]
-
-    cols = st.columns(6)
-    for col, (label, target, passed, actual) in zip(cols, gates):
+def _render_sla_scorecard(sla_gates: list[dict]) -> None:
+    cols = st.columns(len(sla_gates))
+    for col, gate in zip(cols, sla_gates):
+        passed = gate["passed"]
         bar_c = "#10b981" if passed else "#ef4444"
         bg_c  = "#f0fdf4" if passed else "#fef2f2"
         fg_c  = "#166534" if passed else "#991b1b"
@@ -506,9 +500,10 @@ def _render_sla_scorecard(dhi_score, freshness_hrs, quar_cnt, total, dbt_status,
             f"<div style='background:{bg_c}; border:1px solid {bar_c}30; border-top:3px solid {bar_c}; "
             f"border-radius:6px; padding:10px 8px; text-align:center;'>"
             f"<div style='font-size:1.1rem; margin-bottom:2px;'>{icon}</div>"
-            f"<div style='font-size:0.68rem; font-weight:800; color:{fg_c}; line-height:1.2; margin-bottom:3px;'>{label}</div>"
-            f"<div style='font-size:0.78rem; font-weight:700; color:#0f172a;'>{actual}</div>"
-            f"<div style='font-size:0.62rem; color:#94a3b8; margin-top:2px;'>Target: {target}</div>"
+            f"<div style='font-size:0.68rem; font-weight:800; color:{fg_c}; line-height:1.2; margin-bottom:3px;'>{gate['name']}</div>"
+            f"<div style='font-size:0.78rem; font-weight:700; color:#0f172a;'>{gate['actual']}</div>"
+            f"<div style='font-size:0.62rem; color:#94a3b8; margin-top:2px;'>Target: {gate['target']}</div>"
             f"</div>",
             unsafe_allow_html=True,
         )
+

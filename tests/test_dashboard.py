@@ -208,3 +208,79 @@ def test_load_audit_sample():
         assert "title_clean" in audit_df.columns
         assert "is_year_healed" in audit_df.columns
         assert len(audit_df) <= 20
+
+
+def test_evaluate_sla_gates():
+    # Scenario 1: All passing
+    gates = config.evaluate_sla_gates(
+        dhi_score=97.5,
+        total=1500,
+        freshness_hrs=4.0,
+        quar_pct=0.5,
+        dbt_status={"available": True, "failed": 0, "passed": 10, "total": 10},
+        enrich_pct=99.0,
+    )
+    assert len(gates) == 6
+    assert all(g["passed"] for g in gates)
+
+    # Scenario 2: Freshness breach
+    gates_stale = config.evaluate_sla_gates(
+        dhi_score=97.5,
+        total=1500,
+        freshness_hrs=50.0,
+        quar_pct=0.5,
+        dbt_status={"available": True, "failed": 0},
+        enrich_pct=90.0,
+    )
+    fresh_gate = next(g for g in gates_stale if g["id"] == "freshness")
+    assert not fresh_gate["passed"]
+    assert fresh_gate["critical"] is True
+
+
+def test_load_completeness_detail():
+    detail_df = data_loader.load_completeness_detail()
+    assert isinstance(detail_df, pd.DataFrame)
+    if not detail_df.empty:
+        assert "field" in detail_df.columns
+        assert "null_pct" in detail_df.columns
+        assert "completeness_pct" in detail_df.columns
+        assert "priority" in detail_df.columns
+
+        # Verify sum of null_pct and completeness_pct equals 100%
+        for _, row in detail_df.iterrows():
+            total_sum = row["null_pct"] + row["completeness_pct"]
+            assert pytest.approx(total_sum, 0.1) == 100.0
+
+        # Critical fields should be marked Critical
+        crit_fields = ["price", "vehicle_year", "vehicle_brand", "province"]
+        for cf in crit_fields:
+            matching = detail_df[detail_df["field"] == cf]
+            if not matching.empty:
+                assert "Critical" in matching.iloc[0]["priority"]
+
+
+def test_load_raw_vs_conformed_comparison():
+    comp_df = data_loader.load_raw_vs_conformed_comparison()
+    assert isinstance(comp_df, pd.DataFrame)
+    if not comp_df.empty:
+        assert "attribute" in comp_df.columns
+        assert "raw_bronze_fill_pct" in comp_df.columns
+        assert "conformed_silver_fill_pct" in comp_df.columns
+        assert "uplift_pct" in comp_df.columns
+
+
+def test_raw_ingestion_batch_sizes():
+    summary = data_loader.load_raw_ingestion_summary()
+    if summary["available"] and not summary["batches"].empty:
+        batches = summary["batches"]
+        assert "size_kb" in batches.columns
+        # Batch size should be non-zero for real parquet files
+        assert (batches["size_kb"] > 0).all()
+
+
+def test_generate_markdown_report():
+    report = data_loader.generate_markdown_report()
+    assert isinstance(report, str)
+    assert "Analysis-Ready" in report
+    assert "Data Health Index" in report
+

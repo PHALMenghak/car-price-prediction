@@ -22,7 +22,6 @@ from dashboard.data_loader import (
     load_cleaning_impact_stats,
     load_completeness_detail,
     load_dbt_test_status,
-    load_price_violations,
     load_price_year_anomaly_sample,
     load_quality_summary,
     load_top_reasons,
@@ -263,13 +262,7 @@ def _render_price_year_scatter(active_date: str | None) -> None:
     with ctrl_col:
         use_log = st.checkbox("Logarithmic price scale", value=True, help="Compresses extreme price range for clear inspection.")
 
-    color_map = {
-        "VALID":       "#10b981",
-        "WARNING":     "#f59e0b",
-        "SUSPICIOUS":  "#f97316",
-        "INVALID":     "#dc2626",
-        "QUARANTINED": "#64748b",
-    }
+    color_map = config.STATUS_COLORS
 
     # Ensure clean numeric data
     plot_df = anomaly_sample.copy()
@@ -295,7 +288,7 @@ def _render_price_year_scatter(active_date: str | None) -> None:
         )
         config.apply_plot_theme(fig, height=330, show_legend=True, legend_orientation="h")
         fig.update_traces(marker=dict(size=6))
-        fig.update_layout(margin=dict(l=10, r=10, t=10, b=10))
+        fig.update_layout(margin=dict(l=10, r=10, t=10, b=40))
         st.plotly_chart(fig, use_container_width=True)
     except Exception as e:
         st.error(f"Could not render scatter plot: {e}")
@@ -395,8 +388,8 @@ def _render_audit_drilldown(active_date: str | None) -> None:
     total_in_view = len(sample_df)
     quar_in_view = int((sample_df["status"] == "QUARANTINED").sum())
     susp_in_view = int((sample_df["status"] == "SUSPICIOUS").sum())
-    healed_in_view = int((sample_df.get("is_year_healed", 0) == 1).sum())
-    nlp_in_view = int((sample_df.get("model_extraction_method", "") == "title_extracted").sum())
+    healed_in_view = int((sample_df["is_year_healed"] == 1).sum()) if "is_year_healed" in sample_df.columns else 0
+    nlp_in_view = int((sample_df["model_extraction_method"] == "title_extracted").sum()) if "model_extraction_method" in sample_df.columns else 0
 
     st.markdown(
         f"<div style='display:flex; gap:12px; margin:8px 0 14px 0; flex-wrap:wrap; font-size:0.78rem;'>"
@@ -411,7 +404,10 @@ def _render_audit_drilldown(active_date: str | None) -> None:
 
     # 3. Formatted display DataFrame
     display_df = sample_df.copy()
-    display_df["year_healing"] = display_df["is_year_healed"].apply(lambda x: "🔄 Healed" if x == 1 else "✓ Original")
+    if "is_year_healed" in display_df.columns:
+        display_df["year_healing"] = display_df["is_year_healed"].apply(lambda x: "🔄 Healed" if x == 1 else "✓ Original")
+    else:
+        display_df["year_healing"] = "—"
 
     # Column ordering: Side-by-side raw vs clean
     table_cols = [
@@ -453,56 +449,76 @@ def _render_audit_drilldown(active_date: str | None) -> None:
 
     # 4. Deep-dive single record inspector
     with st.expander("🔬 Inspect Single Record Lineage (Side-by-Side Diff)", expanded=False):
-        id_options = sample_df["listing_id"].astype(str).tolist()
-        selected_id = st.selectbox("Select Listing ID to Inspect", options=id_options, index=0)
-        rec = sample_df[sample_df["listing_id"].astype(str) == selected_id].iloc[0]
+        sample_df_unique = sample_df.drop_duplicates(subset=["listing_id"]).copy()
+        if not sample_df_unique.empty:
+            id_options = sample_df_unique["listing_id"].astype(str).tolist()
 
-        d_col1, d_col2 = st.columns(2)
-        with d_col1:
+            def _format_option(lid: str) -> str:
+                match = sample_df_unique[sample_df_unique["listing_id"].astype(str) == lid]
+                if not match.empty:
+                    r = match.iloc[0]
+                    brand = r.get("clean_brand") or r.get("raw_brand") or ""
+                    model = r.get("clean_model") or r.get("raw_model") or ""
+                    yr = r.get("clean_year") or r.get("raw_year") or ""
+                    status = r.get("status") or ""
+                    return f"ID {lid} — {brand} {model} {yr} [{status}]".strip()
+                return str(lid)
+
+            selected_id = st.selectbox(
+                "Select Listing ID to Inspect",
+                options=id_options,
+                index=0,
+                format_func=_format_option,
+                key="audit_single_record_select",
+            )
+            rec = sample_df_unique[sample_df_unique["listing_id"].astype(str) == selected_id].iloc[0]
+
+            d_col1, d_col2 = st.columns(2)
+            with d_col1:
+                st.markdown(
+                    "<div style='background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:12px;'>"
+                    "<div style='font-size:0.75rem; font-weight:800; color:#64748b; text-transform:uppercase; margin-bottom:8px;'>"
+                    "📥 Bronze Layer (Raw Scraper Input)"
+                    "</div>",
+                    unsafe_allow_html=True,
+                )
+                st.markdown(f"**Raw Title:** {rec.get('raw_title') or '—'}")
+                st.markdown(f"**Raw Price:** `{rec.get('raw_price') or '—'}`")
+                st.markdown(f"**Raw Brand Spec:** `{rec.get('raw_brand') or '—'}`")
+                st.markdown(f"**Raw Model Spec:** `{rec.get('raw_model') or '—'}`")
+                st.markdown(f"**Raw Year Spec:** `{rec.get('raw_year') or '—'}`")
+                st.markdown(f"**Scrape Partition:** `{rec.get('scrape_date') or '—'}`")
+                st.markdown("</div>", unsafe_allow_html=True)
+
+            with d_col2:
+                st.markdown(
+                    "<div style='background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; padding:12px;'>"
+                    "<div style='font-size:0.75rem; font-weight:800; color:#166534; text-transform:uppercase; margin-bottom:8px;'>"
+                    "✨ Silver Layer (Cleaned & Conformed)"
+                    "</div>",
+                    unsafe_allow_html=True,
+                )
+                st.markdown(f"**Cleaned Title:** {rec.get('title_clean') or '—'}")
+                clean_p = f"${int(rec['clean_price']):,}" if pd.notnull(rec.get('clean_price')) else '—'
+                st.markdown(f"**Conformed Price:** `{clean_p}`")
+                st.markdown(f"**Conformed Brand:** `{rec.get('clean_brand') or '—'}`")
+                st.markdown(f"**Conformed Model:** `{rec.get('clean_model') or '—'}` *(method: {rec.get('model_extraction_method')})*")
+                clean_y = f"{int(rec['clean_year'])}" if pd.notnull(rec.get('clean_year')) else '—'
+                healing_note = " *(🔄 Chronologically healed from inverted title year)*" if rec.get('is_year_healed') == 1 else ""
+                st.markdown(f"**Conformed Year:** `{clean_y}`{healing_note}")
+                st.markdown(f"**Province:** `{rec.get('clean_province') or '—'}`")
+                st.markdown("</div>", unsafe_allow_html=True)
+
+            # Diagnostics badge row
+            stat_color = config.STATUS_COLORS.get(rec.get("status"), "#64748b")
             st.markdown(
-                "<div style='background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:12px;'>"
-                "<div style='font-size:0.75rem; font-weight:800; color:#64748b; text-transform:uppercase; margin-bottom:8px;'>"
-                "📥 Bronze Layer (Raw Scraper Input)"
-                "</div>",
+                f"<div style='margin-top:10px; padding:8px 12px; background:#f8fafc; border-left:4px solid {stat_color}; border-radius:4px; font-size:0.80rem;'>"
+                f"<b>Quality Status:</b> <span style='color:{stat_color}; font-weight:700;'>{rec.get('status')}</span> &nbsp;·&nbsp; "
+                f"<b>Failure Reasons:</b> <code>{rec.get('reasons') or 'None (Passed)'}</code> &nbsp;·&nbsp; "
+                f"<a href='{rec.get('listing_url') or '#'}' target='_blank' style='color:#3b82f6; font-weight:600;'>View on Khmer24 ↗</a>"
+                f"</div>",
                 unsafe_allow_html=True,
             )
-            st.markdown(f"**Raw Title:** {rec.get('raw_title') or '—'}")
-            st.markdown(f"**Raw Price:** `{rec.get('raw_price') or '—'}`")
-            st.markdown(f"**Raw Brand Spec:** `{rec.get('raw_brand') or '—'}`")
-            st.markdown(f"**Raw Model Spec:** `{rec.get('raw_model') or '—'}`")
-            st.markdown(f"**Raw Year Spec:** `{rec.get('raw_year') or '—'}`")
-            st.markdown(f"**Scrape Partition:** `{rec.get('scrape_date') or '—'}`")
-            st.markdown("</div>", unsafe_allow_html=True)
-
-        with d_col2:
-            st.markdown(
-                "<div style='background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; padding:12px;'>"
-                "<div style='font-size:0.75rem; font-weight:800; color:#166534; text-transform:uppercase; margin-bottom:8px;'>"
-                "✨ Silver Layer (Cleaned & Conformed)"
-                "</div>",
-                unsafe_allow_html=True,
-            )
-            st.markdown(f"**Cleaned Title:** {rec.get('title_clean') or '—'}")
-            clean_p = f"${int(rec['clean_price']):,}" if pd.notnull(rec.get('clean_price')) else '—'
-            st.markdown(f"**Conformed Price:** `{clean_p}`")
-            st.markdown(f"**Conformed Brand:** `{rec.get('clean_brand') or '—'}`")
-            st.markdown(f"**Conformed Model:** `{rec.get('clean_model') or '—'}` *(method: {rec.get('model_extraction_method')})*")
-            clean_y = f"{int(rec['clean_year'])}" if pd.notnull(rec.get('clean_year')) else '—'
-            healing_note = " *(🔄 Chronologically healed from inverted title year)*" if rec.get('is_year_healed') == 1 else ""
-            st.markdown(f"**Conformed Year:** `{clean_y}`{healing_note}")
-            st.markdown(f"**Province:** `{rec.get('clean_province') or '—'}`")
-            st.markdown("</div>", unsafe_allow_html=True)
-
-        # Diagnostics badge row
-        stat_color = "#ef4444" if rec["status"] in ("QUARANTINED", "INVALID") else "#f59e0b" if rec["status"] == "SUSPICIOUS" else "#10b981"
-        st.markdown(
-            f"<div style='margin-top:10px; padding:8px 12px; background:#f8fafc; border-left:4px solid {stat_color}; border-radius:4px; font-size:0.80rem;'>"
-            f"<b>Quality Status:</b> <span style='color:{stat_color}; font-weight:700;'>{rec['status']}</span> &nbsp;·&nbsp; "
-            f"<b>Failure Reasons:</b> <code>{rec.get('reasons') or 'None (Passed)'}</code> &nbsp;·&nbsp; "
-            f"<a href='{rec.get('listing_url') or '#'}' target='_blank' style='color:#3b82f6; font-weight:600;'>View on Khmer24 ↗</a>"
-            f"</div>",
-            unsafe_allow_html=True,
-        )
 
     # 5. CSV export
     csv_data = sample_df.to_csv(index=False).encode("utf-8")
