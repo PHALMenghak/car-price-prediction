@@ -3,20 +3,17 @@ dashboard/app.py
 ================
 Entry point for the Cambodian Car Data Quality Center.
 
-Usage (local):
-    streamlit run dashboard/app.py
+Usage:
+    uv run streamlit run dashboard/app.py
 
-Architecture (current phase):
-    Bronze → dbt Staging → dbt Intermediate → Silver → Data Quality Dashboard
+Pipeline Scope:
+    Bronze (Khmer24 Scraper) → dbt Staging → dbt Intermediate → Silver (Conformed)
 
-Navigation (left sidebar):
-    1. Overview
-    2. Collection Monitoring
-    3. Cleaning & Transformation
-    4. Data Quality
-    5. Data Anomalies
-    6. Feature Profiling
-    7. Silver Readiness
+4 Streamlined Executive Pages:
+    1. Overview & Collection     (executive_pulse.py)
+    2. Cleaning & Transformation (cleaning_transformation.py)
+    3. Data Quality & Anomalies  (data_quality_monitoring.py)
+    4. Feature Profiling         (feature_profiling.py)
 """
 
 from __future__ import annotations
@@ -31,7 +28,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 import streamlit as st
 
-# ── Page configuration (must be the very first Streamlit call) ─────────────────
+# ── Page configuration ────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Car Data Quality Center | Khmer24",
     page_icon="🚗",
@@ -47,17 +44,18 @@ st.set_page_config(
 # ── Professional Word/Report-Style CSS ────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
 html, body, [class*="css"] {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #0f172a;
 }
 
-/* Main container */
+/* Main content container */
 .block-container {
-    padding-top: 1.25rem;
-    padding-bottom: 2rem;
-    max-width: 98%;
+    padding-top: 1.25rem !important;
+    padding-bottom: 2rem !important;
+    max-width: 98% !important;
 }
 
 /* Hide arrow icons on st.metric delta */
@@ -67,29 +65,30 @@ html, body, [class*="css"] {
 [data-testid="stMetric"] {
     background: #ffffff;
     border: 1px solid #e2e8f0;
-    border-top: 3px solid #1e3a8a;
-    border-radius: 6px;
-    padding: 14px 16px 12px 16px;
+    border-top: 3.5px solid #1e3a8a;
+    border-radius: 8px;
+    padding: 14px 18px 12px 18px !important;
     box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 
 [data-testid="stMetricLabel"] {
-    font-size: 0.78rem !important;
-    font-weight: 600 !important;
-    color: #475569 !important;
+    font-size: 0.72rem !important;
+    font-weight: 700 !important;
+    color: #64748b !important;
     text-transform: uppercase;
-    letter-spacing: 0.4px;
+    letter-spacing: 0.5px;
 }
 
 [data-testid="stMetricValue"] {
-    font-size: 1.55rem !important;
-    font-weight: 700 !important;
-    color: #1e293b !important;
+    font-size: 1.75rem !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
+    line-height: 1.15 !important;
 }
 
 [data-testid="stMetricDelta"] {
-    font-size: 0.77rem !important;
-    font-weight: 500 !important;
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
 }
 
 /* Sidebar styling */
@@ -98,36 +97,43 @@ html, body, [class*="css"] {
     border-right: 1px solid #e2e8f0;
 }
 
+/* Active navigation button styling */
+[data-testid="stSidebar"] button[kind="primary"] {
+    background-color: #1e3a8a !important;
+    color: #ffffff !important;
+    border: 1px solid #1e3a8a !important;
+    font-weight: 700 !important;
+}
+
+[data-testid="stSidebar"] button[kind="secondary"] {
+    background-color: transparent !important;
+    color: #334155 !important;
+    border: 1px solid transparent !important;
+    text-align: left !important;
+}
+
+[data-testid="stSidebar"] button[kind="secondary"]:hover {
+    background-color: #e2e8f0 !important;
+    color: #0f172a !important;
+}
+
 /* Dataframe table */
 [data-testid="stDataFrame"] {
     border: 1px solid #e2e8f0;
-    border-radius: 5px;
+    border-radius: 6px;
+    overflow: hidden;
 }
 
-/* Divider */
+/* Section dividers */
 hr {
     border-color: #e2e8f0;
     margin: 1.25rem 0;
 }
 
-/* Section headers */
-h1 { color: #0f172a; font-weight: 800; }
-h2 { color: #1e293b; font-weight: 700; font-size: 1.25rem; }
-h3 { color: #1e293b; font-weight: 700; font-size: 1.1rem; }
-
-/* Status badges inline */
-.badge-good    { background:#dcfce7; color:#166534; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:600; }
-.badge-warning { background:#fef9c3; color:#854d0e; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:600; }
-.badge-danger  { background:#fee2e2; color:#991b1b; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:600; }
-.badge-info    { background:#dbeafe; color:#1d4ed8; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:600; }
-.badge-gray    { background:#f1f5f9; color:#475569; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:600; }
-
-/* Report-style section title block */
-.section-title {
-    border-left: 4px solid #1e3a8a;
-    padding-left: 12px;
-    margin-bottom: 4px;
-}
+/* Typography scale */
+h1 { color: #0f172a; font-weight: 800; font-size: 1.65rem; }
+h2 { color: #1e293b; font-weight: 700; font-size: 1.20rem; }
+h3 { color: #1e293b; font-weight: 700; font-size: 1.02rem; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -140,32 +146,23 @@ from dashboard.data_loader import (
     load_quality_summary,
 )
 from dashboard.views import (
+    cleaning_transformation,
     data_quality_monitoring,
     executive_pulse,
     feature_profiling,
-    pipeline_monitoring,
-)
-from dashboard.views import (
-    collection_monitoring,
-    cleaning_transformation,
-    data_anomalies,
-    silver_readiness,
 )
 
-# ── Page definitions ──────────────────────────────────────────────────────────
+# ── Streamlined 4-Page Catalog ────────────────────────────────────────────────
 PAGES = {
-    "Overview": "📊",
-    "Collection Monitoring": "📥",
+    "Overview & Collection":     "📊",
     "Cleaning & Transformation": "🔧",
-    "Data Quality": "🛡️",
-    "Data Anomalies": "🔍",
-    "Feature Profiling": "📈",
-    "Silver Readiness": "✅",
+    "Data Quality & Anomalies":  "🛡️",
+    "Feature Profiling":         "📈",
 }
 
 # ── Initialize session state ──────────────────────────────────────────────────
-if "active_page" not in st.session_state:
-    st.session_state.active_page = "Overview"
+if "active_page" not in st.session_state or st.session_state.active_page not in PAGES:
+    st.session_state.active_page = "Overview & Collection"
 if "active_scrape_date" not in st.session_state:
     st.session_state.active_scrape_date = None
 
@@ -177,71 +174,67 @@ with st.sidebar:
         <div style='font-size:1.05rem; font-weight:800; color:#0f172a; letter-spacing:-0.3px;'>
             🚗 Car Data Quality Center
         </div>
-        <div style='font-size:0.76rem; color:#64748b; margin-top:3px; font-weight:500;'>
-            Bronze → Silver | Pipeline Monitoring
+        <div style='font-size:0.75rem; color:#64748b; margin-top:3px; font-weight:500;'>
+            Bronze → Silver | Khmer24 Pipeline
         </div>
     </div>
     """, unsafe_allow_html=True)
 
     st.divider()
 
-    # Navigation
-    st.markdown("<div style='font-size:0.72rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;'>NAVIGATION</div>", unsafe_allow_html=True)
+    # 1. Streamlined Navigation Menu
+    st.markdown("<div style='font-size:0.70rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;'>NAVIGATION</div>", unsafe_allow_html=True)
     for page_name, icon in PAGES.items():
-        is_active = st.session_state.active_page == page_name
-        btn_style = (
-            "background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd;"
-            if is_active
-            else "background:transparent; color:#374151; border:1px solid transparent;"
-        )
+        is_active = (st.session_state.active_page == page_name)
+        btn_type = "primary" if is_active else "secondary"
         if st.button(
             f"{icon}  {page_name}",
             key=f"nav_{page_name}",
             use_container_width=True,
-            type="secondary",
+            type=btn_type,
         ):
             st.session_state.active_page = page_name
             st.rerun()
 
     st.divider()
 
-    # Snapshot filter
-    st.markdown("<div style='font-size:0.72rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;'>FILTERS</div>", unsafe_allow_html=True)
+    # 2. Snapshot Date Filter
+    st.markdown("<div style='font-size:0.70rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;'>SNAPSHOT FILTER</div>", unsafe_allow_html=True)
 
     available_dates = load_available_dates()
     selected_snapshot = st.selectbox(
-        "Scrape Date",
+        "Scrape Partition Date",
         options=["All Dates (Latest)"] + available_dates,
         index=0,
-        help="Filter dashboard to a specific scrape snapshot, or view the latest aggregated data.",
+        help="Filter dashboard to a specific daily scrape snapshot, or view aggregated latest state.",
     )
     active_date = None if selected_snapshot == "All Dates (Latest)" else selected_snapshot
     st.session_state.active_scrape_date = active_date
 
     st.divider()
 
-    # dbt contract badge
+    # 3. dbt Contract Health Badge
     dbt_status = load_dbt_test_status()
     if dbt_status.get("available"):
         dbt_ok = dbt_status["failed"] == 0
-        dbt_color = "#059669" if dbt_ok else "#dc2626"
+        dbt_color = "#10b981" if dbt_ok else "#ef4444"
         dbt_icon = "✅" if dbt_ok else "❌"
         st.markdown(
             f"""
-            <div style='padding:10px 12px; border-radius:6px; border:1px solid {dbt_color};
+            <div style='padding:10px 12px; border-radius:6px; border:1px solid {dbt_color}40;
                         background:{dbt_color}12; margin-bottom:10px;'>
-                <div style='font-weight:700; font-size:0.82rem; color:{dbt_color};'>
+                <div style='font-weight:700; font-size:0.80rem; color:{dbt_color};'>
                     {dbt_icon} dbt Tests: {dbt_status['passed']}/{dbt_status['total']}
                 </div>
                 <div style='font-size:0.72rem; color:#64748b; margin-top:2px;'>
-                    Pass Rate: <b>{dbt_status['pass_rate_pct']}%</b>
+                    Contract Pass Rate: <b>{dbt_status['pass_rate_pct']}%</b>
                 </div>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-    # Report download
+    # 4. Export & Cache Actions
     report_content = generate_markdown_report(active_date)
     st.download_button(
         label="📑 Export Audit Report",
@@ -249,29 +242,25 @@ with st.sidebar:
         file_name=f"dq_audit_report_{active_date or 'latest'}.md",
         mime="text/markdown",
         use_container_width=True,
-        help="Download a markdown audit report for this snapshot.",
+        help="Download a markdown audit summary for this snapshot.",
     )
 
-    st.divider()
-
-    # Cache refresh
     if st.button("🔄 Refresh Data Cache", use_container_width=True):
         st.cache_data.clear()
-        st.success("Cache cleared!")
         st.rerun()
 
-    # Footer links
+    # 5. Technical Attribution Footer
     st.markdown("""
-    <div style='font-size:0.72rem; color:#94a3b8; margin-top:8px;'>
-        <a href='https://github.com/PHALMenghak/car-price-prediction' style='color:#94a3b8;'>GitHub Repo</a>
-        &nbsp;·&nbsp;
-        <a href='https://github.com/PHALMenghak/car-price-prediction/blob/main/docs/DATA_DICTIONARY.md' style='color:#94a3b8;'>Data Dictionary</a>
+    <div style='font-size:0.70rem; color:#94a3b8; line-height:1.5; margin-top:10px;'>
+        ITC Year 4 Internship · Phal Menghak<br>
+        Source: Khmer24 · DuckDB + dbt + Streamlit<br>
+        <a href='https://github.com/PHALMenghak/car-price-prediction' target='_blank' style='color:#3b82f6;'>GitHub Repository ↗</a>
     </div>
     """, unsafe_allow_html=True)
 
-# ── Global Header ─────────────────────────────────────────────────────────────
-# Read live values for header
-manifest = load_manifest()
+
+# ── Global Page Header ────────────────────────────────────────────────────────
+manifest   = load_manifest()
 quality_df = load_quality_summary()
 
 last_update = "—"
@@ -281,63 +270,63 @@ if manifest:
     latest_scrape = ts[:10] if ts else "—"
     last_update = ts[:16].replace("T", " ") + " UTC" if ts else "—"
 elif not quality_df.empty:
-    latest_scrape = quality_df.iloc[0]["scrape_date"]
+    latest_scrape = str(quality_df.iloc[0]["scrape_date"])
     last_update = latest_scrape
 
-env_label = "DuckDB + Parquet"
-data_source = "Khmer24 (Cambodia)"
+page = st.session_state.active_page
+icon = PAGES.get(page, "📊")
 
 st.markdown(f"""
-<div style='border-bottom:2px solid #e2e8f0; padding-bottom:14px; margin-bottom:18px;'>
+<div style='border-bottom:2px solid #e2e8f0; padding-bottom:12px; margin-bottom:18px;'>
     <div style='display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:8px;'>
         <div>
-            <div style='font-size:0.72rem; font-weight:700; color:#0369a1; text-transform:uppercase;
-                        letter-spacing:0.6px; background:#e0f2fe; display:inline-block;
-                        padding:2px 8px; border-radius:3px; margin-bottom:6px;'>
-                DATA QUALITY MONITORING · CAMBODIA AUTOMOTIVE
+            <div style='font-size:0.68rem; font-weight:800; color:#1e3a8a; text-transform:uppercase;
+                        letter-spacing:0.8px; background:#eff6ff; display:inline-block;
+                        padding:2px 8px; border-radius:3px; margin-bottom:4px; border:1px solid #bfdbfe;'>
+                CAMBODIAN CAR DATA QUALITY CENTER
             </div>
-            <h1 style='margin:0; font-size:1.75rem; font-weight:800; color:#0f172a; letter-spacing:-0.5px;'>
-                Cambodian Car Data Quality Center
+            <h1 style='margin:0; font-size:1.65rem; font-weight:800; color:#0f172a; letter-spacing:-0.5px;'>
+                {icon} &nbsp;{page}
             </h1>
-            <p style='color:#64748b; margin:3px 0 0 0; font-size:0.85rem;'>
-                <b>Bronze → Silver</b> | Data Pipeline Monitoring &nbsp;·&nbsp;
-                Khmer24 Automotive Marketplace
+            <p style='color:#64748b; margin:3px 0 0 0; font-size:0.82rem;'>
+                <b>Bronze → Silver</b> | Data Pipeline Observability &amp; Quality Assurance &nbsp;·&nbsp; Khmer24 Marketplace
             </p>
         </div>
-        <div style='text-align:right; font-size:0.78rem; color:#64748b; line-height:1.8;'>
-            <div><span style='color:#94a3b8; font-weight:600;'>Last Update:</span> <b style='color:#334155;'>{last_update}</b></div>
-            <div><span style='color:#94a3b8; font-weight:600;'>Latest Scrape:</span> <b style='color:#334155;'>{latest_scrape}</b></div>
-            <div><span style='color:#94a3b8; font-weight:600;'>Engine:</span> <b style='color:#334155;'>{env_label}</b></div>
+        <div style='display:flex; gap:10px; align-items:center; flex-wrap:wrap;'>
+            <span style='background:#f8fafc; border:1px solid #e2e8f0; padding:4px 10px;
+                         border-radius:20px; font-weight:600; font-size:0.75rem; color:#475569;'>
+                Snapshot: <b style='color:#0f172a;'>{selected_snapshot}</b>
+            </span>
+            <span style='background:#f8fafc; border:1px solid #e2e8f0; padding:4px 10px;
+                         border-radius:20px; font-weight:600; font-size:0.75rem; color:#475569;'>
+                Latest Ingest: <b style='color:#0f172a;'>{latest_scrape}</b>
+            </span>
         </div>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-# ── Page Router ───────────────────────────────────────────────────────────────
-page = st.session_state.active_page
 
-if page == "Overview":
+# ── Page Router ───────────────────────────────────────────────────────────────
+if page == "Overview & Collection":
     executive_pulse.render(active_date)
-elif page == "Collection Monitoring":
-    collection_monitoring.render(active_date)
 elif page == "Cleaning & Transformation":
     cleaning_transformation.render(active_date)
-elif page == "Data Quality":
+elif page == "Data Quality & Anomalies":
     data_quality_monitoring.render(active_date)
-elif page == "Data Anomalies":
-    data_anomalies.render(active_date)
 elif page == "Feature Profiling":
     feature_profiling.render(active_date)
-elif page == "Silver Readiness":
-    silver_readiness.render(active_date)
+else:
+    executive_pulse.render(active_date)
 
-# ── Footer ────────────────────────────────────────────────────────────────────
+
+# ── Global Footer ─────────────────────────────────────────────────────────────
 st.divider()
 st.markdown(
     "<p style='text-align:center; color:#94a3b8; font-size:0.72rem;'>"
     "Cambodian Car Data Quality Center &nbsp;·&nbsp; Bronze → Silver Pipeline Monitoring &nbsp;·&nbsp; "
     "Built with Streamlit, DuckDB &amp; dbt Core &nbsp;·&nbsp; "
-    "<a href='https://github.com/PHALMenghak/car-price-prediction' style='color:#94a3b8;'>GitHub</a>"
+    "<a href='https://github.com/PHALMenghak/car-price-prediction' style='color:#94a3b8;'>GitHub Repository</a>"
     "</p>",
     unsafe_allow_html=True,
 )

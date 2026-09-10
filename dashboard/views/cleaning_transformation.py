@@ -48,46 +48,76 @@ def render(active_date: str | None = None) -> None:
     k1, k2, k3, k4, k5 = st.columns(5)
 
     with k1:
-        st.metric(
-            "Models from NLP Title",
-            f"{impact.get('models_from_nlp_title', 0):,}",
-            help="Vehicle models recovered from Khmer/English titles via regex NLP when sellers left form blank.",
+        st.markdown(
+            config.kpi_card(
+                title="Models Extracted",
+                value=f"{impact.get('models_from_nlp_title', 0):,}",
+                subtitle="Recovered via title regex NLP",
+                delta="NLP Uplift",
+                delta_color="normal",
+                accent_color="#0284c7",
+                icon="🔤",
+            ),
+            unsafe_allow_html=True,
         )
-        st.caption("Title extraction uplift")
 
     with k2:
-        st.metric(
-            "Model Years Healed",
-            f"{impact.get('years_healed', 0):,}",
-            help="Chronological inversions corrected (e.g., 2026→2006 for legacy models like Prius, RX330).",
+        st.markdown(
+            config.kpi_card(
+                title="Years Healed",
+                value=f"{impact.get('years_healed', 0):,}",
+                subtitle="Inversions corrected (2026→2006)",
+                delta="Chronological",
+                delta_color="normal",
+                accent_color="#1e3a8a",
+                icon="📅",
+            ),
+            unsafe_allow_html=True,
         )
-        st.caption("Year inversion repair")
 
     with k3:
-        st.metric(
-            "Down-Payment Traps",
-            f"{impact.get('down_payment_flagged', 0):,}",
-            help="Listings flagged as financing down-payments rather than full vehicle prices.",
+        st.markdown(
+            config.kpi_card(
+                title="Down-Payment Traps",
+                value=f"{impact.get('down_payment_flagged', 0):,}",
+                subtitle="Financing installments detected",
+                delta="Flagged",
+                delta_color="amber",
+                accent_color="#f59e0b",
+                icon="⚠️",
+            ),
+            unsafe_allow_html=True,
         )
-        st.caption("Flagged SUSPICIOUS")
 
     with k4:
-        st.metric(
-            "Price Outliers Flagged",
-            f"{impact.get('outliers_flagged', 0):,}",
-            help="Listings with domain-grounded price anomalies — verified against brand/model/year distribution.",
+        st.markdown(
+            config.kpi_card(
+                title="Price Outliers",
+                value=f"{impact.get('outliers_flagged', 0):,}",
+                subtitle="Domain-grounded distribution check",
+                delta="Review",
+                delta_color="amber",
+                accent_color="#f97316",
+                icon="📈",
+            ),
+            unsafe_allow_html=True,
         )
-        st.caption("Flagged SUSPICIOUS")
 
     with k5:
-        st.metric(
-            "Spam Listings Quarantined",
-            f"{impact.get('spam_flagged', 0):,}",
-            help="Non-vehicle listings (parts, accessories, services) detected by NLP spam classifier.",
+        st.markdown(
+            config.kpi_card(
+                title="Spam Quarantined",
+                value=f"{impact.get('spam_flagged', 0):,}",
+                subtitle="Non-vehicle / parts excluded",
+                delta="Quarantined",
+                delta_color="inverse",
+                accent_color="#64748b",
+                icon="🚫",
+            ),
+            unsafe_allow_html=True,
         )
-        st.caption("Quarantined from Silver")
 
-    st.divider()
+    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
 
     # ── Transformation Flow ───────────────────────────────────────────────────
     st.markdown(

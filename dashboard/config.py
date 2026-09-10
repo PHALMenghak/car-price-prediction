@@ -234,6 +234,55 @@ def severity_badge(severity: str) -> str:
     )
 
 
+def kpi_card(
+    title: str,
+    value: str,
+    subtitle: str = "",
+    delta: str = "",
+    delta_color: str = "normal",
+    accent_color: str = "#1e3a8a",
+    icon: str = "",
+) -> str:
+    """Render a clean, high-impact executive KPI card with modern typography."""
+    delta_html = ""
+    if delta:
+        if delta_color == "normal":
+            d_bg, d_fg = "#dcfce7", "#166534"
+        elif delta_color == "inverse":
+            d_bg, d_fg = "#fee2e2", "#991b1b"
+        elif delta_color == "amber":
+            d_bg, d_fg = "#fef9c3", "#854d0e"
+        else:
+            d_bg, d_fg = "#f1f5f9", "#475569"
+        delta_html = (
+            f"<span style='background:{d_bg}; color:{d_fg}; padding:2px 7px; "
+            f"border-radius:4px; font-size:0.72rem; font-weight:700; margin-left:6px;'>{delta}</span>"
+        )
+
+    icon_html = f"<span style='margin-right:4px;'>{icon}</span>" if icon else ""
+    sub_html = (
+        f"<div style='font-size:0.75rem; color:#64748b; font-weight:500; margin-top:5px; line-height:1.3;'>{subtitle}</div>"
+        if subtitle else ""
+    )
+
+    return f"""
+    <div style='background:#ffffff; border:1px solid #e2e8f0; border-top:3.5px solid {accent_color};
+                border-radius:8px; padding:14px 16px 12px; box-shadow:0 1px 3px rgba(0,0,0,0.04);
+                margin-bottom:8px; min-height:104px; display:flex; flex-direction:column; justify-content:space-between;'>
+        <div>
+            <div style='font-size:0.70rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.5px;'>
+                {icon_html}{title}
+            </div>
+            <div style='display:flex; align-items:baseline; margin-top:4px; flex-wrap:wrap; gap:4px;'>
+                <span style='font-size:1.75rem; font-weight:800; color:#0f172a; line-height:1.15;'>{value}</span>
+                {delta_html}
+            </div>
+        </div>
+        {sub_html}
+    </div>
+    """
+
+
 # ── Backward-compatibility aliases (used by data_loader.py) ───────────────────
 STATUS_EMOJI = STATUS_DOT  # original name → alias for STATUS_DOT
 

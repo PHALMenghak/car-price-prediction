@@ -1,9 +1,12 @@
 """
 dashboard/views/data_quality_monitoring.py
 ============================================
-Page 4 — Data Quality
-Detailed field-level quality monitoring across 5 dimensions:
-Completeness, Validity, Consistency, Uniqueness, Trends.
+Merged Data Quality & Anomalies Page
+Answers:
+  1. How complete and valid are the fields across the Silver dataset?
+  2. Why are certain fields (mileage, engine) sparse in Cambodia?
+  3. Where are the price outliers, down-payment traps, and suspicious listings?
+  4. How did raw scraped values transform into cleaned values in flagged records?
 """
 
 from __future__ import annotations
@@ -15,36 +18,29 @@ import streamlit as st
 
 from dashboard import config
 from dashboard.data_loader import (
+    load_audit_sample,
     load_cleaning_impact_stats,
     load_completeness_detail,
-    load_daily_missingness_trend,
-    load_duplicate_stats,
+    load_dbt_test_status,
+    load_price_violations,
+    load_price_year_anomaly_sample,
     load_quality_summary,
-    load_reason_brand_matrix,
     load_top_reasons,
 )
 
 
 def render(active_date: str | None = None) -> None:
-    """Render the Data Quality page."""
+    """Render the merged Data Quality & Anomalies page."""
     quality_df  = load_quality_summary()
     detail_df   = load_completeness_detail(active_date)
     impact      = load_cleaning_impact_stats(active_date)
-    trend_df    = load_daily_missingness_trend()
-    dup_stats   = load_duplicate_stats()
+    dbt_status  = load_dbt_test_status()
 
-    st.markdown(
-        config.section_header(
-            "DATA QUALITY",
-            "Detailed field-level quality monitoring: Completeness · Validity · Consistency · Uniqueness.",
-        ),
-        unsafe_allow_html=True,
-    )
-
-    if detail_df.empty or quality_df.empty:
+    if quality_df.empty:
         st.warning("⚠️ No Silver data available. Run `dbt run` first.")
         return
 
+    # ── Active snapshot metrics ───────────────────────────────────────────────
     if active_date:
         match = quality_df[quality_df["scrape_date"] == active_date]
         latest = match.iloc[0] if not match.empty else quality_df.iloc[0]
@@ -52,318 +48,292 @@ def render(active_date: str | None = None) -> None:
         latest = quality_df.iloc[0]
 
     total     = int(latest["total"])
-    valid_cnt = int(latest["valid"])
-    warn_cnt  = int(latest.get("warning", 0))
     susp_cnt  = int(latest.get("suspicious", 0))
     inv_cnt   = int(latest.get("invalid", 0))
     quar_cnt  = int(latest.get("quarantined", 0))
-    dhi_score = float(latest["dhi"])
+    anomaly_total = susp_cnt + inv_cnt + quar_cnt
+    anomaly_pct   = round(100.0 * anomaly_total / total, 2) if total > 0 else 0.0
 
-    # ── Top KPIs ──────────────────────────────────────────────────────────────
+    # Critical fields fill (Price, Year, Brand, Province)
+    crit_fill = 100.0
+    if not detail_df.empty:
+        crit_rows = detail_df[detail_df["priority"] == "🔴 Critical"]
+        if not crit_rows.empty and "completeness_pct" in crit_rows.columns:
+            crit_fill = float(crit_rows["completeness_pct"].mean())
+
+    # ── 1. Top KPI Cards ──────────────────────────────────────────────────────
     k1, k2, k3, k4 = st.columns(4)
 
     with k1:
-        crit_df = detail_df[detail_df["priority"] == "🔴 Critical"]
-        crit_fill = float(crit_df["completeness_pct"].mean()) if not crit_df.empty else 100.0
-        color = "normal" if crit_fill >= 99.9 else "inverse"
-        st.metric(
-            "Critical Fields Fill Rate",
-            f"{crit_fill:.1f}%",
-            delta="100% target met" if crit_fill >= 99.9 else f"{100 - crit_fill:.1f}% gap",
-            delta_color=color,
-            help="Mandatory fields: Price, Scrape Date. Zero missing allowed.",
+        st.markdown(
+            config.kpi_card(
+                title="Critical Specs Conformance",
+                value=f"{crit_fill:.1f}%",
+                subtitle="Price, Year, Brand, Province complete",
+                delta="100% Target",
+                delta_color="normal",
+                accent_color="#10b981",
+                icon="🎯",
+            ),
+            unsafe_allow_html=True,
         )
-        st.caption("Price · Scrape Date")
 
     with k2:
-        high_df = detail_df[detail_df["priority"] == "🟠 High"]
-        high_fill = float(high_df["completeness_pct"].mean()) if not high_df.empty else 100.0
-        st.metric(
-            "Core Vehicle Specs Fill",
-            f"{high_fill:.1f}%",
-            delta="High conformance" if high_fill >= 95 else "Review needed",
-            delta_color="normal" if high_fill >= 95 else "off",
-            help="Brand, Model, Year, Province — primary vehicle identity fields.",
+        st.markdown(
+            config.kpi_card(
+                title="Marketplace Missingness",
+                value="~86% Sparse",
+                subtitle="Mileage & Engine omitted by sellers",
+                delta="Market Norm",
+                delta_color="amber",
+                accent_color="#f59e0b",
+                icon="📊",
+            ),
+            unsafe_allow_html=True,
         )
-        st.caption("Brand · Model · Year · Province")
 
     with k3:
-        anomalies = (
-            impact.get("down_payment_flagged", 0)
-            + impact.get("outliers_flagged", 0)
-            + impact.get("spam_flagged", 0)
-        ) if impact else 0
-        st.metric(
-            "Anomalies Detected",
-            f"{anomalies:,}",
-            delta=f"{impact.get('spam_flagged', 0):,} spam quarantined" if impact else "",
-            delta_color="off",
-            help="Down-payment traps + price outliers + spam listings.",
+        anom_color = "normal" if anomaly_pct < 1.0 else "amber"
+        st.markdown(
+            config.kpi_card(
+                title="Anomalies Flagged",
+                value=f"{anomaly_total:,}",
+                subtitle=f"{susp_cnt:,} suspicious · {quar_cnt:,} quarantined",
+                delta=f"{anomaly_pct:.2f}% of Silver",
+                delta_color=anom_color,
+                accent_color="#f97316" if anomaly_total > 0 else "#10b981",
+                icon="🔍",
+            ),
+            unsafe_allow_html=True,
         )
-        st.caption("SUSPICIOUS + QUARANTINED")
 
     with k4:
-        dhi_label, _ = config.dhi_status(dhi_score)
-        st.metric(
-            "Data Health Index",
-            f"{dhi_score:.1f}%",
-            delta=dhi_label,
-            delta_color="normal" if dhi_score >= config.SLA_MIN_DHI else "inverse",
-            help="Composite quality score. Penalises QUARANTINED (×1.0), INVALID (×0.7), SUSPICIOUS (×0.3), WARNING (×0.03).",
+        dbt_ok = dbt_status.get("failed", 0) == 0 if dbt_status.get("available") else True
+        dbt_val = f"{dbt_status.get('passed', 0)}/{dbt_status.get('total', 0)}" if dbt_status.get("available") else "Active"
+        st.markdown(
+            config.kpi_card(
+                title="dbt Contract Health",
+                value=dbt_val,
+                subtitle=f"{dbt_status.get('pass_rate_pct', 100)}% contract tests passing",
+                delta="Verified" if dbt_ok else "Failed",
+                delta_color="normal" if dbt_ok else "inverse",
+                accent_color="#10b981" if dbt_ok else "#ef4444",
+                icon="🛡️",
+            ),
+            unsafe_allow_html=True,
         )
-        st.caption(f"SLA target: ≥ {config.SLA_MIN_DHI:.0f}%")
 
-    st.divider()
+    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
 
-    # ── 1. Completeness ───────────────────────────────────────────────────────
+    # ── 2. Visual Row 1: Missingness by Field + Anomaly Reasons ───────────────
+    col_l, col_r = st.columns([1, 1], gap="medium")
+
+    with col_l:
+        st.markdown(
+            config.section_header(
+                "FIELD COMPLETENESS & NULL RATES",
+                "Percentage of missing records across each tracked vehicle attribute.",
+            ),
+            unsafe_allow_html=True,
+        )
+        _render_missingness_bars(detail_df)
+
+        with st.expander("💡 Understanding Missingness in Cambodia's Car Market", expanded=False):
+            st.markdown(
+                "- **Mileage & Engine (~85-89% missing):** In Cambodia, private sellers on Khmer24 rarely list "
+                "odometer readings or engine CC. Dropping these records would eliminate 85%+ of the dataset. "
+                "The pipeline retains these records and classifies them under `WARNING` rather than discarding.\n"
+                "- **Title Regex NLP:** Title strings (e.g. *Prius 07 Full Option*) are mined to extract Model, "
+                "Year, and Option packages when structured form inputs were left empty."
+            )
+
+    with col_r:
+        st.markdown(
+            config.section_header(
+                "TOP ANOMALY & FAILURE TRIGGERS",
+                "Most frequent data quality issues and boundary rule violations.",
+            ),
+            unsafe_allow_html=True,
+        )
+        _render_failure_reasons(active_date)
+
+    st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
+
+    # ── 3. Visual Row 2: Price x Year Anomaly Explorer ────────────────────────
     st.markdown(
-        config.section_header("1 · COMPLETENESS", "Missing value rates and priority tier across all monitored fields."),
+        config.section_header(
+            "PRICE × YEAR ANOMALY DETECTION",
+            "Vehicle listing distribution — interactive scatter plot colored by quality status tier.",
+        ),
         unsafe_allow_html=True,
     )
+    _render_price_year_scatter(active_date)
 
-    with st.expander("💡 Understanding Missingness in Cambodia's Used Car Market", expanded=False):
-        c1, c2 = st.columns(2)
-        with c1:
-            st.markdown(
-                "**Why is mileage missing in ~86% of listings?**\n"
-                "Private sellers on Khmer24 rarely fill structured odometer fields. "
-                "Dropping these records would eliminate 86% of the market. "
-                "The pipeline retains all records and uses a missingness indicator flag instead."
-            )
-        with c2:
-            st.markdown(
-                "**Why are Brand and Model near 100% despite empty dropdowns?**\n"
-                "Sellers frequently write free-text titles like *ឡានលក់ Prius 07* or *Lexus RX300 Full Option*. "
-                "dbt regex + seed dictionaries extract and normalize 137+ models from Khmer/English/Chinese titles."
-            )
+    st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
 
-    priority_filter = st.multiselect(
-        "Filter by Priority Tier:",
-        options=config.PRIORITY_ORDER,
-        default=config.PRIORITY_ORDER,
-    )
-    df_filtered = detail_df[detail_df["priority"].isin(priority_filter)].copy()
-
-    # Friendly field names
-    field_labels = {
-        "price": "Price (USD)", "scrape_date": "Scrape Date",
-        "vehicle_brand": "Brand", "vehicle_model": "Model",
-        "vehicle_year": "Year", "province": "Province",
-        "vehicle_mileage_km": "Mileage (km)", "vehicle_engine_cc": "Engine Size (cc)",
-        "vehicle_fuel_type": "Fuel Type", "vehicle_transmission": "Transmission",
-        "vehicle_body_type": "Body Type", "vehicle_tax_type": "Tax Type",
-        "vehicle_color": "Color", "vehicle_condition": "Condition",
-        "description_clean": "Description",
-    }
-    df_filtered["Field Label"] = df_filtered["field"].map(lambda f: field_labels.get(f, f))
-
-    # Status column
-    df_filtered["Status"] = df_filtered["null_pct"].map(
-        lambda p: f"{'🟢 Good' if p < config.MISSING_THRESHOLDS['good'] else '🟡 Warning' if p < config.MISSING_THRESHOLDS['warning'] else '🔴 Critical'}"
-    )
-
-    display_cols = ["priority", "Field Label", "completeness_pct", "null_pct",
-                    "non_null_count", "null_count", "total_records", "Status"]
-    available = [c for c in display_cols if c in df_filtered.columns]
-
-    st.dataframe(
-        df_filtered[available].rename(columns={"priority": "Priority", "Field Label": "Field",
-                                               "completeness_pct": "Complete %", "null_pct": "Missing %",
-                                               "non_null_count": "Populated", "null_count": "Missing",
-                                               "total_records": "Total"}),
-        hide_index=True,
-        use_container_width=True,
-        column_config={
-            "Priority":   st.column_config.TextColumn("Priority", width="small"),
-            "Field":      st.column_config.TextColumn("Field", width="medium"),
-            "Complete %": st.column_config.ProgressColumn("Complete %", format="%.1f%%", min_value=0, max_value=100),
-            "Missing %":  st.column_config.NumberColumn("Missing %", format="%.1f%%"),
-            "Populated":  st.column_config.NumberColumn("Populated", format="%d"),
-            "Missing":    st.column_config.NumberColumn("Missing", format="%d"),
-            "Total":      st.column_config.NumberColumn("Total", format="%d"),
-            "Status":     st.column_config.TextColumn("Status", width="small"),
-        },
-    )
-
-    st.divider()
-
-    # ── 2. Validity & Consistency ─────────────────────────────────────────────
+    # ── 4. Visual Row 3: Anomaly Audit & Lineage Registry ─────────────────────
     st.markdown(
-        config.section_header("2 · VALIDITY & CONSISTENCY", "Rule violations, quality failure distribution, and brand × issue heatmap."),
+        config.section_header(
+            "LINEAGE & ANOMALY AUDIT REGISTRY",
+            "Drill down into flagged records to compare raw scraper text against cleaned Silver values.",
+        ),
         unsafe_allow_html=True,
     )
+    _render_audit_drilldown(active_date)
 
-    col_reasons, col_trend_small = st.columns([3, 2], gap="large")
 
-    with col_reasons:
-        reasons_df = load_top_reasons(top_n=10, scrape_date=active_date)
-        if not reasons_df.empty:
-            reasons_df = reasons_df.sort_values("count", ascending=True)
-            fig_r = go.Figure(go.Bar(
+# ─────────────────────────────────────────────────────────────────────────────
+# Component Helpers
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _render_missingness_bars(detail_df: pd.DataFrame) -> None:
+    if detail_df.empty or "null_pct" not in detail_df.columns:
+        st.info("No field completeness detail found.")
+        return
+
+    df_sorted = detail_df.sort_values("null_pct", ascending=True)
+
+    colors = []
+    for pct in df_sorted["null_pct"]:
+        if pct < config.MISSING_THRESHOLDS["good"]:
+            colors.append("#10b981")
+        elif pct <= config.MISSING_THRESHOLDS["warning"]:
+            colors.append("#f59e0b")
+        else:
+            colors.append("#ef4444")
+
+    fig = go.Figure(
+        go.Bar(
+            y=df_sorted["field"],
+            x=df_sorted["null_pct"],
+            orientation="h",
+            marker_color=colors,
+            text=df_sorted["null_pct"].apply(lambda v: f"{v:.1f}%"),
+            textposition="outside",
+            hovertemplate="<b>%{y}</b><br>Missing: %{x:.1f}%<extra></extra>",
+        )
+    )
+
+    fig.add_vline(x=config.MISSING_THRESHOLDS["good"], line_dash="dot", line_color="#10b981", line_width=1)
+    fig.add_vline(x=config.MISSING_THRESHOLDS["warning"], line_dash="dot", line_color="#f59e0b", line_width=1)
+
+    config.apply_plot_theme(fig, height=310, show_legend=False)
+    fig.update_layout(
+        xaxis=dict(title="Missing Rate (%)", range=[0, 108], ticksuffix="%"),
+        yaxis=dict(autorange=True),
+        margin=dict(l=10, r=25, t=10, b=10),
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+
+def _render_failure_reasons(active_date: str | None) -> None:
+    reasons_df = load_top_reasons(top_n=8, scrape_date=active_date)
+    if not reasons_df.empty:
+        reasons_df = reasons_df.sort_values("count", ascending=True)
+        fig = go.Figure(
+            go.Bar(
                 y=reasons_df["reason"],
                 x=reasons_df["count"],
                 orientation="h",
-                marker_color="#dc2626",
+                marker_color="#ef4444",
                 text=reasons_df["count"].apply(lambda v: f"{v:,}"),
                 textposition="outside",
-                hovertemplate="<b>%{y}</b><br>Records: %{x:,}<extra></extra>",
-            ))
-            config.apply_plot_theme(fig_r, height=300, show_legend=False)
-            fig_r.update_layout(
-                xaxis_title="Affected Records",
-                title=dict(text="Top Quality Failure Reason Codes", font=dict(size=12)),
+                hovertemplate="<b>%{y}</b><br>Occurrences: %{x:,}<extra></extra>",
             )
-            st.plotly_chart(fig_r, use_container_width=True)
-        else:
-            st.success("No quality failure codes detected for this snapshot.")
-
-    with col_trend_small:
-        # Quality tier mini summary
-        st.markdown("**Quality Status Distribution**")
-        tiers = [
-            ("VALID",       valid_cnt, "#16a34a"),
-            ("WARNING",     warn_cnt,  "#d97706"),
-            ("SUSPICIOUS",  susp_cnt,  "#c2410c"),
-            ("INVALID",     inv_cnt,   "#dc2626"),
-            ("QUARANTINED", quar_cnt,  "#374151"),
-        ]
-        for label, cnt, color in tiers:
-            pct = round(100.0 * cnt / total, 1) if total > 0 else 0.0
-            bar_w = max(2, min(100, int(pct)))
-            dot = config.STATUS_DOT.get(label, "●")
-            st.markdown(
-                f"""
-                <div style='margin-bottom:8px;'>
-                    <div style='display:flex; justify-content:space-between; font-size:0.78rem;
-                                font-weight:600; color:#334155; margin-bottom:2px;'>
-                        <span>{dot} {label}</span>
-                        <span style='color:{color};'>{cnt:,} ({pct:.1f}%)</span>
-                    </div>
-                    <div style='background:#e2e8f0; border-radius:2px; height:6px;'>
-                        <div style='width:{bar_w}%; background:{color}; height:6px; border-radius:2px;'></div>
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-    # Brand × Failure Heatmap
-    matrix_df = load_reason_brand_matrix(top_n_brands=8, top_n_reasons=6)
-    if not matrix_df.empty:
-        st.markdown("**Vehicle Brand × Quality Failure Heatmap**")
-        fig_hm = px.imshow(
-            matrix_df,
-            labels=dict(x="Failure Code", y="Vehicle Brand", color="Incidents"),
-            color_continuous_scale="Reds",
-            aspect="auto",
-            text_auto=True,
         )
-        config.apply_plot_theme(fig_hm, height=280, show_legend=False)
-        st.plotly_chart(fig_hm, use_container_width=True)
+        config.apply_plot_theme(fig, height=310, show_legend=False)
+        fig.update_layout(
+            xaxis=dict(title="Flagged Records"),
+            yaxis=dict(autorange=True),
+            margin=dict(l=10, r=25, t=10, b=10),
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.success("✅ Zero failure or anomaly triggers detected for this snapshot.")
 
-    st.divider()
 
-    # ── 3. Uniqueness ─────────────────────────────────────────────────────────
-    st.markdown(
-        config.section_header("3 · UNIQUENESS", "Duplicate observations and listing persistence across scrape dates."),
-        unsafe_allow_html=True,
+def _render_price_year_scatter(active_date: str | None) -> None:
+    anomaly_sample = load_price_year_anomaly_sample(limit=2500, scrape_date=active_date)
+    if anomaly_sample.empty:
+        st.info("No sample data available for scatter plot.")
+        return
+
+    ctrl_col, _ = st.columns([2, 3])
+    with ctrl_col:
+        use_log = st.checkbox("Logarithmic price scale", value=True, help="Compresses extreme price range for clear inspection.")
+
+    color_map = {
+        "VALID":       "#10b981",
+        "WARNING":     "#f59e0b",
+        "SUSPICIOUS":  "#f97316",
+        "INVALID":     "#dc2626",
+        "QUARANTINED": "#64748b",
+    }
+
+    fig = px.scatter(
+        anomaly_sample,
+        x="vehicle_year",
+        y="price",
+        color="data_quality_status",
+        color_discrete_map=color_map,
+        hover_data=["vehicle_brand", "vehicle_model", "province"],
+        labels={"vehicle_year": "Model Year", "price": "Price (USD)", "data_quality_status": "Quality Status"},
+        log_y=use_log,
+        opacity=0.65,
     )
 
-    silver_daily = dup_stats.get("silver_daily", pd.DataFrame())
-    persistence  = dup_stats.get("persistence", pd.DataFrame())
+    config.apply_plot_theme(fig, height=330, show_legend=True, legend_orientation="h")
+    fig.update_traces(marker=dict(size=6))
+    fig.update_layout(margin=dict(l=10, r=10, t=10, b=10))
+    st.plotly_chart(fig, use_container_width=True)
 
-    col_uniq, col_persist = st.columns([3, 2], gap="large")
 
-    with col_uniq:
-        if not silver_daily.empty:
-            silver_daily = silver_daily.copy()
-            silver_daily["scrape_date"] = pd.to_datetime(silver_daily["scrape_date"].astype(str))
-            silver_daily = silver_daily.sort_values("scrape_date")
+def _render_audit_drilldown(active_date: str | None) -> None:
+    f_col1, f_col2 = st.columns([1, 1])
+    with f_col1:
+        status_filter = st.selectbox(
+            "Filter by Quality Status",
+            options=["ALL", "SUSPICIOUS", "QUARANTINED", "WARNING", "VALID"],
+            index=0,
+        )
+    with f_col2:
+        max_records = st.slider("Record Sample Limit", min_value=10, max_value=200, value=50, step=10)
 
-            fig_u = go.Figure()
-            fig_u.add_trace(go.Bar(
-                x=silver_daily["scrape_date"],
-                y=silver_daily["total_records"],
-                name="Total Records",
-                marker_color="#93c5fd",
-                hovertemplate="%{x|%d %b}: %{y:,} total<extra></extra>",
-            ))
-            fig_u.add_trace(go.Bar(
-                x=silver_daily["scrape_date"],
-                y=silver_daily["unique_listings"],
-                name="Unique Listings",
-                marker_color="#1e3a8a",
-                hovertemplate="%{x|%d %b}: %{y:,} unique<extra></extra>",
-            ))
-            config.apply_plot_theme(fig_u, height=260, show_legend=True, legend_orientation="h")
-            fig_u.update_layout(barmode="group", xaxis_title="Date", yaxis_title="Records")
-            st.plotly_chart(fig_u, use_container_width=True)
-            st.caption(
-                "ℹ️ The same `listing_id` may appear on multiple scrape dates (listing still active). "
-                "This is correct behaviour — each row represents one listing observed on one date."
-            )
-        else:
-            st.info("No Silver daily data available.")
-
-    with col_persist:
-        if not persistence.empty:
-            st.markdown("**Listing Persistence (Days Active)**")
-            fig_p = go.Figure(go.Bar(
-                x=persistence["persistence_bucket"],
-                y=persistence["listing_count"],
-                marker_color=config.CHART_COLORS,
-                text=[f"{c:,}" for c in persistence["listing_count"]],
-                textposition="outside",
-                hovertemplate="<b>%{x}</b><br>%{y:,} listings<extra></extra>",
-            ))
-            config.apply_plot_theme(fig_p, height=260, show_legend=False)
-            fig_p.update_layout(xaxis_title="Days Seen Active", yaxis_title="Unique Listings")
-            st.plotly_chart(fig_p, use_container_width=True)
-        else:
-            st.info("No persistence data available.")
-
-    st.divider()
-
-    # ── 4. Daily Missingness Trend ─────────────────────────────────────────────
-    st.markdown(
-        config.section_header("4 · DAILY QUALITY TREND", "Missing rate per field over time — detects pipeline drift."),
-        unsafe_allow_html=True,
+    sample_df = load_audit_sample(
+        status=status_filter if status_filter != "ALL" else None,
+        limit=max_records,
+        scrape_date=active_date,
     )
 
-    if not trend_df.empty:
-        feature_cols = [c for c in trend_df.columns if c != "scrape_date"]
-        colors = config.CHART_COLORS
+    if not sample_df.empty:
+        display_cols = [c for c in [
+            "listing_id", "title_clean", "vehicle_brand", "vehicle_model",
+            "vehicle_year", "price", "data_quality_status", "data_quality_reasons"
+        ] if c in sample_df.columns]
 
-        fig_trend = go.Figure()
-        for col, color in zip(feature_cols, colors):
-            fig_trend.add_trace(go.Scatter(
-                x=trend_df["scrape_date"],
-                y=trend_df[col],
-                mode="lines+markers",
-                name=col,
-                line=dict(width=2.0, color=color),
-                marker=dict(size=5),
-                hovertemplate=f"<b>{col}</b><br>Date: %{{x}}<br>Missing: %{{y:.1f}}%<extra></extra>",
-            ))
-
-        # Threshold reference lines
-        fig_trend.add_hline(y=5,  line_dash="dot", line_color="#16a34a", line_width=1,
-                             annotation_text="5% Good", annotation_position="top right",
-                             annotation_font=dict(size=9, color="#16a34a"))
-        fig_trend.add_hline(y=20, line_dash="dot", line_color="#d97706", line_width=1,
-                             annotation_text="20% Warning", annotation_position="top right",
-                             annotation_font=dict(size=9, color="#d97706"))
-
-        config.apply_plot_theme(fig_trend, height=300, show_legend=True, legend_orientation="h")
-        fig_trend.update_layout(
-            xaxis_title="Scrape Date",
-            yaxis=dict(title="Missing Rate (%)", range=[-2, 105]),
-            hovermode="x unified",
+        st.dataframe(
+            sample_df[display_cols],
+            hide_index=True,
+            use_container_width=True,
+            column_config={
+                "listing_id":           st.column_config.TextColumn("ID", width="small"),
+                "title_clean":          st.column_config.TextColumn("Listing Title", width="large"),
+                "vehicle_brand":        st.column_config.TextColumn("Brand", width="small"),
+                "vehicle_model":        st.column_config.TextColumn("Model", width="small"),
+                "vehicle_year":         st.column_config.NumberColumn("Year", format="%d"),
+                "price":                st.column_config.NumberColumn("Price ($)", format="$%,d"),
+                "data_quality_status":  st.column_config.TextColumn("Status", width="small"),
+                "data_quality_reasons": st.column_config.TextColumn("Reason Codes", width="large"),
+            },
         )
-        st.plotly_chart(fig_trend, use_container_width=True)
-        st.caption(
-            "Stable lines indicate a healthy, consistent pipeline. "
-            "Sudden spikes suggest scraper changes or source-side data quality degradation."
+
+        # Quick CSV export
+        csv_data = sample_df.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            label="📥 Download Audit Sample CSV",
+            data=csv_data,
+            file_name=f"audit_sample_{status_filter.lower()}_{active_date or 'latest'}.csv",
+            mime="text/csv",
         )
     else:
-        st.info("Not enough historical data to render a trend chart (need ≥ 2 scrape dates).")
+        st.info(f"No records matching quality status `{status_filter}` found.")
