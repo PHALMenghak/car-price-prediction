@@ -7,6 +7,7 @@ import logging
 import os
 import random
 import re
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
@@ -33,6 +34,34 @@ logger = logging.getLogger(__name__)
 
 _IMPERSONATE = "chrome120"
 _NUXT_SPEC_MAP_SIGNATURE: frozenset = frozenset({"engine-type", "transmission", "color"})
+_SKIP_NUXT_KEYS: frozenset = frozenset({
+    "session", "stores", "auth", "loggedIn", "user_session",
+    "pinia", "$nuxt", "router", "config",
+})
+_POST_DETAIL_KEYS: Tuple[str, ...] = (
+    "id",
+    "title",
+    "description",
+    "price",
+    "currency",
+    "location",
+    "user",
+    "seller",
+    "phone",
+    "specs",
+    "highlight_specs",
+    "photos",
+    "images",
+    "thumbnail",
+    "photo",
+    "posted_date",
+    "renew_date",
+    "created_at",
+    "condition",
+    "tax_type",
+    "link",
+    "short_link",
+)
 
 
 # ── Inlined Nuxt HTML Extraction Utilities ────────────────────────────────────
@@ -62,16 +91,28 @@ def extract_nuxt_hydration_data(html_content: str) -> Optional[Any]:
         return None
 
 
-def _nuxt_resolve(arr: List[Any], node: Any, _depth: int = 0) -> Any:
+def _nuxt_resolve(arr: List[Any], node: Any, _depth: int = 0, _visited: Optional[Set[int]] = None) -> Any:
     """Recursively dereference integer pointer nodes in a Khmer24 NUXT flat array."""
     if _depth > 30:
         return node
+    # In Python, bool is a subclass of int: isinstance(True, int) is True!
+    # We must check bool BEFORE int so True/False are never treated as array indices.
+    if isinstance(node, bool):
+        return node
     if isinstance(node, int) and 0 <= node < len(arr):
-        return _nuxt_resolve(arr, arr[node], _depth + 1)
+        if _visited is None:
+            _visited = set()
+        if node in _visited:
+            return None
+        return _nuxt_resolve(arr, arr[node], _depth + 1, _visited | {node})
     if isinstance(node, dict):
-        return {k: _nuxt_resolve(arr, v, _depth + 1) for k, v in node.items()}
+        return {
+            k: _nuxt_resolve(arr, v, _depth + 1, _visited)
+            for k, v in node.items()
+            if k not in _SKIP_NUXT_KEYS
+        }
     if isinstance(node, list):
-        return [_nuxt_resolve(arr, v, _depth + 1) for v in node]
+        return [_nuxt_resolve(arr, v, _depth + 1, _visited) for v in node]
     return node
 
 
@@ -110,7 +151,7 @@ def resolve_nuxt_specs(arr: Any) -> Optional[Dict[str, Any]]:
 
 def resolve_nuxt_post_detail(arr: Any) -> Optional[Dict[str, Any]]:
     """
-    Resolve complete post details (description, specs, photos, phone)
+    Resolve complete post details (description, specs, photos, phone, price, user, location)
     embedded in a Khmer24 NUXT hydration array without recursive tree blowup.
     """
     if not isinstance(arr, list):
@@ -130,7 +171,7 @@ def resolve_nuxt_post_detail(arr: Any) -> Optional[Dict[str, Any]]:
 
     resolved_post: Dict[str, Any] = {}
     if post_node is not None:
-        for key in ("id", "title", "description", "phone", "specs", "photos", "images"):
+        for key in _POST_DETAIL_KEYS:
             if key in post_node:
                 val = _nuxt_resolve(arr, post_node[key])
                 if val is not None:
@@ -180,18 +221,42 @@ class Khmer24Client:
             or os.getenv("HTTPS_PROXY")
             or os.getenv("HTTP_PROXY")
         )
-        proxies = {"http": proxy_url, "https": proxy_url} if proxy_url else None
+        self._proxies = {"http": proxy_url, "https": proxy_url} if proxy_url else None
+        self._local = threading.local()
+        self._sessions_lock = threading.Lock()
+        self._all_sessions: List[cf_requests.Session] = []
 
-        self._session = cf_requests.Session(
+    def _create_session(self) -> cf_requests.Session:
+        s = cf_requests.Session(
             impersonate=_IMPERSONATE,
             timeout=self.timeout,
-            proxies=proxies,
+            proxies=self._proxies,
         )
-        self._session.headers.update(DEFAULT_HEADERS)
-
+        s.headers.update(DEFAULT_HEADERS)
         if RELAY_KEY:
-            self._session.headers["X-Relay-Key"] = RELAY_KEY
-            logger.info("Cloudflare Worker relay enabled.")
+            s.headers["X-Relay-Key"] = RELAY_KEY
+        with self._sessions_lock:
+            self._all_sessions.append(s)
+        return s
+
+    @property
+    def _session(self) -> cf_requests.Session:
+        sess = getattr(self._local, "session", None)
+        if sess is None:
+            sess = self._create_session()
+            self._local.session = sess
+        return sess
+
+    def close(self) -> None:
+        with self._sessions_lock:
+            for s in self._all_sessions:
+                try:
+                    s.close()
+                except Exception:
+                    pass
+            self._all_sessions.clear()
+        if hasattr(self._local, "session"):
+            self._local.session = None
 
     def _get(
         self,
@@ -200,7 +265,7 @@ class Khmer24Client:
         retries: int = DEFAULT_RETRIES,
         silent_404: bool = False,
     ) -> Optional[Any]:
-        """HTTP GET with exponential backoff and jitter for rate limits (429/503)."""
+        """HTTP GET with exponential backoff and jitter for rate limits and server errors (429/500/502/503/504)."""
         backoff = 1.5
         for attempt in range(1, retries + 1):
             try:
@@ -211,7 +276,7 @@ class Khmer24Client:
                     if not silent_404:
                         logger.debug(f"404 Not Found: {url}")
                     return None
-                if res.status_code in (429, 503):
+                if res.status_code in (429, 500, 502, 503, 504):
                     wait = backoff + random.uniform(0.5, 1.5)
                     logger.warning(
                         f"HTTP {res.status_code} on attempt {attempt}/{retries}. "
@@ -225,7 +290,8 @@ class Khmer24Client:
                 if attempt == retries:
                     logger.error(f"Failed {url} after {retries} attempts: {exc}")
                     return None
-                time.sleep(backoff + random.uniform(0.2, 0.8))
+                wait = backoff + random.uniform(0.2, 0.8)
+                time.sleep(wait)
                 backoff *= 1.5
         return None
 
@@ -233,10 +299,7 @@ class Khmer24Client:
         return self
 
     def __exit__(self, *args: Any) -> None:
-        try:
-            self._session.close()
-        except Exception:
-            pass
+        self.close()
 
     # ── Raw Detail Fetching ───────────────────────────────────────────────────
 
@@ -247,8 +310,8 @@ class Khmer24Client:
         Fetch untouched raw detail data for a single listing ID.
 
         Tries:
-        1. Posts REST detail endpoint: /post/{listing_id}
-        2. Fallback: Nuxt HTML page: /post-adid-{listing_id}.html
+        1. Primary: Nuxt HTML page: /post-adid-{listing_id}.html
+        2. Fallback: Posts REST detail endpoint: /post/{listing_id}
 
         Returns:
             Tuple of (detail_dict, detail_source, raw_detail_json_string)
@@ -256,28 +319,7 @@ class Khmer24Client:
         if not listing_id:
             return None, "none", None
 
-        # 1. Primary: REST post detail endpoint
-        url = f"{POSTS_API_BASE}/post/{listing_id}"
-        if RELAY_KEY:
-            params = {
-                "target": f"https://api-posts.khmer24.com/post/{listing_id}",
-                "lang": self.lang,
-            }
-            res = self._get(POSTS_API_BASE, params=params, silent_404=True)
-        else:
-            res = self._get(url, params={"lang": self.lang}, silent_404=True)
-
-        if res and res.status_code == 200:
-            try:
-                payload = res.json()
-                data = payload.get("data")
-                if isinstance(data, dict):
-                    raw_str = json.dumps(data, ensure_ascii=False)
-                    return data, "rest_api", raw_str
-            except Exception:
-                pass
-
-        # 2. Fallback: Nuxt HTML page
+        # 1. Primary: Nuxt HTML page (Khmer24 SSR detail page)
         if slug and str(slug).startswith("http"):
             page_url = str(slug)
         elif slug:
@@ -303,6 +345,27 @@ class Khmer24Client:
                 raw_str = json.dumps(nuxt_data, ensure_ascii=False)
                 return nuxt_data, "nuxt_html", raw_str
 
+        # 2. Fallback: REST post detail endpoint (if available)
+        url = f"{POSTS_API_BASE}/post/{listing_id}"
+        if RELAY_KEY:
+            params = {
+                "target": f"https://api-posts.khmer24.com/post/{listing_id}",
+                "lang": self.lang,
+            }
+            res = self._get(POSTS_API_BASE, params=params, silent_404=True)
+        else:
+            res = self._get(url, params={"lang": self.lang}, silent_404=True)
+
+        if res and res.status_code == 200:
+            try:
+                payload = res.json()
+                data = payload.get("data")
+                if isinstance(data, dict):
+                    raw_str = json.dumps(data, ensure_ascii=False)
+                    return data, "rest_api", raw_str
+            except Exception:
+                pass
+
         return None, "none", None
 
     # ── Raw Item Mapping ──────────────────────────────────────────────────────
@@ -323,16 +386,29 @@ class Khmer24Client:
             str(item.get("title", "")).strip()
             or (str(detail.get("title", "")).strip() if isinstance(detail, dict) else "")
         ) or None
-        raw_price = (
-            str(item.get("price"))
-            if item.get("price") is not None
-            else (str(detail.get("price")) if isinstance(detail, dict) and detail.get("price") is not None else None)
+
+        item_price = item.get("price")
+        detail_price = detail.get("price") if isinstance(detail, dict) else None
+        if item_price is not None and str(item_price).strip() != "":
+            raw_price = str(item_price)
+        elif detail_price is not None and str(detail_price).strip() != "":
+            raw_price = str(detail_price)
+        else:
+            raw_price = None
+
+        currency = str(
+            item.get("currency")
+            or (detail.get("currency") if isinstance(detail, dict) else None)
+            or "USD"
         )
-        currency = str(item.get("currency") or (detail.get("currency") if isinstance(detail, dict) else None) or "USD")
 
         # ── Location ─────────────────────────────────────────────────────────
-        loc = item.get("location") or {}
-        province = loc.get("en_name") or loc.get("province") if isinstance(loc, dict) else item.get("province")
+        loc = item.get("location") or (detail.get("location") if isinstance(detail, dict) else None) or {}
+        province = (
+            loc.get("en_name") or loc.get("province")
+            if isinstance(loc, dict)
+            else (item.get("province") or (detail.get("province") if isinstance(detail, dict) else None))
+        )
         district = loc.get("district") if isinstance(loc, dict) else None
         if isinstance(loc, dict) and not district:
             en2 = loc.get("en_name2", "")
@@ -340,11 +416,24 @@ class Khmer24Client:
                 district = en2.split(",")[0].strip()
 
         # ── User / Seller ────────────────────────────────────────────────────
-        user = item.get("user") or {}
-        seller_id = str(user.get("id", "")) if isinstance(user, dict) else str(item.get("userid", ""))
+        user = item.get("user") or (detail.get("user") if isinstance(detail, dict) else None) or {}
+        seller_id = (
+            str(user.get("id", ""))
+            if isinstance(user, dict) and user.get("id")
+            else str(item.get("userid", "") or (detail.get("userid", "") if isinstance(detail, dict) else ""))
+        )
         seller_name = user.get("name") if isinstance(user, dict) else None
         seller_uname = user.get("username") if isinstance(user, dict) else None
-        seller_type_code = str(user.get("user_type", "1")) if isinstance(user, dict) else "1"
+
+        # Clean seller type code (avoid 'nan' or empty string)
+        raw_seller_type = user.get("user_type") if isinstance(user, dict) else (item.get("seller_type_code") or "1")
+        if raw_seller_type is not None and str(raw_seller_type).strip() and str(raw_seller_type).strip().lower() != "nan":
+            try:
+                seller_type_code = str(int(float(raw_seller_type)))
+            except (ValueError, TypeError):
+                seller_type_code = str(raw_seller_type).strip()
+        else:
+            seller_type_code = "1"
 
         # Phone numbers
         phones: List[str] = []
@@ -418,7 +507,7 @@ class Khmer24Client:
 
         raw_spec_brand = _get_spec("car-brand", "brand")
         raw_spec_model = _get_spec("car-model", "model")
-        
+
         # ── Year: Detail specs -> Feed highlight_specs -> Detail meta_keywords ──
         raw_year_candidate = _get_spec("car-year", "year")
         if raw_year_candidate and re.match(r'^(19[89]\d|20[012]\d)$', str(raw_year_candidate).strip()):
@@ -435,7 +524,7 @@ class Khmer24Client:
         raw_spec_fuel_type = _get_spec("engine-type", "fuel-type", "fuel_type", "fuel")
         raw_spec_transmission = _get_spec("transmission", "gearbox", "gear-type")
         raw_spec_color = _get_spec("color", "exterior-color", "colour")
-        
+
         # ── Tax Type: Feed highlight_specs / Detail specs ───────────────────────
         raw_spec_tax_type = _get_spec("tax-type", "tax_type") or (
             item.get("tax_type") or (detail.get("tax_type") if isinstance(detail, dict) else None)
@@ -451,7 +540,12 @@ class Khmer24Client:
         ) or _get_spec("condition")
 
         # ── Content & Media ──────────────────────────────────────────────────
-        raw_thumb = item.get("thumbnail") or item.get("photo")
+        raw_thumb = (
+            item.get("thumbnail")
+            or item.get("photo")
+            or (detail.get("thumbnail") if isinstance(detail, dict) else None)
+            or (detail.get("photo") if isinstance(detail, dict) else None)
+        )
         if isinstance(raw_thumb, dict):
             thumbnail = raw_thumb.get("url") or raw_thumb.get("src") or raw_thumb.get("link")
         else:
@@ -477,6 +571,8 @@ class Khmer24Client:
         listing_url = (
             item.get("link")
             or item.get("short_link")
+            or (detail.get("link") if isinstance(detail, dict) else None)
+            or (detail.get("short_link") if isinstance(detail, dict) else None)
             or f"https://www.khmer24.com/post-adid-{listing_id}"
         )
 
@@ -487,8 +583,18 @@ class Khmer24Client:
             raw_description = str(item.get("description") or item.get("content")).strip()
 
         # ── Timestamps ───────────────────────────────────────────────────────
-        posted_at = str(item.get("posted_date") or item.get("created_at") or "") or None
-        renewed_at = str(item.get("renew_date") or "") or None
+        posted_at = str(
+            item.get("posted_date")
+            or item.get("created_at")
+            or (detail.get("posted_date") if isinstance(detail, dict) else None)
+            or (detail.get("created_at") if isinstance(detail, dict) else None)
+            or ""
+        ) or None
+        renewed_at = str(
+            item.get("renew_date")
+            or (detail.get("renew_date") if isinstance(detail, dict) else None)
+            or ""
+        ) or None
 
         raw_feed_payload = json.dumps(item, ensure_ascii=False)
 
@@ -586,7 +692,12 @@ class Khmer24Client:
                 logger.warning("No response — stopping pagination.")
                 break
 
-            payload = res.json()
+            try:
+                payload = res.json()
+            except Exception as exc:
+                logger.error(f"Failed to parse JSON response on page {page}: {exc}")
+                break
+
             if total_available is None:
                 total_available = payload.get("total")
 
@@ -628,7 +739,13 @@ class Khmer24Client:
                     }
                     for fut in as_completed(futures):
                         item = futures[fut]
-                        detail_data, detail_source, raw_detail_json = fut.result()
+                        try:
+                            detail_data, detail_source, raw_detail_json = fut.result()
+                        except Exception as exc:
+                            logger.warning(
+                                f"Error fetching details for listing {item.get('id')}: {exc}"
+                            )
+                            detail_data, detail_source, raw_detail_json = None, "none", None
                         raw_record = self._map_raw_listing(
                             item=item,
                             detail=detail_data,

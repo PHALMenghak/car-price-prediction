@@ -2,10 +2,11 @@
 #
 # Runs the Medallion transformation pipeline:
 #   Bronze (Staging) → Silver (Intermediate) → Gold (Marts)
-# Exports clean Parquet files to data/processed/
+# Exports clean Parquet files to data/silver/ and data/gold/
 
 import argparse
 import logging
+import shutil
 import subprocess
 import sys
 import time
@@ -35,8 +36,9 @@ def run_dbt_command(command: str = "run", extra_args: Optional[List[str]] = None
     (PROJECT_ROOT / "data" / "gold").mkdir(parents=True, exist_ok=True)
     (PROJECT_ROOT / "logs").mkdir(parents=True, exist_ok=True)
 
+    dbt_exe = shutil.which("dbt") or "dbt"
     cmd = [
-        "dbt",
+        dbt_exe,
         command,
         "--project-dir",
         str(DBT_DIR),

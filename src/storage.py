@@ -68,6 +68,16 @@ REORDERED_COLUMNS: List[str] = [
 _COMPLEX_COLS = {"seller_phones", "images", "raw_specs"}
 
 
+def _find_parquet_files(directory: str) -> List[str]:
+    """Find and return a sorted list of unique Parquet file paths in directory."""
+    return sorted(
+        set(
+            glob.glob(os.path.join(directory, "**", "*.parquet"), recursive=True)
+            + glob.glob(os.path.join(directory, "*.parquet"))
+        )
+    )
+
+
 def reorder_columns(df: pd.DataFrame) -> pd.DataFrame:
     """Reorder DataFrame columns logically without dropping any column."""
     ordered = [c for c in REORDERED_COLUMNS if c in df.columns]
@@ -82,12 +92,7 @@ def get_historical_ids(directory: str = BRONZE_DATA_DIR) -> Set[str]:
     Fast discovery of all historical unique listing IDs across all Parquet files.
     Reads only the ID column (zero full-data loading) for optimal performance.
     """
-    files = sorted(
-        set(
-            glob.glob(os.path.join(directory, "**", "*.parquet"), recursive=True)
-            + glob.glob(os.path.join(directory, "*.parquet"))
-        )
-    )
+    files = _find_parquet_files(directory)
     historical_ids: Set[str] = set()
 
     for fpath in files:
@@ -126,13 +131,9 @@ def save_to_parquet(
     _ensure_dir(directory)
     path = os.path.join(directory, filename)
 
-    rows = [item.model_dump() for item in listings]
+    rows = [item.model_dump(exclude={"raw_feed_payload", "raw_detail_payload"}) for item in listings]
     df = pd.DataFrame(rows)
     df = reorder_columns(df)
-
-    # Exclude massive raw audit payloads from Parquet file to keep files lightweight (<1MB) and avoid GitHub's 100MB limit
-    drop_from_parquet = [c for c in ("raw_feed_payload", "raw_detail_payload") if c in df.columns]
-    df = df.drop(columns=drop_from_parquet)
 
     for col in _COMPLEX_COLS:
         if col in df.columns:
@@ -158,13 +159,9 @@ def save_to_csv(
     _ensure_dir(directory)
     path = os.path.join(directory, filename)
 
-    rows = [item.model_dump() for item in listings]
-    df = pd.DataFrame(rows)
-    df = reorder_columns(df)
-
-    # Exclude massive raw audit payloads from CSV inspection if present
-    drop_from_csv = [c for c in ("raw_feed_payload", "raw_detail_payload") if c in df.columns]
-    df_csv = df.drop(columns=drop_from_csv)
+    rows = [item.model_dump(exclude={"raw_feed_payload", "raw_detail_payload"}) for item in listings]
+    df_csv = pd.DataFrame(rows)
+    df_csv = reorder_columns(df_csv)
 
     # Convert complex collections to readable string representations
     for col in _COMPLEX_COLS:
@@ -216,12 +213,7 @@ def load_from_parquet(
 
 def load_all_parquet(directory: str = BRONZE_DATA_DIR) -> pd.DataFrame:
     """Load and concatenate all raw Parquet files from `directory`."""
-    files = sorted(
-        set(
-            glob.glob(os.path.join(directory, "**", "*.parquet"), recursive=True)
-            + glob.glob(os.path.join(directory, "*.parquet"))
-        )
-    )
+    files = _find_parquet_files(directory)
     if not files:
         logger.warning(f"No Parquet files found in {directory}")
         return pd.DataFrame()

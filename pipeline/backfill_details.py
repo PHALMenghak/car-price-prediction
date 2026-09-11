@@ -35,6 +35,15 @@ def _build_item_dict_from_row(row: pd.Series, listing_id: str) -> Dict[str, Any]
     elif isinstance(img_raw, str) and img_raw.strip():
         images = [img_raw.strip()]
 
+    seller_type_raw = row.get("seller_type_code")
+    if pd.notna(seller_type_raw) and str(seller_type_raw).strip() and str(seller_type_raw).strip().lower() != "nan":
+        try:
+            seller_type = str(int(float(seller_type_raw)))
+        except (ValueError, TypeError):
+            seller_type = str(seller_type_raw).strip()
+    else:
+        seller_type = "1"
+
     return {
         "id": listing_id,
         "title": row.get("raw_title") or row.get("listing_title", ""),
@@ -49,7 +58,7 @@ def _build_item_dict_from_row(row: pd.Series, listing_id: str) -> Dict[str, Any]
             "id": row.get("seller_id"),
             "name": row.get("seller_name"),
             "username": row.get("seller_username"),
-            "user_type": str(row.get("seller_type_code", "1")),
+            "user_type": seller_type,
         },
         "phone": phones,
         "thumbnail": row.get("thumbnail_url"),
@@ -92,6 +101,11 @@ def backfill_bronze_file(
     if "listing_id" not in df.columns:
         logger.warning(f"No listing_id column in {file_path}")
         return 0
+
+    # Ensure status columns exist with object dtype to prevent fragmentation
+    for col in ("has_detail", "detail_source"):
+        if col not in df.columns:
+            df[col] = None
 
     has_detail_col = "has_detail" in df.columns
     if has_detail_col:

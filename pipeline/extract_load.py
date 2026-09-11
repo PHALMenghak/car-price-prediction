@@ -88,16 +88,17 @@ def run(
     )
 
     # ── Step 3: Track new vs. recurring listing IDs ───────────────────────────
-    new_items = [item for item in scraped_listings if item.listing_id not in historical_ids]
-    recurring_items = [item for item in scraped_listings if item.listing_id in historical_ids]
-    cumulative_total = len(historical_ids) + len(new_items)
+    batch_ids = {item.listing_id for item in scraped_listings if item.listing_id}
+    new_ids = batch_ids - historical_ids
+    recurring_ids = batch_ids & historical_ids
+    cumulative_total = len(historical_ids | batch_ids)
 
     logger.info(
         f"Batch summary: {len(scraped_listings):,} total listings collected "
-        f"({len(new_items):,} new IDs, {len(recurring_items):,} recurring/tracked IDs)."
+        f"({len(new_ids):,} new unique IDs, {len(recurring_ids):,} recurring/tracked IDs)."
     )
 
-    # ── Step 3: Save daily Bronze Parquet + Full Run CSV + Run Manifest ───────
+    # ── Step 4: Save daily Bronze Parquet + Full Run CSV + Run Manifest ───────
     parquet_filename = get_daily_parquet_filename()
     parquet_path = save_to_parquet(scraped_listings, parquet_filename, output_dir)
     csv_path = save_to_csv(scraped_listings, directory=output_dir)
@@ -113,8 +114,8 @@ def run(
         "max_pages": max_pages,
         "enrich_details": enrich_details,
         "batch_total": len(scraped_listings),
-        "new_ids_count": len(new_items),
-        "recurring_ids_count": len(recurring_items),
+        "new_ids_count": len(new_ids),
+        "recurring_ids_count": len(recurring_ids),
         "cumulative_unique_ids": cumulative_total,
         "parquet_file": parquet_path,
         "csv_file": csv_path,
@@ -126,7 +127,7 @@ def run(
     logger.info(f"Full Run CSV   -> {csv_path}")
     logger.info(f"Manifest       -> {manifest_path}")
 
-    # ── Step 4: Data quality summary logging ──────────────────────────────────
+    # ── Step 5: Data quality summary logging ──────────────────────────────────
     _log_quality_summary(coverage_report, cumulative_total)
 
     return len(scraped_listings)
