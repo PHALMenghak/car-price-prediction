@@ -1,17 +1,20 @@
 # 🚗 Cambodia Car Price Prediction & Market Intelligence
 
+[![Live Dashboard](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://car-price-prediction-dq.streamlit.app/)
 [![CI Tests](https://github.com/PHALMenghak/car-price-prediction/actions/workflows/run_tests.yml/badge.svg)](https://github.com/PHALMenghak/car-price-prediction/actions/workflows/run_tests.yml)
 [![Daily Scraper](https://github.com/PHALMenghak/car-price-prediction/actions/workflows/daily_scraper.yml/badge.svg)](https://github.com/PHALMenghak/car-price-prediction/actions/workflows/daily_scraper.yml)
 [![Python Version](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/)
 [![Package Manager](https://img.shields.io/badge/uv-fast%20python-purple.svg)](https://github.com/astral-sh/uv)
 [![dbt DuckDB](https://img.shields.io/badge/dbt--duckdb-1.11.0-orange.svg)](https://docs.getdbt.com/)
-[![Test Suite](https://img.shields.io/badge/pytest-9%2F9%20passing-brightgreen.svg)](https://docs.pytest.org/)
+[![Test Suite](https://img.shields.io/badge/pytest-28%2F28%20passing-brightgreen.svg)](https://docs.pytest.org/)
 [![dbt Tests](https://img.shields.io/badge/dbt%20tests-51%2F51%20passing-brightgreen.svg)](https://docs.getdbt.com/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 An automated data pipeline and machine learning project to predict used car prices and analyze automotive market trends in Cambodia.
 
 The system automatically collects car listings from **Khmer24**, cleans multilingual text (Khmer, English, Chinese), standardizes vehicle specifications, and prepares clean datasets for machine learning models and analytics dashboards.
+
+> 🌐 **Live Data Quality & Observability Dashboard**: Access the interactive cloud console at **[car-price-prediction-dq.streamlit.app](https://car-price-prediction-dq.streamlit.app/)**.
 
 ---
 
@@ -218,11 +221,13 @@ uv run pytest tests/ -v
 ```
 
 ### 5. Launch Observability Console
-Launch the interactive 3-pillar Data Pipeline & Quality Observability Console (Executive Pulse, Pipeline Monitoring, and Data Quality Lineage Audit):
+Explore the interactive 3-pillar Data Pipeline & Quality Observability Console (Executive Pulse, Pipeline Monitoring, and Data Quality Lineage Audit):
 
-```bash
-uv run streamlit run dashboard/app.py
-```
+* **🌐 Live Hosted Cloud Deployment**: **[https://car-price-prediction-dq.streamlit.app/](https://car-price-prediction-dq.streamlit.app/)**
+* **💻 Run Locally**:
+  ```bash
+  uv run streamlit run dashboard/app.py
+  ```
 
 ---
 
@@ -241,7 +246,7 @@ For complete documentation on every column, data type, cleaning rule, and formul
 | :--- | :--- | :---: |
 | **Phase 1** | Automated raw data collection (Bronze Layer) & daily GitHub Actions | ✅ **Completed** |
 | **Phase 2** | Data cleaning pipeline with dbt + DuckDB (Silver & Gold Layers) | ✅ **Completed** |
-| **Phase 3** | Data quality governance & 3-pillar observability console (dbt + Streamlit) | ✅ **Completed** |
+| **Phase 3** | Data quality governance & [3-pillar observability console](https://car-price-prediction-dq.streamlit.app/) (dbt + Streamlit) | ✅ **Completed** ([Live App](https://car-price-prediction-dq.streamlit.app/)) |
 | **Phase 4** | Exploratory data analysis (EDA) & market price trend analysis | 🔄 **In Progress** |
 | **Phase 5** | Machine learning price prediction models (LightGBM, XGBoost, CatBoost) | 🔲 **Next Up** |
 | **Phase 6** | Feature importance and price driver analysis (SHAP values) | 🔲 Planned |
