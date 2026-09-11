@@ -46,8 +46,8 @@ ranked_snapshots AS (
         ) AS _intra_day_row_num,
 
         -- Longitudinal initial price & first observed post time across all time
-        MIN(posted_at) OVER (PARTITION BY listing_id) AS _first_posted_at,
-        FIRST_VALUE(TRY_CAST(raw_price AS DOUBLE)) OVER (
+        MIN(COALESCE(TRY_CAST(posted_at AS TIMESTAMPTZ), TRY_CAST(scraped_at AS TIMESTAMPTZ))) OVER (PARTITION BY listing_id) AS _first_observed_at,
+        FIRST_VALUE(TRY_CAST(raw_price AS DOUBLE) IGNORE NULLS) OVER (
             PARTITION BY listing_id
             ORDER BY scraped_at ASC
             ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
@@ -92,7 +92,7 @@ SELECT
 
     ROUND(
         GREATEST(
-            DATE_DIFF('second', TRY_CAST(_first_posted_at AS TIMESTAMPTZ), TRY_CAST(scraped_at AS TIMESTAMPTZ)) / 86400.0,
+            DATE_DIFF('second', _first_observed_at, TRY_CAST(scraped_at AS TIMESTAMPTZ)) / 86400.0,
             0.0
         ),
         1

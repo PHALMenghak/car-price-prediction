@@ -23,9 +23,7 @@ WITH latest_clean_cars AS (
       AND price >= 500
       AND vehicle_year IS NOT NULL
       AND vehicle_brand IS NOT NULL
-      AND vehicle_brand NOT IN ('ផ្សេងៗ', 'Other', 'Others')
       AND vehicle_model IS NOT NULL
-      AND vehicle_model NOT IN ('ផ្សេងៗ', 'Other', 'Others')
 )
 
 SELECT
@@ -54,7 +52,12 @@ SELECT
     vehicle_transmission,
     vehicle_color,
     vehicle_condition,
-    CASE WHEN vehicle_tax_type = 'Plate Number' THEN 1 ELSE 0 END          AS is_plate_number,
+    CASE
+        WHEN vehicle_tax_type = 'Plate Number' THEN 1
+        WHEN vehicle_tax_type = 'Tax Paper' THEN 0
+        ELSE NULL
+    END                                                                     AS is_plate_number,
+    CASE WHEN vehicle_tax_type IS NULL THEN 1 ELSE 0 END                    AS is_tax_type_missing,
 
     -- Market Segmentation
     brand_tier                                                              AS brand_category,

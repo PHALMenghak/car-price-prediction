@@ -69,51 +69,40 @@ standardized AS (
         {{ clean_text('s.raw_description') }}                               AS description_clean,
 
         -- Standardized Brand (Seed join with regex title fallback for 'ផ្សេងៗ' / unmapped)
-        NULLIF(
-            NULLIF(
-                NULLIF(
-                    COALESCE(
-                        b.standardized_brand,
-                        CASE
-                            WHEN LOWER(s.raw_title) LIKE '%toyota%' OR LOWER(s.raw_title) LIKE '%តូយ៉ូតា%' THEN 'Toyota'
-                            WHEN LOWER(s.raw_title) LIKE '%lexus%' OR LOWER(s.raw_title) LIKE '%ឡិចស៊ីស%' THEN 'Lexus'
-                            WHEN LOWER(s.raw_title) LIKE '%mercedes%' OR LOWER(s.raw_title) LIKE '%benz%' OR LOWER(s.raw_title) LIKE '%ប៊េន%' THEN 'Mercedes-Benz'
-                            WHEN LOWER(s.raw_title) LIKE '%bmw%' OR LOWER(s.raw_title) LIKE '%ប៊ីអឹម%' THEN 'BMW'
-                            WHEN LOWER(s.raw_title) LIKE '%ford%' OR LOWER(s.raw_title) LIKE '%ហ្វត%' THEN 'Ford'
-                            WHEN LOWER(s.raw_title) LIKE '%hyundai%' OR LOWER(s.raw_title) LIKE '%ហ៊ីយ៉ាន់ដាយ%' THEN 'Hyundai'
-                            WHEN LOWER(s.raw_title) LIKE '%kia%' OR LOWER(s.raw_title) LIKE '%គីអា%' THEN 'Kia'
-                            WHEN LOWER(s.raw_title) LIKE '%mazda%' OR LOWER(s.raw_title) LIKE '%ម៉ាសដា%' THEN 'Mazda'
-                            WHEN LOWER(s.raw_title) LIKE '%mitsubishi%' OR LOWER(s.raw_title) LIKE '%មីស៊ូប៊ីស៊ី%' THEN 'Mitsubishi'
-                            WHEN LOWER(s.raw_title) LIKE '%nissan%' OR LOWER(s.raw_title) LIKE '%នីសាន់%' THEN 'Nissan'
-                            WHEN LOWER(s.raw_title) LIKE '%honda%' THEN 'Honda'
-                            WHEN LOWER(s.raw_title) LIKE '%byd%' OR LOWER(s.raw_title) LIKE '%ប៊ីវ៉ាយឌី%' THEN 'BYD'
-                            WHEN LOWER(s.raw_title) LIKE '%avatr%' OR LOWER(s.raw_title) LIKE '%អាវ៉ាតា%' THEN 'AVATR'
-                            WHEN LOWER(s.raw_title) LIKE '%aion%' THEN 'Aion'
-                            WHEN LOWER(s.raw_title) LIKE '%deepal%' THEN 'Deepal'
-                            WHEN LOWER(s.raw_title) LIKE '%xiaomi%' OR LOWER(s.raw_title) LIKE '%ស្ដេចបច្ចេកវិទ្យា%' THEN 'Xiaomi'
-                            WHEN LOWER(s.raw_title) LIKE '%mg%' THEN 'MG'
-                            WHEN LOWER(s.raw_title) LIKE '%geely%' OR LOWER(s.raw_title) LIKE '%ជីលី%' THEN 'Geely'
-                            WHEN LOWER(s.raw_title) LIKE '%rolls-royce%' OR LOWER(s.raw_title) LIKE '%rolls royce%' THEN 'Rolls-Royce'
-                            WHEN LOWER(s.raw_title) LIKE '%land rover%' OR LOWER(s.raw_title) LIKE '%range rover%' THEN 'Land Rover'
-                            WHEN LOWER(s.raw_title) LIKE '%porsche%' THEN 'Porsche'
-                            WHEN LOWER(s.raw_title) LIKE '%cadillac%' THEN 'Cadillac'
-                            WHEN LOWER(s.raw_title) LIKE '%audi%' THEN 'Audi'
-                            WHEN LOWER(s.raw_title) LIKE '%jeep%' THEN 'Jeep'
-                            WHEN LOWER(s.raw_title) LIKE '%volkswagen%' OR LOWER(s.raw_title) LIKE '%vw%' THEN 'Volkswagen'
-                            WHEN LOWER(s.raw_title) LIKE '%suzuki%' THEN 'Suzuki'
-                            WHEN LOWER(s.raw_title) LIKE '%isuzu%' THEN 'Isuzu'
-                            WHEN LOWER(s.raw_title) LIKE '%subaru%' THEN 'Subaru'
-                            WHEN LOWER(s.raw_title) LIKE '%chevrolet%' OR LOWER(s.raw_title) LIKE '%chevy%' THEN 'Chevrolet'
-                            WHEN TRIM(s.raw_spec_brand) IN ('ផ្សេងៗ', 'Other', 'Others') THEN NULL
-                            ELSE NULLIF(TRIM(s.raw_spec_brand), '')
-                        END
-                    ),
-                    'ផ្សេងៗ'
-                ),
-                'Other'
-            ),
-            'Others'
-        )                                                                   AS vehicle_brand,
+        CASE
+            WHEN b.standardized_brand IS NOT NULL THEN b.standardized_brand
+            WHEN LOWER(s.raw_title) LIKE '%toyota%' OR LOWER(s.raw_title) LIKE '%តូយ៉ូតា%' THEN 'Toyota'
+            WHEN LOWER(s.raw_title) LIKE '%lexus%' OR LOWER(s.raw_title) LIKE '%ឡិចស៊ីស%' THEN 'Lexus'
+            WHEN LOWER(s.raw_title) LIKE '%mercedes%' OR LOWER(s.raw_title) LIKE '%benz%' OR LOWER(s.raw_title) LIKE '%ប៊េន%' THEN 'Mercedes-Benz'
+            WHEN LOWER(s.raw_title) LIKE '%bmw%' OR LOWER(s.raw_title) LIKE '%ប៊ីអឹម%' THEN 'BMW'
+            WHEN LOWER(s.raw_title) LIKE '%ford%' OR LOWER(s.raw_title) LIKE '%ហ្វត%' THEN 'Ford'
+            WHEN LOWER(s.raw_title) LIKE '%hyundai%' OR LOWER(s.raw_title) LIKE '%ហ៊ីយ៉ាន់ដាយ%' THEN 'Hyundai'
+            WHEN LOWER(s.raw_title) LIKE '%kia%' OR LOWER(s.raw_title) LIKE '%គីអា%' THEN 'Kia'
+            WHEN LOWER(s.raw_title) LIKE '%mazda%' OR LOWER(s.raw_title) LIKE '%ម៉ាសដា%' THEN 'Mazda'
+            WHEN LOWER(s.raw_title) LIKE '%mitsubishi%' OR LOWER(s.raw_title) LIKE '%មីស៊ូប៊ីស៊ី%' THEN 'Mitsubishi'
+            WHEN LOWER(s.raw_title) LIKE '%nissan%' OR LOWER(s.raw_title) LIKE '%នីសាន់%' THEN 'Nissan'
+            WHEN LOWER(s.raw_title) LIKE '%honda%' THEN 'Honda'
+            WHEN LOWER(s.raw_title) LIKE '%byd%' OR LOWER(s.raw_title) LIKE '%ប៊ីវ៉ាយឌី%' THEN 'BYD'
+            WHEN LOWER(s.raw_title) LIKE '%avatr%' OR LOWER(s.raw_title) LIKE '%អាវ៉ាតា%' THEN 'AVATR'
+            WHEN LOWER(s.raw_title) LIKE '%aion%' THEN 'Aion'
+            WHEN LOWER(s.raw_title) LIKE '%deepal%' THEN 'Deepal'
+            WHEN LOWER(s.raw_title) LIKE '%xiaomi%' OR LOWER(s.raw_title) LIKE '%ស្ដេចបច្ចេកវិទ្យា%' THEN 'Xiaomi'
+            WHEN LOWER(s.raw_title) LIKE '%mg%' THEN 'MG'
+            WHEN LOWER(s.raw_title) LIKE '%geely%' OR LOWER(s.raw_title) LIKE '%ជីលី%' THEN 'Geely'
+            WHEN LOWER(s.raw_title) LIKE '%rolls-royce%' OR LOWER(s.raw_title) LIKE '%rolls royce%' THEN 'Rolls-Royce'
+            WHEN LOWER(s.raw_title) LIKE '%land rover%' OR LOWER(s.raw_title) LIKE '%range rover%' THEN 'Land Rover'
+            WHEN LOWER(s.raw_title) LIKE '%porsche%' THEN 'Porsche'
+            WHEN LOWER(s.raw_title) LIKE '%cadillac%' THEN 'Cadillac'
+            WHEN LOWER(s.raw_title) LIKE '%audi%' THEN 'Audi'
+            WHEN LOWER(s.raw_title) LIKE '%jeep%' THEN 'Jeep'
+            WHEN LOWER(s.raw_title) LIKE '%volkswagen%' OR LOWER(s.raw_title) LIKE '%vw%' THEN 'Volkswagen'
+            WHEN LOWER(s.raw_title) LIKE '%suzuki%' THEN 'Suzuki'
+            WHEN LOWER(s.raw_title) LIKE '%isuzu%' THEN 'Isuzu'
+            WHEN LOWER(s.raw_title) LIKE '%subaru%' THEN 'Subaru'
+            WHEN LOWER(s.raw_title) LIKE '%chevrolet%' OR LOWER(s.raw_title) LIKE '%chevy%' THEN 'Chevrolet'
+            WHEN TRIM(s.raw_spec_brand) IN ('ផ្សេងៗ', 'Other', 'Others', '0', 'Plate Number', '2Year+', '212') THEN NULL
+            ELSE NULLIF(TRIM(s.raw_spec_brand), '')
+        END                                                                 AS vehicle_brand,
 
         -- Standardized Province (Seed join; NO silent default to Phnom Penh)
         loc.standardized_province                                           AS province,
@@ -146,111 +135,115 @@ standardized AS (
 ),
 
 -- Step 2: Model & Year Resolution
-model_resolved AS (
+model_candidates AS (
     SELECT
         st.*,
-
-        -- Model Resolution (Seed alias first, then brand-specific regex extraction for 'ផ្សេងៗ'/unmatched)
-        NULLIF(
-            NULLIF(
-                NULLIF(
-                    COALESCE(
-                        m.standardized_model,
-                        CASE
-                WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bprius\b') THEN 'Prius'
-                WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bcamry\b') THEN 'Camry'
-                WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bcorolla\s*cross\b') THEN 'Corolla Cross'
-                WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bcorolla\b') THEN 'Corolla'
-                WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), 'land\s*cruiser\s*prado|prado') THEN 'Land Cruiser Prado'
-                WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), 'land\s*cruiser|\blc\b|lc200|lc300') THEN 'Land Cruiser'
-                WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), 'hilux\s*revo|revo') THEN 'Hilux Revo'
-                WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), 'hilux\s*vigo|vigo') THEN 'Hilux Vigo'
-                WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bhilux\b') THEN 'Hilux'
-                WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), '\braize\b') THEN 'Raize'
-                WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bfortuner\b') THEN 'Fortuner'
-                WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bhighlander\b') THEN 'Highlander'
-                WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), '\brav4\b|rav\s*4') THEN 'RAV4'
-                WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), '\balphard\b') THEN 'Alphard'
-                WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bvellfire\b') THEN 'Vellfire'
-                WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), '\byaris\s*cross\b') THEN 'Yaris Cross'
-                WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), '\byaris\b') THEN 'Yaris'
-                WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bwigo\b') THEN 'Wigo'
-                WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bveloz\b') THEN 'Veloz'
-
-                WHEN st.vehicle_brand = 'Lexus' AND REGEXP_MATCHES(LOWER(st.title_clean), 'rx\s*300|rx300') THEN 'RX300'
-                WHEN st.vehicle_brand = 'Lexus' AND REGEXP_MATCHES(LOWER(st.title_clean), 'rx\s*330|rx330') THEN 'RX330'
-                WHEN st.vehicle_brand = 'Lexus' AND REGEXP_MATCHES(LOWER(st.title_clean), 'rx\s*350|rx350') THEN 'RX350'
-                WHEN st.vehicle_brand = 'Lexus' AND REGEXP_MATCHES(LOWER(st.title_clean), 'rx\s*450|rx450') THEN 'RX450h'
-                WHEN st.vehicle_brand = 'Lexus' AND REGEXP_MATCHES(LOWER(st.title_clean), 'lx\s*570|lx570') THEN 'LX570'
-                WHEN st.vehicle_brand = 'Lexus' AND REGEXP_MATCHES(LOWER(st.title_clean), 'lx\s*600|lx600') THEN 'LX600'
-                WHEN st.vehicle_brand = 'Lexus' AND REGEXP_MATCHES(LOWER(st.title_clean), 'lx\s*700|lx700h') THEN 'LX700h'
-                WHEN st.vehicle_brand = 'Lexus' AND REGEXP_MATCHES(LOWER(st.title_clean), 'nx\s*200t|nx200t') THEN 'NX200t'
-                WHEN st.vehicle_brand = 'Lexus' AND REGEXP_MATCHES(LOWER(st.title_clean), 'nx\s*300|nx300') THEN 'NX300'
-                WHEN st.vehicle_brand = 'Lexus' AND REGEXP_MATCHES(LOWER(st.title_clean), 'gx\s*460|gx460') THEN 'GX460'
-                WHEN st.vehicle_brand = 'Lexus' AND REGEXP_MATCHES(LOWER(st.title_clean), 'gx\s*470|gx470') THEN 'GX470'
-                WHEN st.vehicle_brand = 'Lexus' AND REGEXP_MATCHES(LOWER(st.title_clean), '\blm\b|lm350|lm300') THEN 'LM'
-
-                WHEN st.vehicle_brand = 'Ford' AND REGEXP_MATCHES(LOWER(st.title_clean), 'ranger\s*raptor|\braptor\b') THEN 'Ranger Raptor'
-                WHEN st.vehicle_brand = 'Ford' AND REGEXP_MATCHES(LOWER(st.title_clean), 'ranger\s*wildtrak|\bwildtrak\b') THEN 'Ranger Wildtrak'
-                WHEN st.vehicle_brand = 'Ford' AND REGEXP_MATCHES(LOWER(st.title_clean), '\branger\b') THEN 'Ranger'
-                WHEN st.vehicle_brand = 'Ford' AND REGEXP_MATCHES(LOWER(st.title_clean), '\beverest\b') THEN 'Everest'
-                WHEN st.vehicle_brand = 'Ford' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bterritory\b') THEN 'Territory'
-                WHEN st.vehicle_brand = 'Ford' AND REGEXP_MATCHES(LOWER(st.title_clean), 'f\-?150') THEN 'F-150'
-
-                WHEN st.vehicle_brand = 'Hyundai' AND REGEXP_MATCHES(LOWER(st.title_clean), 'starex|\bh1\b|\bh\-1\b') THEN 'Starex'
-                WHEN st.vehicle_brand = 'Hyundai' AND REGEXP_MATCHES(LOWER(st.title_clean), 'santa\s*fe|santafe') THEN 'Santa Fe'
-                WHEN st.vehicle_brand = 'Hyundai' AND REGEXP_MATCHES(LOWER(st.title_clean), '\btucson\b') THEN 'Tucson'
-                WHEN st.vehicle_brand = 'Hyundai' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bpalisade\b') THEN 'Palisade'
-
-                WHEN st.vehicle_brand = 'Kia' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bmorning\b') THEN 'Morning'
-                WHEN st.vehicle_brand = 'Kia' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bcarnival\b') THEN 'Carnival'
-                WHEN st.vehicle_brand = 'Kia' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bsorento\b') THEN 'Sorento'
-                WHEN st.vehicle_brand = 'Kia' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bsportage\b') THEN 'Sportage'
-                WHEN st.vehicle_brand = 'Kia' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bev5\b') THEN 'EV5'
-
-                WHEN st.vehicle_brand = 'BYD' AND REGEXP_MATCHES(LOWER(st.title_clean), 'atto\s*3|atto3') THEN 'Atto 3'
-                WHEN st.vehicle_brand = 'BYD' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bdolphin\b') THEN 'Dolphin'
-                WHEN st.vehicle_brand = 'BYD' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bseal\b') THEN 'Seal'
-
-                WHEN st.vehicle_brand = 'Xiaomi' AND REGEXP_MATCHES(LOWER(st.title_clean), 'su7') THEN 'SU7'
-                WHEN st.vehicle_brand = 'Xiaomi' AND REGEXP_MATCHES(LOWER(st.title_clean), 'yu7') THEN 'YU7'
-
-                WHEN st.vehicle_brand = 'AVATR' AND REGEXP_MATCHES(LOWER(st.title_clean), '07|\b07\b') THEN 'AVATR 07'
-                WHEN st.vehicle_brand = 'AVATR' AND REGEXP_MATCHES(LOWER(st.title_clean), '11|\b11\b') THEN 'AVATR 11'
-                WHEN st.vehicle_brand = 'AVATR' AND REGEXP_MATCHES(LOWER(st.title_clean), '12|\b12\b') THEN 'AVATR 12'
-
-                WHEN st.vehicle_brand = 'Geely' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bmonjaro\b') THEN 'Monjaro'
-                WHEN st.vehicle_brand = 'Geely' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bcoolray\b') THEN 'Coolray'
-
-                WHEN st.vehicle_brand = 'Mercedes-Benz' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bmaybach\b|s580|s680') THEN 'Maybach'
-                WHEN st.vehicle_brand = 'Mercedes-Benz' AND REGEXP_MATCHES(LOWER(st.title_clean), 's\-?class|s400|s500') THEN 'S-Class'
-                WHEN st.vehicle_brand = 'Mercedes-Benz' AND REGEXP_MATCHES(LOWER(st.title_clean), 'c\-?class|c200|c300') THEN 'C-Class'
-                WHEN st.vehicle_brand = 'Mercedes-Benz' AND REGEXP_MATCHES(LOWER(st.title_clean), 'e\-?class|e200|e300') THEN 'E-Class'
-                WHEN st.vehicle_brand = 'Mercedes-Benz' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bglc\b') THEN 'GLC'
-
-                WHEN st.vehicle_brand = 'Rolls-Royce' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bcullinan\b') THEN 'Cullinan'
-
-                WHEN TRIM(st.raw_spec_model) IN ('ផ្សេងៗ', 'Other', 'Others') THEN NULL
-                ELSE NULLIF(TRIM(st.raw_spec_model), '')
-            END
-        ),
-        'ផ្សេងៗ'
-    ),
-    'Other'
-),
-'Others'
-)                                                                   AS vehicle_model,
-
+        m.standardized_model AS seed_model,
         CASE
-            WHEN m.standardized_model IS NOT NULL AND m.standardized_model NOT IN ('ផ្សេងៗ', 'Other', 'Others') THEN 'seed_alias'
-            WHEN NULLIF(TRIM(st.raw_spec_model), '') IS NOT NULL AND TRIM(st.raw_spec_model) NOT IN ('ផ្សេងៗ', 'Other', 'Others') THEN 'raw_spec'
-            ELSE 'title_extracted'
-        END                                                                 AS model_extraction_method
+            WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bprius\b') THEN 'Prius'
+            WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bcamry\b') THEN 'Camry'
+            WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bcorolla\s*cross\b') THEN 'Corolla Cross'
+            WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bcorolla\b') THEN 'Corolla'
+            WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), 'land\s*cruiser\s*prado|prado') THEN 'Land Cruiser Prado'
+            WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), 'land\s*cruiser|\blc\b|lc200|lc300') THEN 'Land Cruiser'
+            WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), 'hilux\s*revo|revo') THEN 'Hilux Revo'
+            WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), 'hilux\s*vigo|vigo') THEN 'Hilux Vigo'
+            WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bhilux\b') THEN 'Hilux'
+            WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), '\braize\b') THEN 'Raize'
+            WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bfortuner\b') THEN 'Fortuner'
+            WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bhighlander\b') THEN 'Highlander'
+            WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), '\brav4\b|rav\s*4') THEN 'RAV4'
+            WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), '\balphard\b') THEN 'Alphard'
+            WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bvellfire\b') THEN 'Vellfire'
+            WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), '\byaris\s*cross\b') THEN 'Yaris Cross'
+            WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), '\byaris\b') THEN 'Yaris'
+            WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bwigo\b') THEN 'Wigo'
+            WHEN st.vehicle_brand = 'Toyota' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bveloz\b') THEN 'Veloz'
 
+            WHEN st.vehicle_brand = 'Lexus' AND REGEXP_MATCHES(LOWER(st.title_clean), 'rx\s*300|rx300') THEN 'RX300'
+            WHEN st.vehicle_brand = 'Lexus' AND REGEXP_MATCHES(LOWER(st.title_clean), 'rx\s*330|rx330') THEN 'RX330'
+            WHEN st.vehicle_brand = 'Lexus' AND REGEXP_MATCHES(LOWER(st.title_clean), 'rx\s*350|rx350') THEN 'RX350'
+            WHEN st.vehicle_brand = 'Lexus' AND REGEXP_MATCHES(LOWER(st.title_clean), 'rx\s*450|rx450') THEN 'RX450h'
+            WHEN st.vehicle_brand = 'Lexus' AND REGEXP_MATCHES(LOWER(st.title_clean), 'lx\s*570|lx570') THEN 'LX570'
+            WHEN st.vehicle_brand = 'Lexus' AND REGEXP_MATCHES(LOWER(st.title_clean), 'lx\s*600|lx600') THEN 'LX600'
+            WHEN st.vehicle_brand = 'Lexus' AND REGEXP_MATCHES(LOWER(st.title_clean), 'lx\s*700|lx700h') THEN 'LX700h'
+            WHEN st.vehicle_brand = 'Lexus' AND REGEXP_MATCHES(LOWER(st.title_clean), 'lx\s*470|lx470') THEN 'LX470'
+            WHEN st.vehicle_brand = 'Lexus' AND REGEXP_MATCHES(LOWER(st.title_clean), 'nx\s*200t|nx200t') THEN 'NX200t'
+            WHEN st.vehicle_brand = 'Lexus' AND REGEXP_MATCHES(LOWER(st.title_clean), 'nx\s*300|nx300') THEN 'NX300'
+            WHEN st.vehicle_brand = 'Lexus' AND REGEXP_MATCHES(LOWER(st.title_clean), 'gx\s*460|gx460') THEN 'GX460'
+            WHEN st.vehicle_brand = 'Lexus' AND REGEXP_MATCHES(LOWER(st.title_clean), 'gx\s*470|gx470') THEN 'GX470'
+            WHEN st.vehicle_brand = 'Lexus' AND REGEXP_MATCHES(LOWER(st.title_clean), 'es\s*350|es350') THEN 'ES350'
+            WHEN st.vehicle_brand = 'Lexus' AND REGEXP_MATCHES(LOWER(st.title_clean), 'es\s*300|es300') THEN 'ES300'
+            WHEN st.vehicle_brand = 'Lexus' AND REGEXP_MATCHES(LOWER(st.title_clean), 'is\s*250|is250') THEN 'IS250'
+            WHEN st.vehicle_brand = 'Lexus' AND REGEXP_MATCHES(LOWER(st.title_clean), 'gs\s*300|gs300') THEN 'GS300'
+            WHEN st.vehicle_brand = 'Lexus' AND REGEXP_MATCHES(LOWER(st.title_clean), '\blm\b|lm350|lm300') THEN 'LM'
+
+            WHEN st.vehicle_brand = 'Ford' AND REGEXP_MATCHES(LOWER(st.title_clean), 'f\-?150\s*raptor') THEN 'F-150 Raptor'
+            WHEN st.vehicle_brand = 'Ford' AND REGEXP_MATCHES(LOWER(st.title_clean), 'ranger\s*raptor|\braptor\b') THEN 'Ranger Raptor'
+            WHEN st.vehicle_brand = 'Ford' AND REGEXP_MATCHES(LOWER(st.title_clean), 'ranger\s*wildtrak|\bwildtrak\b') THEN 'Ranger Wildtrak'
+            WHEN st.vehicle_brand = 'Ford' AND REGEXP_MATCHES(LOWER(st.title_clean), '\branger\b') THEN 'Ranger'
+            WHEN st.vehicle_brand = 'Ford' AND REGEXP_MATCHES(LOWER(st.title_clean), '\beverest\b') THEN 'Everest'
+            WHEN st.vehicle_brand = 'Ford' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bterritory\b') THEN 'Territory'
+            WHEN st.vehicle_brand = 'Ford' AND REGEXP_MATCHES(LOWER(st.title_clean), 'f\-?150') THEN 'F-150'
+
+            WHEN st.vehicle_brand = 'Hyundai' AND REGEXP_MATCHES(LOWER(st.title_clean), 'starex|\bh1\b|\bh\-1\b') THEN 'Starex'
+            WHEN st.vehicle_brand = 'Hyundai' AND REGEXP_MATCHES(LOWER(st.title_clean), 'santa\s*fe|santafe') THEN 'Santa Fe'
+            WHEN st.vehicle_brand = 'Hyundai' AND REGEXP_MATCHES(LOWER(st.title_clean), '\btucson\b') THEN 'Tucson'
+            WHEN st.vehicle_brand = 'Hyundai' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bpalisade\b') THEN 'Palisade'
+
+            WHEN st.vehicle_brand = 'Kia' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bmorning\b') THEN 'Morning'
+            WHEN st.vehicle_brand = 'Kia' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bcarnival\b') THEN 'Carnival'
+            WHEN st.vehicle_brand = 'Kia' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bsorento\b') THEN 'Sorento'
+            WHEN st.vehicle_brand = 'Kia' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bsportage\b') THEN 'Sportage'
+            WHEN st.vehicle_brand = 'Kia' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bev5\b') THEN 'EV5'
+
+            WHEN st.vehicle_brand = 'BYD' AND REGEXP_MATCHES(LOWER(st.title_clean), 'atto\s*3|atto3') THEN 'Atto 3'
+            WHEN st.vehicle_brand = 'BYD' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bdolphin\b') THEN 'Dolphin'
+            WHEN st.vehicle_brand = 'BYD' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bseal\b') THEN 'Seal'
+
+            WHEN st.vehicle_brand = 'Xiaomi' AND REGEXP_MATCHES(LOWER(st.title_clean), 'su7') THEN 'SU7'
+            WHEN st.vehicle_brand = 'Xiaomi' AND REGEXP_MATCHES(LOWER(st.title_clean), 'yu7') THEN 'YU7'
+
+            WHEN st.vehicle_brand = 'AVATR' AND REGEXP_MATCHES(LOWER(st.title_clean), 'avatr\s*07|\b07\b') THEN 'AVATR 07'
+            WHEN st.vehicle_brand = 'AVATR' AND REGEXP_MATCHES(LOWER(st.title_clean), 'avatr\s*11|\b11\b') THEN 'AVATR 11'
+            WHEN st.vehicle_brand = 'AVATR' AND REGEXP_MATCHES(LOWER(st.title_clean), 'avatr\s*12|\b12\b') THEN 'AVATR 12'
+
+            WHEN st.vehicle_brand = 'Geely' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bmonjaro\b') THEN 'Monjaro'
+            WHEN st.vehicle_brand = 'Geely' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bcoolray\b') THEN 'Coolray'
+
+            WHEN st.vehicle_brand = 'Mercedes-Benz' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bmaybach\b|s580|s680') THEN 'Maybach'
+            WHEN st.vehicle_brand = 'Mercedes-Benz' AND REGEXP_MATCHES(LOWER(st.title_clean), 's\-?class|s400|s500') THEN 'S-Class'
+            WHEN st.vehicle_brand = 'Mercedes-Benz' AND REGEXP_MATCHES(LOWER(st.title_clean), 'c\-?class|c200|c300') THEN 'C-Class'
+            WHEN st.vehicle_brand = 'Mercedes-Benz' AND REGEXP_MATCHES(LOWER(st.title_clean), 'e\-?class|e200|e300') THEN 'E-Class'
+            WHEN st.vehicle_brand = 'Mercedes-Benz' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bglc\b') THEN 'GLC'
+
+            WHEN st.vehicle_brand = 'Rolls-Royce' AND REGEXP_MATCHES(LOWER(st.title_clean), '\bcullinan\b') THEN 'Cullinan'
+
+            ELSE NULL
+        END AS title_model
     FROM standardized st
     LEFT JOIN model_seeds m
-        ON  st.vehicle_brand = m.brand
+        ON  LOWER(st.vehicle_brand) = LOWER(m.brand)
         AND LOWER(TRIM(CAST(st.raw_spec_model AS VARCHAR))) = m.raw_alias
+),
+
+model_resolved AS (
+    SELECT
+        mc.* EXCLUDE (seed_model, title_model),
+        CASE
+            WHEN mc.seed_model IS NOT NULL AND mc.seed_model NOT IN ('ផ្សេងៗ', 'Other', 'Others') THEN mc.seed_model
+            WHEN mc.title_model IS NOT NULL THEN mc.title_model
+            WHEN TRIM(mc.raw_spec_model) NOT IN ('ផ្សេងៗ', 'Other', 'Others', 'None', 'all', '1', '2', '3') THEN NULLIF(TRIM(mc.raw_spec_model), '')
+            ELSE NULL
+        END AS vehicle_model,
+
+        CASE
+            WHEN mc.seed_model IS NOT NULL AND mc.seed_model NOT IN ('ផ្សេងៗ', 'Other', 'Others') THEN 'seed_alias'
+            WHEN mc.title_model IS NOT NULL THEN 'title_regex'
+            WHEN TRIM(mc.raw_spec_model) NOT IN ('ផ្សេងៗ', 'Other', 'Others', 'None', 'all', '1', '2', '3') AND NULLIF(TRIM(mc.raw_spec_model), '') IS NOT NULL THEN 'raw_spec'
+            ELSE 'unresolved'
+        END AS model_extraction_method
+    FROM model_candidates mc
 ),
 
 -- Step 3: Year Inversion Healing & Standardization
@@ -269,76 +262,97 @@ year_resolved AS (
         END                                                                 AS is_year_healed,
 
         CASE
+            WHEN TRY_CAST(mr.raw_spec_year AS INTEGER) IN (2026, 2027)
+             AND {{ heal_chronological_inversion('mr.raw_spec_year', 'mr.title_clean', 'mr.vehicle_model') }} IN (2006, 2007)
+                THEN 'healed_inversion'
             WHEN TRY_CAST(mr.raw_spec_year AS INTEGER) IS NOT NULL THEN 'raw_spec'
-            WHEN REGEXP_MATCHES(CAST(mr.title_clean AS VARCHAR), '\b(19[9][0-9]|20[0-2][0-9])\b') THEN 'title_regex'
+            WHEN {{ heal_chronological_inversion('mr.raw_spec_year', 'mr.title_clean', 'mr.vehicle_model') }} IS NOT NULL THEN 'title_regex'
             ELSE NULL
         END                                                                 AS year_source
 
     FROM model_resolved mr
 ),
 
--- Step 4: Physical Specs Parsing & Clamping (NLP from title & description)
-specs_parsed AS (
+-- Step 4: Physical Specs Extraction (Computed once to avoid redundant Jinja macro expansion)
+specs_extracted AS (
     SELECT
         yr.*,
+        {{ parse_mileage('yr.raw_spec_mileage', 'yr.title_clean', 'yr.description_clean', 'yr.vehicle_fuel_type') }} AS _extracted_mileage_km,
+        {{ parse_engine_cc('yr.raw_spec_engine_size', 'yr.title_clean', 'yr.description_clean', 'yr.vehicle_fuel_type', 'yr.vehicle_brand') }} AS _extracted_engine_cc
+    FROM year_resolved yr
+),
+
+-- Step 5: Physical Specs Clamping & Consistent Provenance Derivation
+specs_parsed AS (
+    SELECT
+        se.*,
 
         -- Normalized Body Type (Seed mapping first, then verified model fallback when missing/ផ្សេងៗ)
         COALESCE(
-            yr.mapped_body_type,
+            se.mapped_body_type,
             CASE
-                WHEN yr.vehicle_model IN ('Prius', 'Yaris', 'Swift', 'Fit', 'Jazz') THEN 'Hatchback'
-                WHEN yr.vehicle_model IN ('Camry', 'Corolla', 'Civic', 'Accord', 'ES350', 'ES300', 'ES300h', 'C-Class', 'E-Class', 'S-Class', '3 Series', '5 Series', '7 Series', 'Morning', 'K5') THEN 'Sedan'
-                WHEN yr.vehicle_model IN ('Hilux', 'Hilux Revo', 'Hilux Vigo', 'Ranger', 'Ranger Raptor', 'Ranger Wildtrak', 'F-150', 'Tacoma', 'Tundra', 'Navara', 'Triton', 'D-Max', 'BT-50') THEN 'Pickup'
-                WHEN yr.vehicle_model IN ('Alphard', 'Vellfire', 'Starex', 'H1', 'Carnival', 'Sienna', 'Custin', 'LM', 'Avanza') THEN 'MPV'
-                WHEN yr.vehicle_model IN ('RAV4', 'CR-V', 'RX300', 'RX330', 'RX350', 'RX450h', 'NX200t', 'NX300', 'LX570', 'LX600', 'LX470', 'GX460', 'GX470', 'Land Cruiser', 'Land Cruiser Prado', 'Fortuner', 'Highlander', 'Everest', 'Explorer', 'Santa Fe', 'Tucson', 'Palisade', 'Sorento', 'Sportage', 'X5', 'X6', 'X7', 'X3', 'GLC', 'GLE', 'Atto 3', 'Monjaro', 'Coolray', 'Raize', 'Rush', 'Corolla Cross', 'Yaris Cross', 'Territory') THEN 'SUV'
+                WHEN se.vehicle_model IN ('Prius', 'Yaris', 'Swift', 'Fit', 'Jazz') THEN 'Hatchback'
+                WHEN se.vehicle_model IN ('Camry', 'Corolla', 'Civic', 'Accord', 'ES350', 'ES300', 'ES300h', 'C-Class', 'E-Class', 'S-Class', '3 Series', '5 Series', '7 Series', 'Morning', 'K5') THEN 'Sedan'
+                WHEN se.vehicle_model IN ('Hilux', 'Hilux Revo', 'Hilux Vigo', 'Ranger', 'Ranger Raptor', 'Ranger Wildtrak', 'F-150', 'Tacoma', 'Tundra', 'Navara', 'Triton', 'D-Max', 'BT-50') THEN 'Pickup'
+                WHEN se.vehicle_model IN ('Alphard', 'Vellfire', 'Starex', 'H1', 'Carnival', 'Sienna', 'Custin', 'LM', 'Avanza') THEN 'MPV'
+                WHEN se.vehicle_model IN ('RAV4', 'CR-V', 'RX300', 'RX330', 'RX350', 'RX450h', 'NX200t', 'NX300', 'LX570', 'LX600', 'LX470', 'GX460', 'GX470', 'Land Cruiser', 'Land Cruiser Prado', 'Fortuner', 'Highlander', 'Everest', 'Explorer', 'Santa Fe', 'Tucson', 'Palisade', 'Sorento', 'Sportage', 'X5', 'X6', 'X7', 'X3', 'GLC', 'GLE', 'Atto 3', 'Monjaro', 'Coolray', 'Raize', 'Rush', 'Corolla Cross', 'Yaris Cross', 'Territory') THEN 'SUV'
                 ELSE NULL
             END
         )                                                                   AS vehicle_body_type,
 
         -- Multi-source mileage extraction clamped between 0 and 500,000 km
         CASE
-            WHEN {{ parse_mileage('yr.raw_spec_mileage', 'yr.title_clean', 'yr.description_clean', 'yr.vehicle_fuel_type') }} BETWEEN 0 AND 500000
-                THEN {{ parse_mileage('yr.raw_spec_mileage', 'yr.title_clean', 'yr.description_clean', 'yr.vehicle_fuel_type') }}
+            WHEN se._extracted_mileage_km BETWEEN 0 AND 500000
+                THEN se._extracted_mileage_km
             ELSE NULL
         END                                                                 AS vehicle_mileage_km,
 
         CASE
-            WHEN yr.raw_spec_mileage IS NOT NULL AND TRY_CAST(yr.raw_spec_mileage AS BIGINT) IS NOT NULL THEN 'raw_spec'
-            WHEN {{ parse_mileage('yr.raw_spec_mileage', 'yr.title_clean', 'yr.description_clean', 'yr.vehicle_fuel_type') }} IS NOT NULL THEN 'nlp_text'
+            WHEN se._extracted_mileage_km BETWEEN 0 AND 500000 THEN
+                CASE
+                    WHEN se.raw_spec_mileage IS NOT NULL
+                     AND REGEXP_MATCHES(TRIM(CAST(se.raw_spec_mileage AS VARCHAR)), '^[0-9]+(\.[0-9]+)?$')
+                     AND TRY_CAST(REGEXP_REPLACE(TRIM(CAST(se.raw_spec_mileage AS VARCHAR)), '\..*', '') AS BIGINT) BETWEEN 0 AND 500000
+                        THEN 'raw_spec'
+                    ELSE 'nlp_text'
+                END
             ELSE NULL
         END                                                                 AS mileage_source,
 
         -- Multi-source engine CC clamped between 500 and 7,000 cc (0 for EV)
         CASE
-            WHEN {{ parse_engine_cc('yr.raw_spec_engine_size', 'yr.title_clean', 'yr.description_clean', 'yr.vehicle_fuel_type', 'yr.vehicle_brand') }} = 0
-                THEN 0
-            WHEN {{ parse_engine_cc('yr.raw_spec_engine_size', 'yr.title_clean', 'yr.description_clean', 'yr.vehicle_fuel_type', 'yr.vehicle_brand') }} BETWEEN 500 AND 7000
-                THEN {{ parse_engine_cc('yr.raw_spec_engine_size', 'yr.title_clean', 'yr.description_clean', 'yr.vehicle_fuel_type', 'yr.vehicle_brand') }}
+            WHEN se._extracted_engine_cc = 0 THEN 0
+            WHEN se._extracted_engine_cc BETWEEN 500 AND 7000 THEN se._extracted_engine_cc
             ELSE NULL
         END                                                                 AS vehicle_engine_cc,
 
         CASE
-            WHEN yr.vehicle_fuel_type = 'Electric'
-              OR (yr.vehicle_brand IN ('Tesla', 'NIO', 'Zeekr', 'Polestar', 'Rivian', 'Lucid') AND COALESCE(yr.vehicle_fuel_type, '') NOT IN ('Hybrid', 'Petrol', 'Diesel'))
-                THEN 'ev_zero_cc'
-            WHEN yr.raw_spec_engine_size IS NOT NULL THEN 'raw_spec'
-            WHEN {{ parse_engine_cc('yr.raw_spec_engine_size', 'yr.title_clean', 'yr.description_clean', 'yr.vehicle_fuel_type', 'yr.vehicle_brand') }} IS NOT NULL THEN 'nlp_text'
+            WHEN se._extracted_engine_cc = 0 THEN 'ev_zero_cc'
+            WHEN se._extracted_engine_cc BETWEEN 500 AND 7000 THEN
+                CASE
+                    WHEN se.raw_spec_engine_size IS NOT NULL
+                     AND (
+                         REGEXP_MATCHES(LOWER(TRIM(CAST(se.raw_spec_engine_size AS VARCHAR))), '^[0-9]\.[0-9]\s*l?$')
+                         OR REGEXP_MATCHES(LOWER(TRIM(CAST(se.raw_spec_engine_size AS VARCHAR))), '^[0-9]{3,4}\s*(cc)?$')
+                     ) THEN 'raw_spec'
+                    ELSE 'nlp_text'
+                END
             ELSE NULL
         END                                                                 AS engine_source,
 
         -- Title NLP features
-        {{ extract_nlp_signals('yr.title_clean') }},
+        {{ extract_nlp_signals('se.title_clean') }},
 
         -- Non-vehicle spam detection
-        {{ detect_non_vehicle_spam('yr.title_clean', 'yr.description_clean', 'yr.price') }} AS is_spam,
+        {{ detect_non_vehicle_spam('se.title_clean', 'se.description_clean', 'se.price') }} AS is_spam,
 
         -- Financing down-payment detection
-        {{ detect_down_payment('yr.price', 'yr.vehicle_year', 'yr.title_clean', 'yr.description_clean') }} AS is_down_payment
+        {{ detect_down_payment('se.price', 'se.vehicle_year', 'se.title_clean', 'se.description_clean') }} AS is_down_payment
 
-    FROM year_resolved yr
+    FROM specs_extracted se
 ),
 
--- Step 5: Outlier Detection & Quality Classification
+-- Step 6: Outlier Detection & Quality Classification
 evaluated AS (
     SELECT
         p.*,

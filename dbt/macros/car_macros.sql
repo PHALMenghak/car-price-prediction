@@ -12,12 +12,21 @@ NULLIF(
                         REPLACE(
                             REPLACE(
                                 REPLACE(
-                                    COALESCE(CAST({{ col }} AS VARCHAR), ''),
-                                    chr(8203), ''
+                                    REPLACE(
+                                        REPLACE(
+                                            REPLACE(
+                                                COALESCE(CAST({{ col }} AS VARCHAR), ''),
+                                                chr(8203), ''
+                                            ),
+                                            chr(8205), ''
+                                        ),
+                                        chr(65279), ''
+                                    ),
+                                    '&amp;', '&'
                                 ),
-                                chr(65279), ''
+                                '&#39;', ''''
                             ),
-                            '&amp;', '&'
+                            '&apos;', ''''
                         ),
                         '&nbsp;|&quot;|&lt;|&gt;', ' ', 'g'
                     ),
@@ -71,8 +80,12 @@ NULLIF(
         WHEN REGEXP_MATCHES({{ target_text }}, '(?:ជិះបាន|ប្រើបាន|odo|km\s*zin|mileage)[^0-9]*([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{3,6})\s*(?:km|គីឡូ)?')
             THEN TRY_CAST(REGEXP_REPLACE(REGEXP_EXTRACT({{ target_text }}, '(?:ជិះបាន|ប្រើបាន|odo|km\s*zin|mileage)[^0-9]*([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{3,6})\s*(?:km|គីឡូ)?', 1), ',', '', 'g') AS BIGINT)
 
-        -- 6. Direct km (>= 1,500 km to avoid EV battery ranges like 520km, 650km)
+        -- 6. Direct km (>= 1,500 km, and not pure EV without explicit odo keyword)
         WHEN REGEXP_MATCHES({{ target_text }}, '\b([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{4,6})\s*(?:km|kms|គីឡូ(?:ម៉ែត្រ)?)\b')
+         AND (
+             LOWER(COALESCE(CAST({{ fuel_col }} AS VARCHAR), '')) NOT IN ('electric', 'អគ្គិសនី', 'ev')
+             OR REGEXP_MATCHES({{ target_text }}, '(?:ជិះបាន|ប្រើបាន|odo|km\s*zin|mileage)')
+         )
             THEN TRY_CAST(REGEXP_REPLACE(REGEXP_EXTRACT({{ target_text }}, '\b([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{4,6})\s*(?:km|kms|គីឡូ(?:ម៉ែត្រ)?)\b', 1), ',', '', 'g') AS BIGINT)
 
         ELSE NULL
@@ -88,7 +101,7 @@ NULLIF(
         -- 1. Pure Electric Vehicles have 0 cc displacement
         WHEN LOWER(COALESCE(CAST({{ fuel_col }} AS VARCHAR), '')) IN ('electric', 'អគ្គិសនី', 'ev')
           OR (
-              {{ brand_col }} IN ('Tesla', 'NIO', 'Zeekr', 'Polestar', 'Rivian', 'Lucid')
+              {{ brand_col }} IN ('Tesla', 'NIO', 'Zeekr', 'Polestar', 'Rivian', 'Lucid', 'Xiaomi')
               AND COALESCE({{ fuel_col }}, '') NOT IN ('Hybrid', 'Petrol', 'Diesel')
           )
             THEN 0
@@ -161,6 +174,11 @@ NULLIF(
         WHEN REGEXP_MATCHES(CAST({{ title_col }} AS VARCHAR), '\b(19[9][0-9]|20[0-2][0-9])\b')
             THEN TRY_CAST(REGEXP_EXTRACT(CAST({{ title_col }} AS VARCHAR), '\b(19[9][0-9]|20[0-2][0-9])\b', 1) AS INTEGER)
 
+        -- Evidence 5: Title 2-digit year fallback for classic models when spec year is missing
+        WHEN TRY_CAST({{ raw_year_col }} AS INTEGER) IS NULL
+         AND REGEXP_MATCHES(CAST({{ title_col }} AS VARCHAR), '(?i)\b(?:prius|camry|corolla|highlander|rav4|cr-?v|rx300|rx330|vitz|morning)\s*0?([0-9])\b')
+            THEN 2000 + TRY_CAST(REGEXP_EXTRACT(CAST({{ title_col }} AS VARCHAR), '(?i)\b(?:prius|camry|corolla|highlander|rav4|cr-?v|rx300|rx330|vitz|morning)\s*0?([0-9])\b', 1) AS INTEGER)
+
         ELSE NULL
     END
 {% endmacro %}
@@ -179,7 +197,7 @@ NULLIF(
     CASE
         -- 1. Standalone Auto Accessories / Body Parts (Grilles, Spare Tires, Bumpers, LPG kits)
         WHEN (
-            REGEXP_MATCHES(LOWER(CAST({{ title_col }} AS VARCHAR)), '^(?:ប៉ាណាលេង|គ្រឿងបន្លាស់|កង់សាគួ)\b|លក់កង់សាគួ|លក់គ្រឿងបន្លាស់|លក់កាង\b|លក់ហ្គាស|លកហ្គាដ|bodykit\s*only')
+            REGEXP_MATCHES(LOWER(CAST({{ title_col }} AS VARCHAR)), '^(?:ប៉ាណាលេង|គ្រឿងបន្លាស់|កង់សាគួ)|លក់កង់សាគួ|លក់គ្រឿងបន្លាស់|លក់កាង|លក់ហ្គាស|លកហ្គាដ|bodykit\s*only')
             OR (
                 REGEXP_MATCHES(LOWER(CAST({{ title_col }} AS VARCHAR)), 'ប៉ាណាលេង|កង់សាគួ|spare\s*tire')
                 AND ({{ price_col }} IS NULL OR {{ price_col }} < 3000)
@@ -192,8 +210,13 @@ NULLIF(
         THEN 1
 
         -- 3. Standalone License Plate Sales (and NOT car registered with plate or dealer plate bonus)
-        WHEN REGEXP_MATCHES(LOWER(CAST({{ title_col }} AS VARCHAR)), 'លក់ស្លាកលេខ|លក់លេខ\b|plate\s*for\s*sale|plate\s*only')
-         AND NOT REGEXP_MATCHES(LOWER(CAST({{ title_col }} AS VARCHAR)), 'ឡាន|car|auto')
+        WHEN (
+            REGEXP_MATCHES(LOWER(CAST({{ title_col }} AS VARCHAR)), 'លក់ស្លាកលេខ|លក់លេខ|plate\s*for\s*sale|plate\s*only')
+            AND (
+                NOT REGEXP_MATCHES(LOWER(CAST({{ title_col }} AS VARCHAR)), '\b(?:car|auto)\b')
+                OR REGEXP_MATCHES(LOWER(CAST({{ title_col }} AS VARCHAR)), 'លក់ស្លាកលេខឡាន|លក់លេខឡាន')
+            )
+        )
         THEN 1
 
         -- 4. Dedicated Rental Services (and NOT private cars with rental history disclaimers or Sorento)
@@ -213,11 +236,11 @@ NULLIF(
 
 
 -- 6. Disguised Financing Down Payment Detection
--- Identifies low-price ($500 - $3,000) listings for modern cars (2005+) where price represents down payment.
+-- Identifies low-price ($500 - $3,000) listings where price represents down payment.
 {% macro detect_down_payment(price_col, year_col, title_col, desc_col) %}
     CASE
         WHEN {{ price_col }} < 3000
-          AND {{ year_col }} >= 2005
+          AND ({{ year_col }} >= 2005 OR {{ year_col }} IS NULL)
           AND REGEXP_MATCHES(
               LOWER(COALESCE(CAST({{ title_col }} AS VARCHAR), '') || ' ' || COALESCE(CAST({{ desc_col }} AS VARCHAR), '')),
               'បង់មុន|រំលស់សុទ្ធ|រំលស់|បង់\s*[0-9]+\$|/ខែ|down\s*payment|installment'
@@ -233,19 +256,20 @@ NULLIF(
         WHEN LOWER(COALESCE(CAST({{ brand_col }} AS VARCHAR), '')) IN (
             'lexus', 'mercedes-benz', 'bmw', 'porsche', 'land rover',
             'audi', 'cadillac', 'rolls-royce', 'bentley', 'maserati',
-            'lamborghini', 'ferrari', 'aston martin', 'genesis', 'volvo'
+            'lamborghini', 'ferrari', 'aston martin', 'genesis', 'volvo',
+            'tesla', 'polestar', 'lucid', 'rivian', 'lincoln', 'mclaren'
         ) THEN 'Luxury'
         WHEN LOWER(COALESCE(CAST({{ brand_col }} AS VARCHAR), '')) IN (
             'byd', 'mg', 'geely', 'haval', 'gac', 'jetour', 'changan',
             'denza', 'xpeng', 'nio', 'li auto', 'zeekr', 'chery', 'hongqi', 'tank',
             'avatr', 'aion', 'deepal', 'icar', 'leapmotor', 'gtv', 'bestune',
-            'xiaomi', 'aito', 'gwm', 'yangwang'
+            'xiaomi', 'aito', 'gwm', 'yangwang', 'ora', 'forthing', 'wuling', 'dfsk', 'kaiyi', 'baic'
         ) THEN 'Chinese_EV'
         WHEN LOWER(COALESCE(CAST({{ brand_col }} AS VARCHAR), '')) IN (
             'toyota', 'ford', 'hyundai', 'mazda', 'kia',
             'honda', 'mitsubishi', 'nissan', 'suzuki', 'isuzu',
             'subaru', 'chevrolet', 'volkswagen', 'jeep', 'peugeot',
-            'ssangyong', 'mini', 'renault', 'fiat'
+            'ssangyong', 'mini', 'renault', 'fiat', 'ram'
         ) THEN 'Mass_Market'
         ELSE 'Other'
     END
@@ -286,40 +310,46 @@ NULLIF(
              OR (LOWER(COALESCE(CAST({{ brand_col }} AS VARCHAR), '')) = 'mercedes-benz' AND LOWER(COALESCE(CAST({{ model_col }} AS VARCHAR), '')) = 'maybach')
             THEN CASE WHEN {{ price_col }} > 1500000 THEN 1 ELSE 0 END
 
-        -- 2. Standard Luxury Brands (Lexus, Mercedes-Benz, BMW, Porsche, Land Rover, Cadillac, etc.)
+        -- 2. Fat-Finger Typo Errors on Older Luxury Models (e.g. 2001 RX300 or 2004 C200 typo for $120k+)
+        -- Checked BEFORE the general luxury ceiling to catch 10x typos on depreciated luxury cars
+        WHEN LOWER(COALESCE(CAST({{ brand_col }} AS VARCHAR), '')) IN ('lexus', 'mercedes-benz', 'bmw')
+             AND LOWER(COALESCE(CAST({{ model_col }} AS VARCHAR), '')) IN ('rx300', 'rx330', 'es300', 'es350', 'is250', 'c-class', '3 series', '5 series')
+             AND {{ year_col }} < 2008 AND {{ price_col }} > 55000 THEN 1
+
+        -- 3. Standard Luxury Brands (Lexus, Mercedes-Benz, BMW, Porsche, Land Rover, Cadillac, etc.)
         -- Top trims (LX600, Escalade, G-Class) legitimately reach $200,000 - $450,000 in Cambodia.
-        WHEN LOWER(COALESCE(CAST({{ brand_col }} AS VARCHAR), '')) IN ('lexus', 'mercedes-benz', 'bmw', 'porsche', 'land rover', 'audi', 'cadillac', 'maserati', 'genesis', 'volvo')
+        WHEN LOWER(COALESCE(CAST({{ brand_col }} AS VARCHAR), '')) IN ('lexus', 'mercedes-benz', 'bmw', 'porsche', 'land rover', 'audi', 'cadillac', 'maserati', 'genesis', 'volvo', 'tesla')
             THEN CASE WHEN {{ price_col }} > 600000 THEN 1 ELSE 0 END
 
-        -- 3. Verified Luxury / Flagship Models from Mass-Market & Tech EV Brands
-        -- Genuine high-value vehicles ($60,000 - $300,000+): Land Cruiser, Alphard, Granvia, Palisade, Raptor, SU7, etc.
+        -- 4. Verified Luxury / Flagship Models from Mass-Market & Tech EV Brands
+        -- Genuine high-value vehicles ($60,000 - $300,000+): Land Cruiser, Prado, Alphard, Granvia, Palisade, Raptor, SU7, etc.
         WHEN (
-            (LOWER(COALESCE(CAST({{ brand_col }} AS VARCHAR), '')) = 'toyota' AND LOWER(COALESCE(CAST({{ model_col }} AS VARCHAR), '')) IN ('land cruiser', 'alphard', 'vellfire', 'granvia', 'century', 'tundra', 'sequoia', 'gr supra', 'hiace', 'crown', 'grand highlander'))
+            (LOWER(COALESCE(CAST({{ brand_col }} AS VARCHAR), '')) = 'toyota' AND LOWER(COALESCE(CAST({{ model_col }} AS VARCHAR), '')) IN ('land cruiser', 'land cruiser prado', 'alphard', 'vellfire', 'granvia', 'century', 'tundra', 'sequoia', 'gr supra', 'hiace', 'crown', 'grand highlander', 'hilux revo', 'hilux', 'tacoma', '4runner', 'fortuner'))
             OR (LOWER(COALESCE(CAST({{ brand_col }} AS VARCHAR), '')) = 'ford' AND LOWER(COALESCE(CAST({{ model_col }} AS VARCHAR), '')) IN ('f-150', 'f-150 raptor', 'ranger raptor', 'bronco', 'bronco sport', 'expedition'))
             OR (LOWER(COALESCE(CAST({{ brand_col }} AS VARCHAR), '')) = 'hyundai' AND LOWER(COALESCE(CAST({{ model_col }} AS VARCHAR), '')) IN ('palisade', 'santa fe', 'staria', 'county', 'equus'))
             OR (LOWER(COALESCE(CAST({{ brand_col }} AS VARCHAR), '')) = 'kia' AND LOWER(COALESCE(CAST({{ model_col }} AS VARCHAR), '')) IN ('carnival', 'ev6', 'ev9', 'mohave', 'stinger'))
             OR LOWER(COALESCE(CAST({{ brand_col }} AS VARCHAR), '')) IN ('xiaomi', 'zeekr', 'deepal', 'byd', 'tank', 'denza', 'li auto', 'nio', 'hongqi', 'gwm', 'yangwang', 'aito')
         ) THEN CASE WHEN {{ price_col }} > 350000 THEN 1 ELSE 0 END
 
-        -- 4. Fat-Finger Typo Errors on Budget / Economy Models (older models where seller entered an extra 0)
+        -- 5. Fat-Finger Typo Errors on Budget / Economy Models (older models where seller entered an extra 0)
         WHEN LOWER(COALESCE(CAST({{ model_col }} AS VARCHAR), '')) IN ('prius', 'corolla', 'camry', 'vitz', 'yaris', 'morning', 'ray', 'spark', 'windstar', 'ecosport', 'fit', 'march', 'mira', 'swift')
              AND {{ year_col }} < 2023 AND {{ price_col }} > 45000 THEN 1
 
-        -- 5. Fat-Finger Typo Errors on Older Economy Family Crossovers (pre-2015 Highlander, CR-V, RAV4)
+        -- 6. Fat-Finger Typo Errors on Older Economy Family Crossovers (pre-2015 Highlander, CR-V, RAV4)
         WHEN LOWER(COALESCE(CAST({{ model_col }} AS VARCHAR), '')) IN ('highlander', 'cr-v', 'rav4', 'tucson', 'sportage', 'duster', 'x-trail')
              AND {{ year_col }} < 2015 AND {{ price_col }} > 50000 THEN 1
 
-        -- 6. Fat-Finger Typo Errors on Compact EVs (e.g. 2018 Model 3 typo for $18,500)
+        -- 7. Fat-Finger Typo Errors on Compact EVs (e.g. 2018 Model 3 typo for $18,500)
         WHEN LOWER(COALESCE(CAST({{ brand_col }} AS VARCHAR), '')) = 'tesla' AND LOWER(COALESCE(CAST({{ model_col }} AS VARCHAR), '')) = 'model 3'
              AND {{ year_col }} < 2022 AND {{ price_col }} > 60000 THEN 1
 
-        -- 7. Modern New/Near-New Vehicles (2020+) can legitimately cost up to $150,000 in Cambodia
+        -- 8. Modern New/Near-New Vehicles (2020+) can legitimately cost up to $150,000 in Cambodia
         WHEN {{ year_col }} >= 2020 AND {{ price_col }} <= 150000 THEN 0
 
-        -- 8. Older Mass-Market Vehicles (pre-2018) exceeding realistic market caps
+        -- 9. Older Mass-Market Vehicles (pre-2018) exceeding realistic market caps
         WHEN {{ year_col }} < 2018 AND {{ price_col }} > 75000 THEN 1
 
-        -- 9. General Extreme Upper Bound for any remaining non-luxury vehicle
+        -- 10. General Extreme Upper Bound for any remaining non-luxury vehicle
         WHEN {{ price_col }} > 300000 THEN 1
 
         ELSE 0
