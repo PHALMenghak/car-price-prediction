@@ -30,18 +30,18 @@ import streamlit as st
 
 # ── Page configuration ────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Car Data Quality Center | Khmer24",
+    page_title="GDDE Auto Intelligence | Khmer24 Market Center",
     page_icon="🚗",
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items={
         "Get Help": "https://github.com/PHALMenghak/car-price-prediction",
         "Report a bug": "https://github.com/PHALMenghak/car-price-prediction/issues",
-        "About": "Cambodian Car Data Quality Center — Bronze → Silver Pipeline Monitoring.",
+        "About": "GDDE — Cambodian Automotive Market Intelligence & Data Pipeline Observability.",
     },
 )
 
-# ── Professional Word/Report-Style CSS ────────────────────────────────────────
+# ── Professional Word/Report-Style CSS (GDDE Institutional Theme) ─────────────
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
@@ -64,12 +64,14 @@ html, body, [class*="css"] {
     border-right: 1px solid #e2e8f0;
 }
 
-/* Active navigation button styling */
+/* Active navigation button styling (GDDE Navy + Royal Gold Indicator) */
 [data-testid="stSidebar"] button[kind="primary"] {
-    background-color: #1e3a8a !important;
+    background-color: #0f2b5c !important;
     color: #ffffff !important;
-    border: 1px solid #1e3a8a !important;
+    border: 1px solid #0f2b5c !important;
+    border-left: 4px solid #c59b27 !important;
     font-weight: 700 !important;
+    box-shadow: 0 1px 3px rgba(15, 43, 92, 0.15) !important;
 }
 
 [data-testid="stSidebar"] button[kind="secondary"] {
@@ -81,7 +83,7 @@ html, body, [class*="css"] {
 
 [data-testid="stSidebar"] button[kind="secondary"]:hover {
     background-color: #e2e8f0 !important;
-    color: #0f172a !important;
+    color: #0f2b5c !important;
 }
 
 /* Dataframe table */
@@ -98,8 +100,8 @@ hr {
 }
 
 /* Typography scale */
-h1 { color: #0f172a; font-weight: 800; font-size: 1.65rem; }
-h2 { color: #1e293b; font-weight: 700; font-size: 1.20rem; }
+h1 { color: #0f2b5c; font-weight: 800; font-size: 1.65rem; }
+h2 { color: #0f2b5c; font-weight: 700; font-size: 1.20rem; }
 h3 { color: #1e293b; font-weight: 700; font-size: 1.02rem; }
 </style>
 """, unsafe_allow_html=True)
@@ -135,14 +137,18 @@ if "active_scrape_date" not in st.session_state:
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
-    # Brand header
+    # Brand header (GDDE Institutional)
     st.markdown("""
-    <div style='padding:4px 0 12px 0;'>
-        <div style='font-size:1.05rem; font-weight:800; color:#0f172a; letter-spacing:-0.3px;'>
-            🚗 Car Data Quality Center
+    <div style='padding:2px 0 12px 0;'>
+        <div style='display:inline-block; background:#0f2b5c; color:#c59b27; font-size:0.62rem; font-weight:800;
+                    padding:2px 7px; border-radius:3px; letter-spacing:0.8px; margin-bottom:5px; border:1px solid rgba(197,155,39,0.3);'>
+            MEF · GDDE INTELLIGENCE
         </div>
-        <div style='font-size:0.75rem; color:#64748b; margin-top:3px; font-weight:500;'>
-            Bronze → Silver | Khmer24 Pipeline
+        <div style='font-size:1.05rem; font-weight:800; color:#0f2b5c; letter-spacing:-0.3px;'>
+            🚗 Car Data Center
+        </div>
+        <div style='font-size:0.75rem; color:#64748b; margin-top:2px; font-weight:500;'>
+            Automotive Pipeline &amp; Governance
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -247,26 +253,26 @@ st.markdown(f"""
 <div style='border-bottom:2px solid #e2e8f0; padding-bottom:12px; margin-bottom:18px;'>
     <div style='display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:8px;'>
         <div>
-            <div style='font-size:0.68rem; font-weight:800; color:#1e3a8a; text-transform:uppercase;
+            <div style='font-size:0.68rem; font-weight:800; color:#0f2b5c; text-transform:uppercase;
                         letter-spacing:0.8px; background:#eff6ff; display:inline-block;
                         padding:2px 8px; border-radius:3px; margin-bottom:4px; border:1px solid #bfdbfe;'>
-                CAMBODIAN CAR DATA QUALITY CENTER
+                GDDE · CAMBODIAN AUTOMOTIVE MARKET INTELLIGENCE
             </div>
-            <h1 style='margin:0; font-size:1.65rem; font-weight:800; color:#0f172a; letter-spacing:-0.5px;'>
+            <h1 style='margin:0; font-size:1.65rem; font-weight:800; color:#0f2b5c; letter-spacing:-0.5px;'>
                 {icon} &nbsp;{page}
             </h1>
-            <p style='color:#64748b; margin:3px 0 0 0; font-size:0.82rem;'>
-                <b>Bronze → Silver → Gold</b> | Data Pipeline Observability, Quality Assurance &amp; Market Analytics &nbsp;·&nbsp; Khmer24 Marketplace
+            <p style='color:#475569; margin:3px 0 0 0; font-size:0.82rem;'>
+                <b>Bronze → Silver → Gold</b> | dbt Pipeline Observability, Data Governance &amp; Market Analytics &nbsp;·&nbsp; Khmer24 Registry
             </p>
         </div>
         <div style='display:flex; gap:10px; align-items:center; flex-wrap:wrap;'>
             <span style='background:#f8fafc; border:1px solid #e2e8f0; padding:4px 10px;
                          border-radius:20px; font-weight:600; font-size:0.75rem; color:#475569;'>
-                Snapshot: <b style='color:#0f172a;'>{selected_snapshot}</b>
+                Snapshot: <b style='color:#0f2b5c;'>{selected_snapshot}</b>
             </span>
             <span style='background:#f8fafc; border:1px solid #e2e8f0; padding:4px 10px;
-                         border-radius:20px; font-weight:600; font-size:0.75rem; color:#475569;'>
-                Latest Ingest: <b style='color:#0f172a;'>{latest_scrape}</b>
+                         border-radius:20px; font-weight:600; font-size:0.75rem; color:#0f2b5c;'>
+                Latest Ingest: <b style='color:#0f2b5c;'>{latest_scrape}</b>
             </span>
         </div>
     </div>
@@ -291,9 +297,10 @@ else:
 st.divider()
 st.markdown(
     "<p style='text-align:center; color:#94a3b8; font-size:0.72rem;'>"
-    "Cambodian Car Data Quality Center &nbsp;·&nbsp; Bronze → Silver → Gold Pipeline Monitoring &nbsp;·&nbsp; "
+    "General Department of Digital Economy (GDDE) · Cambodian Automotive Market Intelligence &nbsp;·&nbsp; "
+    "Bronze → Silver → Gold Pipeline &nbsp;·&nbsp; "
     "Built with Streamlit, DuckDB &amp; dbt Core &nbsp;·&nbsp; "
-    "<a href='https://github.com/PHALMenghak/car-price-prediction' style='color:#94a3b8;'>GitHub Repository</a>"
+    "<a href='https://github.com/PHALMenghak/car-price-prediction' style='color:#0f2b5c;'>GitHub Repository</a>"
     "</p>",
     unsafe_allow_html=True,
 )

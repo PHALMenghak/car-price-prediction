@@ -81,21 +81,21 @@ DHI_WEIGHTS = {
     "warning":     0.03,
 }
 
-# ── Quality Status System ─────────────────────────────────────────────────────
+# ── Quality Status System (GDDE Standard) ───────────────────────────────────
 # Record-level status (dbt int_cars_cleaned output)
 STATUS_COLORS = {
-    "VALID":       "#10b981",   # emerald green
-    "WARNING":     "#f59e0b",   # amber
-    "SUSPICIOUS":  "#f97316",   # orange
-    "INVALID":     "#ef4444",   # red
+    "VALID":       "#059669",   # GDDE verified emerald
+    "WARNING":     "#c59b27",   # Cambodian royal gold
+    "SUSPICIOUS":  "#ea580c",   # market outlier amber
+    "INVALID":     "#dc2626",   # administrative red
     "QUARANTINED": "#64748b",   # slate gray
 }
 
 STATUS_BG = {
-    "VALID":       "#dcfce7",
-    "WARNING":     "#fef9c3",
-    "SUSPICIOUS":  "#ffedd5",
-    "INVALID":     "#fee2e2",
+    "VALID":       "#ecfdf5",
+    "WARNING":     "#fefce8",
+    "SUSPICIOUS":  "#fff7ed",
+    "INVALID":     "#fef2f2",
     "QUARANTINED": "#f1f5f9",
 }
 
@@ -184,36 +184,48 @@ def evaluate_sla_gates(
 # ── Issue severity ────────────────────────────────────────────────────────────
 SEVERITY_ORDER  = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]
 SEVERITY_COLORS = {
-    "CRITICAL": "#ef4444",
-    "HIGH":     "#f97316",
-    "MEDIUM":   "#f59e0b",
-    "LOW":      "#10b981",
+    "CRITICAL": "#dc2626",
+    "HIGH":     "#ea580c",
+    "MEDIUM":   "#c59b27",
+    "LOW":      "#059669",
     "INFO":     "#0284c7",
 }
 SEVERITY_BG = {
-    "CRITICAL": "#fee2e2",
-    "HIGH":     "#ffedd5",
-    "MEDIUM":   "#fef9c3",
-    "LOW":      "#dcfce7",
-    "INFO":     "#dbeafe",
+    "CRITICAL": "#fef2f2",
+    "HIGH":     "#fff7ed",
+    "MEDIUM":   "#fefce8",
+    "LOW":      "#ecfdf5",
+    "INFO":     "#f0f9ff",
 }
 
 # ── Priority ordering for completeness table ───────────────────────────────────
 PRIORITY_ORDER = ["🔴 Critical", "🟠 High", "🟡 Medium", "🟢 Low"]
 
-# ── Chart / Plot Colors ───────────────────────────────────────────────────────
+# ── GDDE Institutional Theme & Chart Colors ───────────────────────────────────
 THEME = {
-    "navy":       "#1e3a8a",
-    "blue":       "#0284c7",
-    "green":      "#10b981",
-    "amber":      "#f59e0b",
-    "red":        "#ef4444",
-    "gray":       "#64748b",
-    "light_gray": "#f1f5f9",
-    "grid":       "rgba(148, 163, 184, 0.2)",
+    "navy":       "#0f2b5c",   # GDDE Royal Navy (Primary Authority)
+    "gold":       "#c59b27",   # Cambodian Royal Gold (Prestige & Tax Paper)
+    "gold_deep":  "#b45309",   # Deep Amber Gold
+    "blue":       "#0284c7",   # Innovation Tech Blue
+    "green":      "#059669",   # Verified Emerald (Compliance)
+    "red":        "#dc2626",   # Administrative Crimson
+    "gray":       "#64748b",   # Neutral Slate
+    "light_gray": "#f1f5f9",   # Light Gray Tint
+    "surface":    "#ffffff",   # Card Surface
+    "canvas":     "#f8fafc",   # Dashboard Canvas Background
+    "border":     "#e2e8f0",   # Border Color
+    "grid":       "rgba(148, 163, 184, 0.18)",
 }
 
-CHART_COLORS = ["#1e3a8a", "#0284c7", "#10b981", "#f59e0b", "#ef4444", "#7c3aed", "#ec4899"]
+CHART_COLORS = [
+    "#0f2b5c",  # GDDE Navy
+    "#c59b27",  # Royal Gold
+    "#0284c7",  # Innovation Blue
+    "#059669",  # Verified Emerald
+    "#b45309",  # Deep Amber
+    "#6366f1",  # Tech Indigo
+    "#dc2626",  # Alert Red
+]
 
 
 def apply_plot_theme(
@@ -275,11 +287,11 @@ def apply_plot_theme(
 
 
 def section_header(title: str, subtitle: str = "") -> str:
-    """Render a professional section title block."""
-    sub = f"<div style='font-size:0.82rem; color:#64748b; margin-top:2px;'>{subtitle}</div>" if subtitle else ""
+    """Render a professional section title block with GDDE Royal Navy indicator."""
+    sub = f"<div style='font-size:0.82rem; color:#475569; margin-top:2px;'>{subtitle}</div>" if subtitle else ""
     return (
-        f"<div style='border-left:4px solid #1e3a8a; padding-left:12px; margin-bottom:12px;'>"
-        f"<div style='font-size:1.0rem; font-weight:700; color:#0f172a;'>{title}</div>"
+        f"<div style='border-left:4px solid #0f2b5c; padding-left:12px; margin-bottom:12px;'>"
+        f"<div style='font-size:1.0rem; font-weight:700; color:#0f2b5c;'>{title}</div>"
         f"{sub}"
         f"</div>"
     )
@@ -312,18 +324,18 @@ def kpi_card(
     subtitle: str = "",
     delta: str = "",
     delta_color: str = "normal",
-    accent_color: str = "#1e3a8a",
+    accent_color: str = "#0f2b5c",
     icon: str = "",
 ) -> str:
     """Render a clean, high-impact executive KPI card with modern typography."""
     delta_html = ""
     if delta:
         if delta_color == "normal":
-            d_bg, d_fg = "#dcfce7", "#166534"
+            d_bg, d_fg = "#ecfdf5", "#065f46"
         elif delta_color == "inverse":
-            d_bg, d_fg = "#fee2e2", "#991b1b"
+            d_bg, d_fg = "#fef2f2", "#991b1b"
         elif delta_color == "amber":
-            d_bg, d_fg = "#fef9c3", "#854d0e"
+            d_bg, d_fg = "#fefce8", "#854d0e"
         else:
             d_bg, d_fg = "#f1f5f9", "#475569"
         delta_html = (
@@ -339,7 +351,7 @@ def kpi_card(
 
     return (
         f"<div style='background:#ffffff; border:1px solid #e2e8f0; border-top:3.5px solid {accent_color}; "
-        f"border-radius:8px; padding:14px 16px 12px; box-shadow:0 1px 3px rgba(0,0,0,0.04); "
+        f"border-radius:8px; padding:14px 16px 12px; box-shadow:0 1px 3px rgba(15,43,92,0.05); "
         f"margin-bottom:8px; min-height:104px; display:flex; flex-direction:column; justify-content:space-between;'>"
         f"<div>"
         f"<div style='font-size:0.70rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.5px;'>"
