@@ -105,21 +105,18 @@ def render(active_date: str | None = None) -> None:
     sla_gates = config.evaluate_sla_gates(dhi_score, total, freshness_hrs, quar_pct, dbt_status, enrich_pct)
 
     # ── 1. Pipeline Health Status Banner ──────────────────────────────────────
-    _render_status_banner(sla_gates, snapshot_dt, total, dhi_score)
+    _render_status_banner(sla_gates, snapshot_dt, total, dhi_score, scraper)
 
-    # ── 2. Top-Level Executive KPI Cards ──────────────────────────────────────
-    fresh_badge = "Fresh" if (freshness_hrs is not None and freshness_hrs <= config.SLA_MAX_FRESHNESS_HOURS) else "Delayed"
-    fresh_color = "normal" if fresh_badge == "Fresh" else "amber"
-    fresh_val   = f"{freshness_hrs:.1f}h ago" if freshness_hrs is not None else "Active"
-
+    # ── 2. Top-Level Executive KPI Cards (4 Balanced Cards) ───────────────────
     dhi_label, dhi_delta_col = config.dhi_status(dhi_score)
+    ready_col = "#10b981" if silver_ready_pct >= 95 else "#f59e0b"
 
-    k1, k2, k3, k4, k5 = st.columns(5)
+    k1, k2, k3, k4 = st.columns(4)
 
     with k1:
         st.markdown(
             config.kpi_card(
-                title="Raw Ingested",
+                title="Raw Ingested (Bronze)",
                 value=f"{b_total:,}",
                 subtitle=b_sub,
                 accent_color="#0284c7",
@@ -131,7 +128,7 @@ def render(active_date: str | None = None) -> None:
     with k2:
         st.markdown(
             config.kpi_card(
-                title="Clean Conformed",
+                title="Clean Conformed (Silver)",
                 value=f"{total:,}",
                 subtitle=f"Snapshot: {snapshot_dt}",
                 delta=vol_delta_str,
@@ -145,20 +142,6 @@ def render(active_date: str | None = None) -> None:
     with k3:
         st.markdown(
             config.kpi_card(
-                title="Pipeline Freshness",
-                value=fresh_val,
-                subtitle=f"SLA target: < {config.SLA_MAX_FRESHNESS_HOURS:.0f}h",
-                delta=fresh_badge,
-                delta_color=fresh_color,
-                accent_color="#10b981" if fresh_badge == "Fresh" else "#f59e0b",
-                icon="⏱️",
-            ),
-            unsafe_allow_html=True,
-        )
-
-    with k4:
-        st.markdown(
-            config.kpi_card(
                 title="Data Health Index",
                 value=f"{dhi_score:.1f}%",
                 subtitle=f"Target: ≥ {config.SLA_MIN_DHI:.0f}% SLA",
@@ -170,11 +153,10 @@ def render(active_date: str | None = None) -> None:
             unsafe_allow_html=True,
         )
 
-    with k5:
-        ready_col = "#10b981" if silver_ready_pct >= 95 else "#f59e0b"
+    with k4:
         st.markdown(
             config.kpi_card(
-                title="Ready for Analysis",
+                title="Analysis-Ready Share",
                 value=f"{silver_ready_pct:.1f}%",
                 subtitle=f"{silver_ready_cnt:,} VALID + WARNING",
                 delta="Clean" if silver_ready_pct >= 95 else "Review",
@@ -187,7 +169,7 @@ def render(active_date: str | None = None) -> None:
 
     st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
 
-    # ── 3. Visual Row 1: Collection Trend + Quality Distribution ──────────────
+    # ── 3. Visual Row: Collection Trend + Quality Tier Breakdown ──────────────
     c_trend, c_pie = st.columns([3, 2], gap="medium")
 
     with c_trend:
@@ -212,34 +194,24 @@ def render(active_date: str | None = None) -> None:
 
     st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
 
-    # ── 4. Visual Row 2: Pipeline Funnel + Ingestion Batches ───────────────────
-    c_funnel, c_batches = st.columns([1, 1], gap="medium")
+    # ── 4. Detailed Operations & Lineage Tabs ─────────────────────────────────
+    tab_funnel, tab_dhi, tab_ledger = st.tabs([
+        "🔀 Medallion Conversion Funnel",
+        "🛡️ Data Health Index (DHI) Formula & Matrix",
+        "📦 Raw Bronze Partition Ledger",
+    ])
 
-    with c_funnel:
-        st.markdown(
-            config.section_header(
-                "MEDALLION PIPELINE FUNNEL",
-                "Record retention from raw Khmer24 scraper to conformed Silver dataset.",
-            ),
-            unsafe_allow_html=True,
-        )
+    with tab_funnel:
+        st.caption("Record retention progression from raw HTTP scraping to machine learning feature store.")
         _render_funnel(funnel_df)
 
-    with c_batches:
-        st.markdown(
-            config.section_header(
-                "RECENT INGESTION BATCHES",
-                "Latest raw Bronze partition files and scraper execution details.",
-            ),
-            unsafe_allow_html=True,
-        )
+    with tab_dhi:
+        st.caption("Transparent mathematical penalty weighting across all 5 Medallion quality tiers.")
+        _render_dhi_breakdown_matrix(total, valid_cnt, warning_cnt, susp_cnt, invalid_cnt, quar_cnt, dhi_score)
+
+    with tab_ledger:
+        st.caption("Inspection of individual raw daily Parquet batches collected by the scraper.")
         _render_batch_ledger(raw_summary, scraper)
-
-    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
-
-    # ── 5. SLA Contract Scorecard (Collapsible) ───────────────────────────────
-    with st.expander("📋 SLA Contract Compliance Scorecard & Gate Details", expanded=False):
-        _render_sla_scorecard(sla_gates)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -251,6 +223,7 @@ def _render_status_banner(
     snapshot_date: str,
     total: int,
     dhi_score: float,
+    scraper: dict,
 ) -> None:
     passed_count = sum(1 for g in sla_gates if g["passed"])
     total_gates = len(sla_gates)
@@ -259,12 +232,20 @@ def _render_status_banner(
     failed_gates = [g for g in sla_gates if not g["passed"]]
     critical_failures = [g for g in failed_gates if g.get("critical", False)]
 
+    last_run_ts = scraper.get("last_run", "Active")
+    if last_run_ts and len(str(last_run_ts)) >= 19:
+        last_run_str = str(last_run_ts)[:19].replace("T", " ") + " UTC"
+    else:
+        last_run_str = "Automated Pipeline Active"
+
+    duration_s = scraper.get("duration_seconds", 0.0)
+
     if all_passed:
         bg, bar, fg = "#f0fdf4", "#16a34a", "#166534"
-        badge = f"● ALL SYSTEMS OPERATIONAL — {total_gates}/{total_gates} GATES COMPLIANT"
+        badge = f"● ALL SYSTEMS OPERATIONAL — {total_gates}/{total_gates} SLA GATES COMPLIANT"
         msg = (
-            f"Silver layer conforming within SLA targets (DHI: {dhi_score:.1f}%). "
-            f"Active conformed records: {total:,} · Zero critical test contract failures."
+            f"Last Scraper Run: <b>{last_run_str}</b> ({duration_s:.1f}s) · "
+            f"Active Conformed: <b>{total:,} records</b> · Zero critical test contract failures."
         )
     elif critical_failures:
         bg, bar, fg = "#fef2f2", "#dc2626", "#991b1b"
@@ -298,6 +279,71 @@ def _render_status_banner(
         f"</div>",
         unsafe_allow_html=True,
     )
+
+
+def _render_dhi_breakdown_matrix(
+    total: int,
+    valid: int,
+    warn: int,
+    susp: int,
+    inv: int,
+    quar: int,
+    dhi_score: float,
+) -> None:
+    """Renders transparent breakdown of Data Health Index (DHI) penalty matrix."""
+    w_q = config.DHI_WEIGHTS.get("quarantined", 1.0)
+    w_i = config.DHI_WEIGHTS.get("invalid", 0.7)
+    w_s = config.DHI_WEIGHTS.get("suspicious", 0.3)
+    w_w = config.DHI_WEIGHTS.get("warning", 0.03)
+
+    p_quar = (100.0 * quar / total) * w_q if total > 0 else 0.0
+    p_inv  = (100.0 * inv / total) * w_i if total > 0 else 0.0
+    p_susp = (100.0 * susp / total) * w_s if total > 0 else 0.0
+    p_warn = (100.0 * warn / total) * w_w if total > 0 else 0.0
+
+    pct_val  = round(100.0 * valid / total, 1) if total > 0 else 0.0
+    pct_warn = round(100.0 * warn / total, 1) if total > 0 else 0.0
+    pct_susp = round(100.0 * susp / total, 2) if total > 0 else 0.0
+    pct_inv  = round(100.0 * inv / total, 2) if total > 0 else 0.0
+    pct_quar = round(100.0 * quar / total, 2) if total > 0 else 0.0
+
+    col_formula, col_table = st.columns([2, 3], gap="medium")
+
+    with col_formula:
+        st.markdown(
+            f"""
+            <div style='background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:14px;'>
+                <div style='font-size:0.75rem; font-weight:800; color:#1e3a8a; text-transform:uppercase;'>DHI Mathematical Formula</div>
+                <div style='font-family:monospace; font-size:0.80rem; background:#ffffff; border:1px solid #cbd5e1;
+                            border-radius:4px; padding:8px 10px; margin:8px 0; color:#0f172a;'>
+                    DHI = 100 - [ 1.0·%Quarantine + 0.7·%Invalid + 0.3·%Suspicious + 0.03·%Warning ]
+                </div>
+                <div style='font-size:0.74rem; color:#64748b; line-height:1.4;'>
+                    <b>Domain Grounding:</b> Warning penalty is set to <b>0.03</b> (3% weight) to account for Cambodia's
+                    marketplace norm where ~85% of listings omit optional mileage, while critical attributes (Price, Year, Brand) remain 100% valid.
+                </div>
+                <div style='margin-top:10px; padding-top:8px; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;'>
+                    <span style='font-weight:700; font-size:0.80rem; color:#0f172a;'>Calculated DHI Score:</span>
+                    <span style='font-weight:900; font-size:1.1rem; color:#10b981;'>{dhi_score:.2f}%</span>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    with col_table:
+        breakdown_data = [
+            {"Quality Tier": "🟢 VALID (Fully Conformed)", "Records": f"{valid:,}", "Share (%)": f"{pct_val:.1f}%", "Penalty Weight": "0.00x", "Net DHI Deduction": "0.00%"},
+            {"Quality Tier": "🟡 WARNING (Optional Specs Sparse)", "Records": f"{warn:,}", "Share (%)": f"{pct_warn:.1f}%", "Penalty Weight": f"{w_w:.2f}x", "Net DHI Deduction": f"-{p_warn:.2f}%"},
+            {"Quality Tier": "🟠 SUSPICIOUS (Review Flagged)", "Records": f"{susp:,}", "Share (%)": f"{pct_susp:.2f}%", "Penalty Weight": f"{w_s:.2f}x", "Net DHI Deduction": f"-{p_susp:.2f}%"},
+            {"Quality Tier": "🔴 INVALID (Broken Core Data)", "Records": f"{inv:,}", "Share (%)": f"{pct_inv:.2f}%", "Penalty Weight": f"{w_i:.2f}x", "Net DHI Deduction": f"-{p_inv:.2f}%"},
+            {"Quality Tier": "⚫ QUARANTINED (Spam/Non-Car)", "Records": f"{quar:,}", "Share (%)": f"{pct_quar:.2f}%", "Penalty Weight": f"{w_q:.2f}x", "Net DHI Deduction": f"-{p_quar:.2f}%"},
+        ]
+        st.dataframe(
+            pd.DataFrame(breakdown_data),
+            hide_index=True,
+            use_container_width=True,
+        )
 
 
 def _render_collection_trend(bronze_df: pd.DataFrame, quality_df: pd.DataFrame) -> None:

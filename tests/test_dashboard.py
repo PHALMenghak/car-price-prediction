@@ -42,6 +42,15 @@ def test_data_loader_manifest_and_dbt():
         assert dbt_status["pass_rate_pct"] == 100.0
 
 
+def test_load_scraper_health():
+    health = data_loader.load_scraper_health()
+    assert isinstance(health, dict)
+    assert "status" in health
+    assert "last_run" in health
+    assert "schema_ok" in health
+    assert health["status"] in ("Healthy", "Degraded", "Critical")
+
+
 def test_quality_summary_and_dates():
     dates = data_loader.load_available_dates()
     assert isinstance(dates, list)
@@ -283,4 +292,47 @@ def test_generate_markdown_report():
     assert isinstance(report, str)
     assert "Analysis-Ready" in report
     assert "Data Health Index" in report
+
+
+def test_market_intelligence_queries():
+    # Test market KPIs
+    kpis = data_loader.load_market_kpis()
+    assert isinstance(kpis, dict)
+    if kpis:
+        assert "median_price" in kpis
+        assert "distinct_models" in kpis
+        assert kpis["median_price"] > 0
+
+    # Test vintage price curves (sample size gated N >= 30)
+    curves = data_loader.load_vintage_price_curves(min_model_samples=30)
+    assert isinstance(curves, pd.DataFrame)
+    if not curves.empty:
+        assert "full_model_name" in curves.columns
+        assert "median_price" in curves.columns
+        assert "sample_size" in curves.columns
+        assert (curves["sample_size"] >= 3).all()
+
+    # Test regional pricing
+    regional = data_loader.load_regional_pricing()
+    assert isinstance(regional, pd.DataFrame)
+    if not regional.empty:
+        assert "province" in regional.columns
+        assert "sample_size" in regional.columns
+        assert "median_price" in regional.columns
+
+    # Test tax documentation comparison
+    tax_gap = data_loader.load_tax_type_comparison()
+    assert isinstance(tax_gap, pd.DataFrame)
+    if not tax_gap.empty:
+        assert "vehicle_model" in tax_gap.columns
+        assert "tax_status" in tax_gap.columns
+        assert "median_price" in tax_gap.columns
+
+    # Test market share breakdown
+    shares = data_loader.load_market_share_breakdown()
+    assert isinstance(shares, dict)
+    if shares:
+        assert "brands" in shares
+        assert "body_types" in shares
+        assert "fuels" in shares
 

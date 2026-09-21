@@ -1,25 +1,9 @@
 """
-dashboard/data_loader.py
-========================
-Public facade for all analytical DuckDB queries.
-
-Architecture:
-    This file serves as a backwards-compatible entry point re-exporting domain query
-    modules from `dashboard.queries.*`:
-      - `dashboard.queries.base`             (connection pool, parquet paths, constants)
-      - `dashboard.queries.core_queries`     (pipeline manifest, dbt health, dates)
-      - `dashboard.queries.quality_queries`  (waterfall, DHI, audit sample, anomalies)
-      - `dashboard.queries.pipeline_queries` (bronze volume, scraper health, deduplication)
-      - `dashboard.queries.cleaning_queries` (missingness trends, conformed comparison)
-      - `dashboard.queries.feature_queries`  (ML feature matrix, distributions, correlation)
-      - `dashboard.queries.report_queries`   (executive markdown audit report)
-
-All results remain cached for 1 hour via @st.cache_data.
+dashboard/queries/__init__.py
+=============================
+Domain-driven analytical query package for Cambodian Car Data Quality Center.
 """
 
-from __future__ import annotations
-
-# Re-export base infrastructure & constants
 from dashboard.queries.base import (
     _BRONZE_DIR,
     _HERE,
@@ -32,32 +16,6 @@ from dashboard.queries.base import (
     MANIFEST_PATH,
     SILVER_PATH,
 )
-
-# Re-export Core queries
-from dashboard.queries.core_queries import (
-    load_available_dates,
-    load_dbt_test_status,
-    load_manifest,
-)
-
-# Re-export Quality queries
-from dashboard.queries.quality_queries import (
-    load_audit_sample,
-    load_price_year_anomaly_sample,
-    load_quality_summary,
-    load_top_reasons,
-)
-
-# Re-export Pipeline queries
-from dashboard.queries.pipeline_queries import (
-    load_bronze_volume,
-    load_duplicate_stats,
-    load_pipeline_funnel,
-    load_raw_ingestion_summary,
-    load_scraper_health,
-)
-
-# Re-export Cleaning & Transformation queries
 from dashboard.queries.cleaning_queries import (
     load_cleaning_impact_stats,
     load_cleaning_rules_summary,
@@ -65,8 +23,11 @@ from dashboard.queries.cleaning_queries import (
     load_daily_missingness_trend,
     load_raw_vs_conformed_comparison,
 )
-
-# Re-export Feature Profiling & ML queries
+from dashboard.queries.core_queries import (
+    load_available_dates,
+    load_dbt_test_status,
+    load_manifest,
+)
 from dashboard.queries.feature_queries import (
     load_categorical_cardinality,
     load_categorical_distribution,
@@ -76,8 +37,19 @@ from dashboard.queries.feature_queries import (
     load_ml_leakage_audit,
     load_ml_readiness,
 )
-
-# Re-export Market Intelligence queries
+from dashboard.queries.pipeline_queries import (
+    load_bronze_volume,
+    load_duplicate_stats,
+    load_pipeline_funnel,
+    load_raw_ingestion_summary,
+    load_scraper_health,
+)
+from dashboard.queries.quality_queries import (
+    load_audit_sample,
+    load_price_year_anomaly_sample,
+    load_quality_summary,
+    load_top_reasons,
+)
 from dashboard.queries.market_queries import (
     load_market_kpis,
     load_market_share_breakdown,
@@ -85,14 +57,12 @@ from dashboard.queries.market_queries import (
     load_tax_type_comparison,
     load_vintage_price_curves,
 )
-
-# Re-export Reporting queries
 from dashboard.queries.report_queries import (
     generate_markdown_report,
 )
 
 __all__ = [
-    # Paths & infrastructure
+    # Base & connection
     "_con",
     "SILVER_PATH",
     "BRONZE_GLOB",
@@ -122,6 +92,12 @@ __all__ = [
     "load_cleaning_impact_stats",
     "load_raw_vs_conformed_comparison",
     "load_cleaning_rules_summary",
+    # Market Intelligence
+    "load_market_kpis",
+    "load_vintage_price_curves",
+    "load_regional_pricing",
+    "load_tax_type_comparison",
+    "load_market_share_breakdown",
     # Features
     "load_ml_readiness",
     "load_ml_leakage_audit",

@@ -113,18 +113,18 @@ from dashboard.data_loader import (
     load_quality_summary,
 )
 from dashboard.views import (
-    cleaning_transformation,
     data_quality_monitoring,
     executive_pulse,
     feature_profiling,
+    market_intelligence,
 )
 
-# ── Streamlined 4-Page Catalog ────────────────────────────────────────────────
+# ── Streamlined Catalog ───────────────────────────────────────────────────────
 PAGES = {
-    "Overview & Collection":     "📊",
-    "Cleaning & Transformation": "🔧",
-    "Data Quality & Anomalies":  "🛡️",
-    "Feature Profiling":         "📈",
+    "Overview & Collection":         "📊",
+    "Data Quality & Lineage":        "🛡️",
+    "Market Intelligence & Pricing": "📈",
+    "Feature Profiling":             "🔬",
 }
 
 # ── Initialize session state ──────────────────────────────────────────────────
@@ -256,7 +256,7 @@ st.markdown(f"""
                 {icon} &nbsp;{page}
             </h1>
             <p style='color:#64748b; margin:3px 0 0 0; font-size:0.82rem;'>
-                <b>Bronze → Silver</b> | Data Pipeline Observability &amp; Quality Assurance &nbsp;·&nbsp; Khmer24 Marketplace
+                <b>Bronze → Silver → Gold</b> | Data Pipeline Observability, Quality Assurance &amp; Market Analytics &nbsp;·&nbsp; Khmer24 Marketplace
             </p>
         </div>
         <div style='display:flex; gap:10px; align-items:center; flex-wrap:wrap;'>
@@ -277,10 +277,10 @@ st.markdown(f"""
 # ── Page Router ───────────────────────────────────────────────────────────────
 if page == "Overview & Collection":
     executive_pulse.render(active_date)
-elif page == "Cleaning & Transformation":
-    cleaning_transformation.render(active_date)
-elif page == "Data Quality & Anomalies":
+elif page == "Data Quality & Lineage":
     data_quality_monitoring.render(active_date)
+elif page == "Market Intelligence & Pricing":
+    market_intelligence.render(active_date)
 elif page == "Feature Profiling":
     feature_profiling.render(active_date)
 else:
@@ -291,7 +291,7 @@ else:
 st.divider()
 st.markdown(
     "<p style='text-align:center; color:#94a3b8; font-size:0.72rem;'>"
-    "Cambodian Car Data Quality Center &nbsp;·&nbsp; Bronze → Silver Pipeline Monitoring &nbsp;·&nbsp; "
+    "Cambodian Car Data Quality Center &nbsp;·&nbsp; Bronze → Silver → Gold Pipeline Monitoring &nbsp;·&nbsp; "
     "Built with Streamlit, DuckDB &amp; dbt Core &nbsp;·&nbsp; "
     "<a href='https://github.com/PHALMenghak/car-price-prediction' style='color:#94a3b8;'>GitHub Repository</a>"
     "</p>",
