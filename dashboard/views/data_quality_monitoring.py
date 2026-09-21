@@ -79,14 +79,20 @@ def render(active_date: str | None = None) -> None:
         )
 
     with k2:
+        sparse_pct = 85.6
+        if not detail_df.empty:
+            sparse_row = detail_df[detail_df["field"] == "vehicle_mileage_km"]
+            if not sparse_row.empty and "null_pct" in sparse_row.columns:
+                sparse_pct = float(sparse_row["null_pct"].iloc[0])
+
         st.markdown(
             config.kpi_card(
                 title="Marketplace Missingness",
-                value="~86% Sparse",
+                value=f"{sparse_pct:.1f}% Sparse",
                 subtitle="Mileage & Engine omitted by sellers",
                 delta="Market Norm",
                 delta_color="amber",
-                accent_color="#f59e0b",
+                accent_color="#c59b27",
                 icon="📊",
             ),
             unsafe_allow_html=True,
@@ -309,27 +315,47 @@ def _render_price_year_scatter(active_date: str | None) -> None:
 
 def _render_audit_drilldown(active_date: str | None) -> None:
     """Render full side-by-side Lineage & Anomaly Audit Registry."""
-    # 1. Preset filter quick buttons
+    # 1. Preset filter quick buttons with live counts
+    q_df = load_quality_summary()
+    if not q_df.empty:
+        if active_date:
+            q_match = q_df[q_df["scrape_date"] == active_date]
+            row_stat = q_match.iloc[0] if not q_match.empty else q_df.iloc[0]
+            tot_cnt = int(row_stat["total"])
+            quar_cnt = int(row_stat.get("quarantined", 0))
+            susp_cnt = int(row_stat.get("suspicious", 0))
+            inv_cnt = int(row_stat.get("invalid", 0))
+            val_cnt = int(row_stat.get("valid", 0))
+        else:
+            tot_cnt = int(q_df["total"].sum())
+            quar_cnt = int(q_df["quarantined"].sum())
+            susp_cnt = int(q_df["suspicious"].sum())
+            inv_cnt = int(q_df["invalid"].sum())
+            val_cnt = int(q_df["valid"].sum())
+        flagged_cnt = quar_cnt + susp_cnt + inv_cnt
+    else:
+        flagged_cnt, quar_cnt, susp_cnt, val_cnt, tot_cnt = 551, 4, 307, 7659, 8210
+
+    opt_flagged = f"⚠️ Flagged ({flagged_cnt:,})"
+    opt_quar    = f"🔴 Quarantined ({quar_cnt:,})"
+    opt_susp    = f"🟡 Suspicious ({susp_cnt:,})"
+    opt_clean   = f"🟢 Clean ({val_cnt:,})"
+    opt_all     = f"🌐 All Records ({tot_cnt:,})"
+
     preset_choice = st.radio(
         "Audit Presets:",
-        options=[
-            "⚠️ Flagged (Quarantined + Invalid + Suspicious)",
-            "🔴 Quarantined Spam Traps",
-            "🟡 Suspicious & Price Outliers",
-            "🟢 Clean & Conformed Only",
-            "🌐 All Records",
-        ],
+        options=[opt_flagged, opt_quar, opt_susp, opt_clean, opt_all],
         horizontal=True,
         index=0,
-        help="Quickly load specific data quality scenarios.",
+        help="Quickly load specific data quality scenarios with live record counts.",
     )
 
     preset_map = {
-        "⚠️ Flagged (Quarantined + Invalid + Suspicious)": ["QUARANTINED", "INVALID", "SUSPICIOUS"],
-        "🔴 Quarantined Spam Traps": ["QUARANTINED"],
-        "🟡 Suspicious & Price Outliers": ["SUSPICIOUS"],
-        "🟢 Clean & Conformed Only": ["VALID"],
-        "🌐 All Records": ["ALL"],
+        opt_flagged: ["QUARANTINED", "INVALID", "SUSPICIOUS"],
+        opt_quar:    ["QUARANTINED"],
+        opt_susp:    ["SUSPICIOUS"],
+        opt_clean:   ["VALID"],
+        opt_all:     ["ALL"],
     }
     selected_statuses = preset_map.get(preset_choice, ["QUARANTINED", "INVALID", "SUSPICIOUS"])
 

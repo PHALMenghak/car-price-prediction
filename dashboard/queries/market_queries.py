@@ -87,7 +87,8 @@ def load_vintage_price_curves(min_model_samples: int = 30, scrape_date: str | No
     if not os.path.exists(target_path):
         return pd.DataFrame()
 
-    date_filter = f"AND CAST(scrape_date AS VARCHAR) = '{scrape_date}'" if scrape_date else ""
+    date_filter = f"AND CAST(t.scrape_date AS VARCHAR) = '{scrape_date}'" if scrape_date else ""
+    min_year_cnt = 1 if scrape_date else 3
 
     con = _con()
     try:
@@ -101,7 +102,6 @@ def load_vintage_price_curves(min_model_samples: int = 30, scrape_date: str | No
                 WHERE price >= 500 AND price <= 300000
                   AND vehicle_year >= 1995 AND vehicle_year <= 2026
                   AND vehicle_model IS NOT NULL AND vehicle_model != ''
-                  {date_filter}
                 GROUP BY vehicle_brand, vehicle_model
                 HAVING COUNT(*) >= {min_model_samples}
             ),
@@ -126,7 +126,7 @@ def load_vintage_price_curves(min_model_samples: int = 30, scrape_date: str | No
                   AND t.vehicle_year >= 1995 AND t.vehicle_year <= 2026
                   {date_filter}
                 GROUP BY t.vehicle_brand, t.vehicle_model, q.model_total_count, t.vehicle_year
-                HAVING COUNT(*) >= 3
+                HAVING COUNT(*) >= {min_year_cnt}
             )
             SELECT *
             FROM model_year_stats
