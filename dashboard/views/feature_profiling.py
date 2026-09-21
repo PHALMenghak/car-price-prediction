@@ -212,7 +212,7 @@ def render(active_date: str | None = None) -> None:
                 st.plotly_chart(fig_b, use_container_width=True)
 
             st.caption(
-                f"ℹ️ Outliers highlighted in the box plot are statistical outliers beyond $1.5 \\times \\text{IQR}$. "
+                "ℹ️ Outliers highlighted in the box plot are statistical outliers beyond 1.5 × IQR. "
                 "These are valid high-end or older vehicles unless flagged by dbt data contract tests."
             )
         else:
