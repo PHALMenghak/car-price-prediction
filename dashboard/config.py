@@ -1,15 +1,14 @@
 """
 dashboard/config.py
 ===================
-Central configuration: thresholds, colors, and chart helpers.
+Central configuration: thresholds, colors, chart helpers, and KPI card components.
 Imported by all view modules and app.py.
 """
 
 # ── Data Quality Thresholds ───────────────────────────────────────────────────
-# Missingness severity thresholds (configurable)
 MISSING_THRESHOLDS = {
     "good":     5.0,    # < 5% missing → Good
-    "warning":  20.0,   # 5–20% missing → Warning
+    "warning":  20.0,   # 5-20% missing → Warning
     # > 20% → Critical
 }
 
@@ -81,8 +80,7 @@ DHI_WEIGHTS = {
     "warning":     0.03,
 }
 
-# ── Quality Status System (GDDE Standard) ───────────────────────────────────
-# Record-level status (dbt int_cars_cleaned output)
+# ── Quality Status System (GDDE Standard) ────────────────────────────────────
 STATUS_COLORS = {
     "VALID":       "#059669",   # GDDE verified emerald
     "WARNING":     "#c59b27",   # Cambodian royal gold
@@ -133,7 +131,7 @@ def evaluate_sla_gates(
         {
             "id": "dhi",
             "name": "Data Health Index",
-            "target": f"≥ {SLA_MIN_DHI:.0f}%",
+            "target": f">= {SLA_MIN_DHI:.0f}%",
             "passed": dhi_ok,
             "actual": f"{dhi_score:.1f}%",
             "critical": True,
@@ -141,7 +139,7 @@ def evaluate_sla_gates(
         {
             "id": "volume",
             "name": "Daily Ingestion SLA",
-            "target": f"≥ {SLA_MIN_RECORDS_PER_DAY:,}",
+            "target": f">= {SLA_MIN_RECORDS_PER_DAY:,}",
             "passed": vol_ok,
             "actual": f"{total:,} recs",
             "critical": False,
@@ -173,7 +171,7 @@ def evaluate_sla_gates(
         {
             "id": "enrichment",
             "name": "Detail Enrichment",
-            "target": f"≥ {SLA_MIN_DETAIL_ENRICH_PCT:.0f}%",
+            "target": f">= {SLA_MIN_DETAIL_ENRICH_PCT:.0f}%",
             "passed": enrich_ok,
             "actual": f"{enrich_pct:.1f}%" if enrich_pct is not None else "N/A",
             "critical": False,
@@ -198,7 +196,7 @@ SEVERITY_BG = {
     "INFO":     "#f0f9ff",
 }
 
-# ── Priority ordering for completeness table ───────────────────────────────────
+# ── Priority ordering for completeness table ──────────────────────────────────
 PRIORITY_ORDER = ["🔴 Critical", "🟠 High", "🟡 Medium", "🟢 Low"]
 
 # ── GDDE Institutional Theme & Chart Colors ───────────────────────────────────
@@ -227,19 +225,30 @@ CHART_COLORS = [
     "#dc2626",  # Alert Red
 ]
 
+# ── Standard Chart Height Constants ──────────────────────────────────────────
+CHART_H_SMALL   = 260   # mini charts in dense 3-col layouts
+CHART_H_MEDIUM  = 340   # standard single or dual-column charts
+CHART_H_LARGE   = 420   # full-width or featured charts
+CHART_H_SCATTER = 480   # scatter plots (need more vertical space)
+CHART_H_TREND   = 300   # compact time-series trend lines
+
 
 def apply_plot_theme(
     fig,
     height: int = 320,
     show_legend: bool = True,
     legend_orientation: str = "h",
+    xaxis_title: str = "",
+    yaxis_title: str = "",
+    title: str = "",
 ) -> None:
     """
     Applies unified professional chart styling:
     clean white backgrounds, subtle gridlines, Inter font.
+    Optional axis labels and title to reduce update_layout() repetition.
     """
     bottom_margin = 42 if (show_legend and legend_orientation == "h") else 14
-    fig.update_layout(
+    layout_kwargs: dict = dict(
         font=dict(
             family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
             size=12,
@@ -248,9 +257,18 @@ def apply_plot_theme(
         plot_bgcolor="rgba(0,0,0,0)",
         paper_bgcolor="rgba(0,0,0,0)",
         height=height,
-        margin=dict(l=12, r=16, t=28, b=bottom_margin),
+        margin=dict(l=12, r=16, t=32 if title else 18, b=bottom_margin),
         showlegend=show_legend,
     )
+    if title:
+        layout_kwargs["title"] = dict(
+            text=title, font=dict(size=12, color="#334155"), x=0.0, xanchor="left"
+        )
+    if xaxis_title:
+        layout_kwargs["xaxis_title"] = xaxis_title
+    if yaxis_title:
+        layout_kwargs["yaxis_title"] = yaxis_title
+    fig.update_layout(**layout_kwargs)
     if show_legend:
         if legend_orientation == "h":
             fig.update_layout(
@@ -326,8 +344,14 @@ def kpi_card(
     delta_color: str = "normal",
     accent_color: str = "#0f2b5c",
     icon: str = "",
+    trend: str = "",
+    trend_up: bool | None = None,
 ) -> str:
-    """Render a clean, high-impact executive KPI card with modern typography."""
+    """
+    Render a clean, high-impact executive KPI card with modern typography.
+    trend: optional trend indicator string e.g. '▲ 3.2%' or '▼ 1.1%'
+    trend_up: True = green, False = red, None = neutral gray
+    """
     delta_html = ""
     if delta:
         if delta_color == "normal":
@@ -341,6 +365,14 @@ def kpi_card(
         delta_html = (
             f"<span style='background:{d_bg}; color:{d_fg}; padding:2px 7px; "
             f"border-radius:4px; font-size:0.72rem; font-weight:700; margin-left:6px;'>{delta}</span>"
+        )
+
+    trend_html = ""
+    if trend:
+        t_color = "#059669" if trend_up is True else "#dc2626" if trend_up is False else "#64748b"
+        trend_html = (
+            f"<span style='font-size:0.72rem; color:{t_color}; font-weight:700; "
+            f"margin-left:6px;'>{trend}</span>"
         )
 
     icon_html = f"<span style='margin-right:4px;'>{icon}</span>" if icon else ""
@@ -359,7 +391,7 @@ def kpi_card(
         f"</div>"
         f"<div style='display:flex; align-items:baseline; margin-top:4px; flex-wrap:wrap; gap:4px;'>"
         f"<span style='font-size:1.75rem; font-weight:800; color:#0f172a; line-height:1.15;'>{value}</span>"
-        f"{delta_html}"
+        f"{delta_html}{trend_html}"
         f"</div>"
         f"</div>"
         f"{sub_html}"
@@ -367,10 +399,20 @@ def kpi_card(
     )
 
 
-# ── Backward-compatibility aliases (used by data_loader.py) ───────────────────
+def insight_card(icon: str, text: str, color: str = "#0284c7") -> str:
+    """Render a styled auto-insight callout card (data-driven, no hard-coded values)."""
+    bg = color + "0f"  # 6% opacity background tint
+    return (
+        f"<div style='background:{bg}; border:1px solid {color}30; border-left:3px solid {color}; "
+        f"border-radius:6px; padding:8px 12px; margin-bottom:8px; font-size:0.80rem; color:#1e293b;'>"
+        f"<span style='margin-right:6px;'>{icon}</span>{text}"
+        f"</div>"
+    )
+
+
+# ── Backward-compatibility aliases ────────────────────────────────────────────
 STATUS_EMOJI = STATUS_DOT  # original name → alias for STATUS_DOT
 
-# ML constants kept for forward-compatibility (Gold/ML layer — not yet implemented)
 ML_CRITICAL_FEATURES = [
     "vehicle_brand", "vehicle_model", "vehicle_year", "vehicle_age",
     "province", "brand_tier", "seller_type", "price",

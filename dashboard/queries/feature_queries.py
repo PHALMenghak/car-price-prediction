@@ -6,7 +6,6 @@ Day-0 ML feature store profiling, leakage prevention audit, distributions, and c
 from __future__ import annotations
 
 import os
-import numpy as np
 import pandas as pd
 import streamlit as st
 
@@ -211,7 +210,7 @@ def load_feature_numeric_stats(target_dataset: str = "silver", scrape_date: str 
                 WITH unpivoted AS (
                     SELECT 'price' AS feature, price AS val FROM read_parquet('{path}') WHERE price > 0 {date_filter}
                     UNION ALL
-                    SELECT 'log_price', LN(1.0 + price) FROM read_parquet('{path}') WHERE price > 0 {date_filter}
+                    SELECT 'log_price', LN(price) FROM read_parquet('{path}') WHERE price > 0 {date_filter}
                     UNION ALL
                     SELECT 'vehicle_year', CAST(vehicle_year AS DOUBLE) FROM read_parquet('{path}') WHERE vehicle_year IS NOT NULL {date_filter}
                     UNION ALL
@@ -367,11 +366,14 @@ def load_feature_distribution_sample(target_dataset: str = "silver", limit: int 
                     price,
                     log_price,
                     vehicle_age,
-                    vehicle_mileage_km,
-                    vehicle_engine_cc,
                     brand_category AS brand_tier,
                     vehicle_body_type,
-                    vehicle_fuel_type
+                    vehicle_fuel_type,
+                    vehicle_transmission,
+                    vehicle_color,
+                    vehicle_condition,
+                    is_plate_number,
+                    has_full_option
                 FROM read_parquet('{path}')
                 ORDER BY RANDOM()
                 LIMIT {limit}
@@ -380,7 +382,7 @@ def load_feature_distribution_sample(target_dataset: str = "silver", limit: int 
             df = con.execute(f"""
                 SELECT
                     price,
-                    LN(1.0 + price) AS log_price,
+                    LN(price) AS log_price,
                     vehicle_year,
                     GREATEST(date_part('year', scrape_date) - vehicle_year, 0) AS vehicle_age,
                     vehicle_mileage_km,
@@ -416,8 +418,6 @@ def load_feature_correlation_matrix() -> pd.DataFrame:
                 price,
                 log_price,
                 vehicle_age,
-                COALESCE(vehicle_mileage_km, 0) AS mileage_km,
-                COALESCE(vehicle_engine_cc, 0) AS engine_cc,
                 is_plate_number,
                 has_full_option
             FROM read_parquet('{GOLD_ML_PATH}')

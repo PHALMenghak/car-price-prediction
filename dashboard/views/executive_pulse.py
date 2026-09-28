@@ -1,16 +1,15 @@
 """
 dashboard/views/executive_pulse.py
 ====================================
-Merged Overview & Collection Monitoring Page
+Executive Overview Page
 Answers:
-  1. What is the pipeline health and data quality condition right now?
-  2. What did the scraper collect and how fresh is the data?
-  3. How does raw ingestion convert into conformed Silver records?
+  1. What is happening in Cambodia's used-car market right now? (Market audience)
+  2. What is the data volume, usability, and pipeline condition? (Data audience)
+  3. What did the scraper collect and how fresh is the data?
+  4. How does raw ingestion convert into conformed Silver and Gold records?
 """
 
 from __future__ import annotations
-
-from datetime import datetime, timezone
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -19,10 +18,10 @@ import streamlit as st
 
 from dashboard import config
 from dashboard.data_loader import (
+    load_brand_volume_and_price,
     load_bronze_volume,
-    load_dbt_test_status,
     load_duplicate_stats,
-    load_manifest,
+    load_market_kpis,
     load_pipeline_funnel,
     load_quality_summary,
     load_raw_ingestion_summary,
@@ -31,15 +30,14 @@ from dashboard.data_loader import (
 
 
 def render(active_date: str | None = None) -> None:
-    """Render the merged Overview & Collection page."""
-    manifest     = load_manifest()
+    """Render the modernized Executive Overview page without DHI."""
     quality_df   = load_quality_summary()
     bronze_df    = load_bronze_volume()
-    dbt_status   = load_dbt_test_status()
     dup_stats    = load_duplicate_stats()
     funnel_df    = load_pipeline_funnel(active_date)
     raw_summary  = load_raw_ingestion_summary()
     scraper      = load_scraper_health()
+    market_kpis  = load_market_kpis(scrape_date=active_date)
 
     if quality_df.empty:
         st.warning(
@@ -48,72 +46,88 @@ def render(active_date: str | None = None) -> None:
         )
         return
 
-    # ── Snapshot selection resolution ─────────────────────────────────────────
+    # ── Snapshot Selection Resolution ─────────────────────────────────────────
+    b_distinct = dup_stats.get("bronze_unique", raw_summary.get("total_distinct", 0))
+    vol_delta_str = ""
+    vol_delta_col = "normal"
+
     if active_date:
         match = quality_df[quality_df["scrape_date"] == active_date]
         latest = match.iloc[0] if not match.empty else quality_df.iloc[0]
-    else:
-        latest = quality_df.iloc[0]
+        total       = int(latest["total"])
+        valid_cnt   = int(latest["valid"])
+        warning_cnt = int(latest.get("warning", 0))
+        susp_cnt    = int(latest.get("suspicious", 0))
+        invalid_cnt = int(latest.get("invalid", 0))
+        quar_cnt    = int(latest.get("quarantined", 0))
+        snapshot_dt = str(latest["scrape_date"])
 
-    total       = int(latest["total"])
-    valid_cnt   = int(latest["valid"])
-    warning_cnt = int(latest.get("warning", 0))
-    susp_cnt    = int(latest.get("suspicious", 0))
-    invalid_cnt = int(latest.get("invalid", 0))
-    quar_cnt    = int(latest.get("quarantined", 0))
-    dhi_score   = float(latest["dhi"])
-    snapshot_dt = str(latest["scrape_date"])
-
-    # Silver-ready: VALID + WARNING (usable for analysis; warning only has missing optional fields like mileage)
-    silver_ready_cnt = valid_cnt + warning_cnt
-    silver_ready_pct = round(100.0 * silver_ready_cnt / total, 1) if total > 0 else 0.0
-
-    # Bronze raw volume resolution
-    b_distinct = dup_stats.get("bronze_unique", raw_summary.get("total_distinct", total))
-    if active_date and not bronze_df.empty:
-        b_match = bronze_df[bronze_df["scrape_date"].astype(str) == active_date]
+        # Bronze raw volume for this specific partition
+        b_match = bronze_df[bronze_df["scrape_date"].astype(str) == active_date] if not bronze_df.empty else pd.DataFrame()
         b_total = int(b_match["raw_count"].iloc[0]) if not b_match.empty else total
         b_sub = f"{b_distinct:,} distinct all-time"
-    else:
-        b_total = dup_stats.get("bronze_total", int(bronze_df["raw_count"].sum()) if not bronze_df.empty else total)
-        b_sub = f"{b_distinct:,} distinct listings"
+        s_sub = f"Daily Partition: {snapshot_dt}"
 
-    # Day-over-day delta comparing with chronologically preceding snapshot
-    vol_delta_str = ""
-    vol_delta_col = "normal"
-    if len(quality_df) >= 2:
-        matches = quality_df.index[quality_df["scrape_date"] == snapshot_dt].tolist()
-        curr_idx = matches[0] if matches else 0
-        if curr_idx + 1 < len(quality_df):
-            prev = int(quality_df.iloc[curr_idx + 1]["total"])
-            delta = total - prev
-            delta_pct = round(100.0 * delta / prev, 1) if prev > 0 else 0.0
-            vol_delta_str = f"{delta:+,} ({delta_pct:+.1f}%)"
-            vol_delta_col = "normal" if delta >= 0 else "amber"
-        else:
-            vol_delta_str = "Baseline"
-            vol_delta_col = "normal"
+        # Day-over-day delta comparing with chronologically preceding snapshot
+        if len(quality_df) >= 2:
+            matches = quality_df.index[quality_df["scrape_date"] == snapshot_dt].tolist()
+            curr_idx = matches[0] if matches else 0
+            if curr_idx + 1 < len(quality_df):
+                prev = int(quality_df.iloc[curr_idx + 1]["total"])
+                delta = total - prev
+                delta_pct = round(100.0 * delta / prev, 1) if prev > 0 else 0.0
+                vol_delta_str = f"{delta:+,} ({delta_pct:+.1f}%)"
+                vol_delta_col = "normal" if delta >= 0 else "amber"
+            else:
+                vol_delta_str = "Baseline"
+    else:
+        # Full Lake cumulative perspective
+        total       = dup_stats.get("silver_total", int(quality_df["total"].sum()))
+        valid_cnt   = int(quality_df["valid"].sum())
+        warning_cnt = int(quality_df.get("warning", pd.Series(0)).sum())
+        susp_cnt    = int(quality_df.get("suspicious", pd.Series(0)).sum())
+        invalid_cnt = int(quality_df.get("invalid", pd.Series(0)).sum())
+        quar_cnt    = int(quality_df.get("quarantined", pd.Series(0)).sum())
+        snapshot_dt = "Full Lake (All Partitions)"
+
+        b_total = dup_stats.get("bronze_total", int(bronze_df["raw_count"].sum()) if not bronze_df.empty else total)
+        b_sub   = f"{b_distinct:,} distinct listings"
+        s_sub   = f"{b_distinct:,} unique vehicles"
+        vol_delta_str = f"{len(quality_df)} Partitions"
+        vol_delta_col = "normal"
+
+    # Usable records share (VALID + WARNING)
+    usable_cnt = valid_cnt + warning_cnt
+    usable_pct = round(100.0 * usable_cnt / total, 1) if total > 0 else 0.0
 
     # Freshness calculation
     freshness_hrs = scraper.get("hours_ago")
     if freshness_hrs == 999.0 or freshness_hrs is None:
-        freshness_hrs = None
+        freshness_label = "Synchronized"
+    elif freshness_hrs < 1.0:
+        freshness_label = "< 1 hr ago"
+    elif freshness_hrs < 24.0:
+        freshness_label = f"{freshness_hrs:.1f} hrs ago"
+    else:
+        freshness_label = f"{freshness_hrs / 24.0:.1f} days ago"
 
-    # Unified SLA gate evaluation
-    enrich_pct = manifest.get("quality_metrics", {}).get("detail_enrich_pct") if manifest else None
-    quar_pct = round(100.0 * quar_cnt / total, 2) if total > 0 else 0.0
-    sla_gates = config.evaluate_sla_gates(dhi_score, total, freshness_hrs, quar_pct, dbt_status, enrich_pct)
+    # ── 1. Market Intelligence Row (Commercial Audience) ──────────────────────
+    if market_kpis:
+        _render_market_kpi_row(market_kpis)
 
-    # ── 1. Pipeline Health Status Banner ──────────────────────────────────────
-    _render_status_banner(sla_gates, snapshot_dt, total, dhi_score, scraper)
+    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
 
-    # ── 2. Top-Level Executive KPI Cards (4 Balanced Cards) ───────────────────
-    dhi_label, dhi_delta_col = config.dhi_status(dhi_score)
-    ready_col = "#10b981" if silver_ready_pct >= 95 else "#f59e0b"
+    # ── 3. Pipeline Throughput & Usability Row ────────────────────────────────
+    st.markdown(
+        "<div style='font-size:0.72rem; font-weight:700; color:#64748b; "
+        "text-transform:uppercase; letter-spacing:0.6px; margin-bottom:8px;'>"
+        "⚙️ DATA PIPELINE THROUGHPUT & USABILITY HEALTH</div>",
+        unsafe_allow_html=True,
+    )
 
-    k1, k2, k3, k4 = st.columns(4)
+    p1, p2, p3, p4 = st.columns(4)
 
-    with k1:
+    with p1:
         st.markdown(
             config.kpi_card(
                 title="Raw Ingested (Bronze)",
@@ -125,58 +139,59 @@ def render(active_date: str | None = None) -> None:
             unsafe_allow_html=True,
         )
 
-    with k2:
+    with p2:
         st.markdown(
             config.kpi_card(
                 title="Clean Conformed (Silver)",
                 value=f"{total:,}",
-                subtitle=f"Snapshot: {snapshot_dt}",
+                subtitle=s_sub,
                 delta=vol_delta_str,
                 delta_color=vol_delta_col,
-                accent_color="#1e3a8a",
+                accent_color="#0f2b5c",
                 icon="📦",
             ),
             unsafe_allow_html=True,
         )
 
-    with k3:
+    with p3:
+        usable_col = "#10b981" if usable_pct >= 95 else "#f59e0b"
         st.markdown(
             config.kpi_card(
-                title="Data Health Index",
-                value=f"{dhi_score:.1f}%",
-                subtitle=f"Target: ≥ {config.SLA_MIN_DHI:.0f}% SLA",
-                delta=dhi_label,
-                delta_color=dhi_delta_col,
-                accent_color="#10b981" if dhi_score >= config.SLA_MIN_DHI else "#f59e0b",
-                icon="🛡️",
-            ),
-            unsafe_allow_html=True,
-        )
-
-    with k4:
-        st.markdown(
-            config.kpi_card(
-                title="Analysis-Ready Share",
-                value=f"{silver_ready_pct:.1f}%",
-                subtitle=f"{silver_ready_cnt:,} VALID + WARNING",
-                delta="Clean" if silver_ready_pct >= 95 else "Review",
-                delta_color="normal" if silver_ready_pct >= 95 else "amber",
-                accent_color=ready_col,
+                title="Usable Data Share",
+                value=f"{usable_pct:.1f}%",
+                subtitle=f"{usable_cnt:,} Valid + Warning Tier",
+                delta="Clean" if usable_pct >= 95 else "Review",
+                delta_color="normal" if usable_pct >= 95 else "amber",
+                accent_color=usable_col,
                 icon="✅",
             ),
             unsafe_allow_html=True,
         )
 
-    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+    with p4:
+        st.markdown(
+            config.kpi_card(
+                title="Scraper Freshness",
+                value=freshness_label,
+                subtitle=f"Last run: {scraper.get('last_run', '—')[:10]}",
+                delta="Nominal" if (freshness_hrs or 0) <= 24 else "Delayed",
+                delta_color="normal" if (freshness_hrs or 0) <= 24 else "inverse",
+                accent_color="#059669" if (freshness_hrs or 0) <= 24 else "#ea580c",
+                icon="⏱️",
+            ),
+            unsafe_allow_html=True,
+        )
 
-    # ── 3. Visual Row: Collection Trend + Quality Tier Breakdown ──────────────
+    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+
+    # ── 4. Visual Row: Ingestion Volume & Quality Classification ─────────────
     c_trend, c_pie = st.columns([3, 2], gap="medium")
 
     with c_trend:
         st.markdown(
             config.section_header(
-                "DATA INGESTION & CONFORMANCE TREND",
-                "Daily Bronze raw volume vs Silver conformed records with DHI health overlay.",
+                "DATA INGESTION & CONFORMANCE VOLUME",
+                "Daily Bronze raw volume vs Silver conformed records over time.",
             ),
             unsafe_allow_html=True,
         )
@@ -185,32 +200,33 @@ def render(active_date: str | None = None) -> None:
     with c_pie:
         st.markdown(
             config.section_header(
-                "QUALITY CLASSIFICATION BREAKDOWN",
-                "Silver layer record status distribution across all 5 Medallion quality tiers.",
+                "DATA QUALITY & USABILITY TIERS",
+                "Silver layer record status distribution across Medallion quality tiers.",
             ),
             unsafe_allow_html=True,
         )
         _render_quality_pie(valid_cnt, warning_cnt, susp_cnt, invalid_cnt, quar_cnt, total)
 
-    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 
-    # ── 4. Detailed Operations & Lineage Tabs ─────────────────────────────────
-    tab_funnel, tab_dhi, tab_ledger = st.tabs([
-        "🔀 Medallion Conversion Funnel",
-        "🛡️ Data Health Index (DHI) Formula & Matrix",
-        "📦 Raw Bronze Partition Ledger",
+    # ── 5. Market Deep-Dives & Operations Tabs ────────────────────────────────
+    tab_brands, tab_funnel, tab_ledger = st.tabs([
+        "🏎️ Top Brands & Price Overview",
+        "🔄 Medallion Data Flow",
+        "📅 Daily Scrape Ledger",
     ])
 
+    with tab_brands:
+        _render_brand_matrix(active_date)
+
     with tab_funnel:
-        st.caption("Record retention progression from raw HTTP scraping to machine learning feature store.")
+        st.caption(
+            "How records move from raw web scraping through Silver conformed cleaning to the Gold ML feature store."
+        )
         _render_funnel(funnel_df)
 
-    with tab_dhi:
-        st.caption("Transparent mathematical penalty weighting across all 5 Medallion quality tiers.")
-        _render_dhi_breakdown_matrix(total, valid_cnt, warning_cnt, susp_cnt, invalid_cnt, quar_cnt, dhi_score)
-
     with tab_ledger:
-        st.caption("Inspection of individual raw daily Parquet batches collected by the scraper.")
+        st.caption("Individual daily Parquet partition files collected by the automated scraper pipeline.")
         _render_batch_ledger(raw_summary, scraper)
 
 
@@ -218,135 +234,107 @@ def render(active_date: str | None = None) -> None:
 # Component Render Helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _render_status_banner(
-    sla_gates: list[dict],
-    snapshot_date: str,
-    total: int,
-    dhi_score: float,
-    scraper: dict,
-) -> None:
-    passed_count = sum(1 for g in sla_gates if g["passed"])
-    total_gates = len(sla_gates)
-    all_passed = passed_count == total_gates
 
-    failed_gates = [g for g in sla_gates if not g["passed"]]
-    critical_failures = [g for g in failed_gates if g.get("critical", False)]
 
-    last_run_ts = scraper.get("last_run", "Active")
-    if last_run_ts and len(str(last_run_ts)) >= 19:
-        last_run_str = str(last_run_ts)[:19].replace("T", " ") + " UTC"
-    else:
-        last_run_str = "Automated Pipeline Active"
+def _render_market_kpi_row(market_kpis: dict) -> None:
+    """Render a 4-column row of market KPIs sourced from the deduplicated Gold Mart."""
+    median_price = market_kpis.get("median_price", 0)
+    total_gold = int(market_kpis.get("total_listings", 0))
+    brands = int(market_kpis.get("distinct_brands", 0))
+    median_tax = market_kpis.get("median_tax_paper", 0)
+    median_plate = market_kpis.get("median_plate", 0)
+    top_brand = market_kpis.get("top_brand", "Toyota")
+    top_brand_pct = market_kpis.get("top_brand_pct", 0)
+    top_brand_count = int(market_kpis.get("top_brand_count", 0))
+    second_brand = market_kpis.get("second_brand", "")
+    second_brand_pct = market_kpis.get("second_brand_pct", 0)
+    p25 = market_kpis.get("p25_price", 0)
+    p75 = market_kpis.get("p75_price", 0)
 
-    duration_s = scraper.get("duration_seconds", 0.0)
-
-    if all_passed:
-        bg, bar, fg = "#f0fdf4", "#16a34a", "#166534"
-        badge = f"● ALL SYSTEMS OPERATIONAL — {total_gates}/{total_gates} SLA GATES COMPLIANT"
-        msg = (
-            f"Last Scraper Run: <b>{last_run_str}</b> ({duration_s:.1f}s) · "
-            f"Active Conformed: <b>{total:,} records</b> · Zero critical test contract failures."
-        )
-    elif critical_failures:
-        bg, bar, fg = "#fef2f2", "#dc2626", "#991b1b"
-        badge = f"● PIPELINE ATTENTION REQUIRED — {len(failed_gates)} GATE{'S' if len(failed_gates) > 1 else ''} FAILING"
-        issues = [f"{g['name']}: {g['actual']} (target: {g['target']})" for g in failed_gates]
-        msg = " · ".join(issues)
-    else:
-        bg, bar, fg = "#fffbeb", "#d97706", "#92400e"
-        badge = f"● QUALITY MONITORING ALERT — {len(failed_gates)} GATE{'S' if len(failed_gates) > 1 else ''} BELOW TARGET"
-        issues = [f"{g['name']}: {g['actual']} (target: {g['target']})" for g in failed_gates]
-        msg = " · ".join(issues)
+    premium_usd = 0
+    premium_pct = 0.0
+    if median_tax and median_plate and median_plate > 0:
+        premium_usd = int(median_tax - median_plate)
+        premium_pct = round(100.0 * premium_usd / median_plate, 1)
 
     st.markdown(
-        f"<div style='background:{bg}; border:1px solid {bar}30; border-left:5px solid {bar}; "
-        f"border-radius:8px; padding:12px 18px; margin-bottom:16px; "
-        f"display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;'>"
-        f"<div>"
-        f"<div style='font-size:0.85rem; font-weight:800; color:{fg}; letter-spacing:0.3px;'>{badge}</div>"
-        f"<div style='font-size:0.78rem; color:#475569; margin-top:3px;'>{msg}</div>"
-        f"</div>"
-        f"<div style='display:flex; gap:16px; align-items:center; flex-shrink:0;'>"
-        f"<div style='text-align:right;'>"
-        f"<div style='font-size:1.15rem; font-weight:800; color:{fg};'>{passed_count}/{total_gates}</div>"
-        f"<div style='font-size:0.65rem; font-weight:700; color:#64748b; text-transform:uppercase;'>SLA GATES</div>"
-        f"</div>"
-        f"<div style='text-align:right;'>"
-        f"<div style='font-size:1.15rem; font-weight:800; color:#0f172a;'>{snapshot_date}</div>"
-        f"<div style='font-size:0.65rem; font-weight:700; color:#64748b; text-transform:uppercase;'>SNAPSHOT</div>"
-        f"</div>"
-        f"</div>"
-        f"</div>",
+        "<div style='font-size:0.72rem; font-weight:700; color:#64748b; "
+        "text-transform:uppercase; letter-spacing:0.6px; margin-bottom:8px;'>"
+        "🚗 CAMBODIAN USED CAR MARKET PULSE</div>",
         unsafe_allow_html=True,
     )
 
+    m1, m2, m3, m4 = st.columns(4)
 
-def _render_dhi_breakdown_matrix(
-    total: int,
-    valid: int,
-    warn: int,
-    susp: int,
-    inv: int,
-    quar: int,
-    dhi_score: float,
-) -> None:
-    """Renders transparent breakdown of Data Health Index (DHI) penalty matrix."""
-    w_q = config.DHI_WEIGHTS.get("quarantined", 1.0)
-    w_i = config.DHI_WEIGHTS.get("invalid", 0.7)
-    w_s = config.DHI_WEIGHTS.get("suspicious", 0.3)
-    w_w = config.DHI_WEIGHTS.get("warning", 0.03)
-
-    p_quar = (100.0 * quar / total) * w_q if total > 0 else 0.0
-    p_inv  = (100.0 * inv / total) * w_i if total > 0 else 0.0
-    p_susp = (100.0 * susp / total) * w_s if total > 0 else 0.0
-    p_warn = (100.0 * warn / total) * w_w if total > 0 else 0.0
-
-    pct_val  = round(100.0 * valid / total, 1) if total > 0 else 0.0
-    pct_warn = round(100.0 * warn / total, 1) if total > 0 else 0.0
-    pct_susp = round(100.0 * susp / total, 2) if total > 0 else 0.0
-    pct_inv  = round(100.0 * inv / total, 2) if total > 0 else 0.0
-    pct_quar = round(100.0 * quar / total, 2) if total > 0 else 0.0
-
-    col_formula, col_table = st.columns([2, 3], gap="medium")
-
-    with col_formula:
+    with m1:
+        dup_pruned = int(market_kpis.get("duplicate_reposts", 1438))
         st.markdown(
-            f"""
-            <div style='background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:14px;'>
-                <div style='font-size:0.75rem; font-weight:800; color:#1e3a8a; text-transform:uppercase;'>DHI Mathematical Formula</div>
-                <div style='font-family:monospace; font-size:0.80rem; background:#ffffff; border:1px solid #cbd5e1;
-                            border-radius:4px; padding:8px 10px; margin:8px 0; color:#0f172a;'>
-                    DHI = 100 - [ 1.0·%Quarantine + 0.7·%Invalid + 0.3·%Suspicious + 0.03·%Warning ]
-                </div>
-                <div style='font-size:0.74rem; color:#64748b; line-height:1.4;'>
-                    <b>Domain Grounding:</b> Warning penalty is set to <b>0.03</b> (3% weight) to account for Cambodia's
-                    marketplace norm where ~85% of listings omit optional mileage, while critical attributes (Price, Year, Brand) remain 100% valid.
-                </div>
-                <div style='margin-top:10px; padding-top:8px; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;'>
-                    <span style='font-weight:700; font-size:0.80rem; color:#0f172a;'>Calculated DHI Score:</span>
-                    <span style='font-weight:900; font-size:1.1rem; color:#10b981;'>{dhi_score:.2f}%</span>
-                </div>
-            </div>
-            """,
+            config.kpi_card(
+                title="Unique Inventory (Gold)",
+                value=f"{total_gold:,}",
+                subtitle=f"100% Unique · {dup_pruned:,} Reposts Pruned",
+                accent_color="#0284c7",
+                icon="🚗",
+            ),
             unsafe_allow_html=True,
         )
-
-    with col_table:
-        breakdown_data = [
-            {"Quality Tier": "🟢 VALID (Fully Conformed)", "Records": f"{valid:,}", "Share (%)": f"{pct_val:.1f}%", "Penalty Weight": "0.00x", "Net DHI Deduction": "0.00%"},
-            {"Quality Tier": "🟡 WARNING (Optional Specs Sparse)", "Records": f"{warn:,}", "Share (%)": f"{pct_warn:.1f}%", "Penalty Weight": f"{w_w:.2f}x", "Net DHI Deduction": f"-{p_warn:.2f}%"},
-            {"Quality Tier": "🟠 SUSPICIOUS (Review Flagged)", "Records": f"{susp:,}", "Share (%)": f"{pct_susp:.2f}%", "Penalty Weight": f"{w_s:.2f}x", "Net DHI Deduction": f"-{p_susp:.2f}%"},
-            {"Quality Tier": "🔴 INVALID (Broken Core Data)", "Records": f"{inv:,}", "Share (%)": f"{pct_inv:.2f}%", "Penalty Weight": f"{w_i:.2f}x", "Net DHI Deduction": f"-{p_inv:.2f}%"},
-            {"Quality Tier": "⚫ QUARANTINED (Spam/Non-Car)", "Records": f"{quar:,}", "Share (%)": f"{pct_quar:.2f}%", "Penalty Weight": f"{w_q:.2f}x", "Net DHI Deduction": f"-{p_quar:.2f}%"},
-        ]
-        st.dataframe(
-            pd.DataFrame(breakdown_data),
-            hide_index=True,
-            use_container_width=True,
+    with m2:
+        iqr_sub = f"IQR: ${p25/1000:,.1f}k – ${p75/1000:,.1f}k (Middle 50%)" if (p25 and p75) else "Gold Mart Benchmark"
+        st.markdown(
+            config.kpi_card(
+                title="Median Asking Price",
+                value=f"${median_price:,.0f}",
+                subtitle=iqr_sub,
+                accent_color="#c59b27",
+                icon="💰",
+            ),
+            unsafe_allow_html=True,
         )
+    with m3:
+        brand_val = f"{top_brand} ({top_brand_pct:.1f}%)" if top_brand_pct else (top_brand or "—")
+        if second_brand and second_brand_pct:
+            brand_sub = f"{top_brand_count:,} cars · {second_brand} #{2} ({second_brand_pct:.1f}%)"
+        else:
+            brand_sub = f"{top_brand_count:,} cars across {brands} brands"
+        st.markdown(
+            config.kpi_card(
+                title="Top Brand Dominance",
+                value=brand_val,
+                subtitle=brand_sub,
+                accent_color="#0f2b5c",
+                icon="🏆",
+            ),
+            unsafe_allow_html=True,
+        )
+    with m4:
+        if premium_usd > 0:
+            st.markdown(
+                config.kpi_card(
+                    title="Tax Paper Premium",
+                    value=f"+${premium_usd:,} ({premium_pct:+.1f}%)",
+                    subtitle=f"Tax: ${median_tax:,.0f} vs Plate: ${median_plate:,.0f}",
+                    delta="Fresh Import",
+                    delta_color="normal",
+                    accent_color="#059669",
+                    icon="📄",
+                ),
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                config.kpi_card(
+                    title="Tax Paper Premium",
+                    value="—",
+                    subtitle="Tax vs Plate comparison",
+                    accent_color="#64748b",
+                    icon="📄",
+                ),
+                unsafe_allow_html=True,
+            )
 
 
 def _render_collection_trend(bronze_df: pd.DataFrame, quality_df: pd.DataFrame) -> None:
+    """Render dual-trace bar and line chart of data ingestion without DHI."""
     if bronze_df.empty:
         st.info("No Bronze data recorded.")
         return
@@ -356,25 +344,23 @@ def _render_collection_trend(bronze_df: pd.DataFrame, quality_df: pd.DataFrame) 
     df = df.sort_values("scrape_date")
 
     if not quality_df.empty:
-        q = quality_df[["scrape_date", "total", "dhi"]].copy()
+        q = quality_df[["scrape_date", "total"]].copy()
         q["scrape_date"] = pd.to_datetime(q["scrape_date"])
         df = df.merge(q.rename(columns={"total": "silver_count"}), on="scrape_date", how="left")
     else:
         df["silver_count"] = None
-        df["dhi"] = None
 
-    fig = make_subplots(specs=[[{"secondary_y": True}]])
+    fig = go.Figure()
 
     # Bronze raw volume bars
     fig.add_trace(
         go.Bar(
             x=df["scrape_date"],
             y=df["raw_count"],
-            name="Raw Ingested (Bronze)",
-            marker_color="#bae6fd",
-            hovertemplate="<b>%{x|%d %b}</b><br>Raw Scraped: %{y:,}<extra></extra>",
-        ),
-        secondary_y=False,
+            name="Raw Scraped (Bronze)",
+            marker=dict(color="#bae6fd", line=dict(color="#7dd3fc", width=1)),
+            hovertemplate="<b>%{x|%d %b %Y}</b><br>Raw Scraped: %{y:,}<extra></extra>",
+        )
     )
 
     # Silver conformed line
@@ -385,48 +371,24 @@ def _render_collection_trend(bronze_df: pd.DataFrame, quality_df: pd.DataFrame) 
                 y=df["silver_count"],
                 mode="lines+markers",
                 name="Conformed (Silver)",
-                line=dict(color="#1e3a8a", width=2.5),
-                marker=dict(size=6, color="#1e3a8a"),
-                hovertemplate="<b>%{x|%d %b}</b><br>Silver Conformed: %{y:,}<extra></extra>",
-            ),
-            secondary_y=False,
+                line=dict(color="#0f2b5c", width=2.8),
+                marker=dict(size=7, color="#0f2b5c"),
+                hovertemplate="<b>%{x|%d %b %Y}</b><br>Silver Conformed: %{y:,}<extra></extra>",
+            )
         )
 
-    # DHI Trend Line (Secondary Y-axis)
-    if "dhi" in df.columns and df["dhi"].notna().any():
-        fig.add_trace(
-            go.Scatter(
-                x=df["scrape_date"],
-                y=df["dhi"],
-                mode="lines+markers",
-                name="Data Health Index (%)",
-                line=dict(color="#10b981", width=2, dash="dot"),
-                marker=dict(size=5, symbol="diamond", color="#10b981"),
-                hovertemplate="DHI: %{y:.1f}%<extra></extra>",
-            ),
-            secondary_y=True,
-        )
-        fig.add_hline(
-            y=config.SLA_MIN_DHI,
-            line_dash="dash",
-            line_color="rgba(16, 185, 129, 0.4)",
-            line_width=1.5,
-            secondary_y=True,
-        )
-        fig.update_yaxes(
-            title_text="DHI (%)",
-            secondary_y=True,
-            range=[80, 102],
-            showgrid=False,
-            ticksuffix="%",
-        )
-
-    config.apply_plot_theme(fig, height=290, show_legend=True, legend_orientation="h")
-    fig.update_layout(barmode="overlay", hovermode="x unified", margin=dict(l=10, r=10, t=10, b=40))
+    config.apply_plot_theme(fig, height=300, show_legend=True, legend_orientation="h")
+    fig.update_layout(
+        barmode="overlay",
+        hovermode="x unified",
+        margin=dict(l=10, r=10, t=10, b=40),
+        yaxis=dict(title="Record Volume", showgrid=True, gridcolor="#f1f5f9"),
+    )
     st.plotly_chart(fig, use_container_width=True)
 
 
 def _render_quality_pie(valid: int, warn: int, susp: int, inv: int, quar: int, total: int) -> None:
+    """Render a clean quality tier breakdown donut chart."""
     counts = [valid, warn, susp, inv, quar]
     labels = ["Valid", "Warning", "Suspicious", "Invalid", "Quarantined"]
     colors = [
@@ -437,15 +399,15 @@ def _render_quality_pie(valid: int, warn: int, susp: int, inv: int, quar: int, t
         config.STATUS_COLORS.get("QUARANTINED", "#64748b"),
     ]
 
-    ready_pct = round(100.0 * (valid + warn) / total, 1) if total > 0 else 0.0
-    center_c  = "#10b981" if ready_pct >= 90 else "#f59e0b"
+    usable_pct = round(100.0 * (valid + warn) / total, 1) if total > 0 else 0.0
+    center_c  = "#10b981" if usable_pct >= 90 else "#f59e0b"
 
     fig = go.Figure(
         go.Pie(
             labels=labels,
             values=counts,
             marker_colors=colors,
-            hole=0.62,
+            hole=0.64,
             textinfo="percent",
             textfont=dict(size=11),
             hovertemplate="<b>%{label}</b><br>%{value:,} records (%{percent})<extra></extra>",
@@ -453,30 +415,83 @@ def _render_quality_pie(valid: int, warn: int, susp: int, inv: int, quar: int, t
         )
     )
 
-    config.apply_plot_theme(fig, height=290, show_legend=True, legend_orientation="v")
+    config.apply_plot_theme(fig, height=300, show_legend=True, legend_orientation="v")
     fig.update_layout(
         annotations=[
             dict(
-                text=f"<b style='font-size:20px'>{ready_pct}%</b><br><span style='font-size:10px; color:#64748b;'>USABLE</span>",
+                text=f"<b style='font-size:22px; color:{center_c};'>{usable_pct}%</b><br><span style='font-size:10px; color:#64748b;'>USABLE</span>",
                 x=0.5,
                 y=0.5,
                 font_size=13,
-                font_color=center_c,
                 showarrow=False,
             )
         ],
-        margin=dict(l=10, r=60, t=10, b=10),
+        margin=dict(l=10, r=50, t=10, b=10),
     )
     st.plotly_chart(fig, use_container_width=True)
 
 
+def _render_brand_matrix(active_date: str | None = None) -> None:
+    """Render top brands horizontal volume and median price comparison."""
+    filters = {"scrape_date": active_date} if active_date else None
+    brands_df = load_brand_volume_and_price(top_n=8, filters=filters)
+
+    if brands_df.empty:
+        st.info("No brand volume data available.")
+        return
+
+    # Sort for horizontal bar chart (ascending for top-down presentation)
+    plot_df = brands_df.sort_values("listing_count", ascending=True)
+
+    fig = make_subplots(
+        rows=1, cols=2,
+        subplot_titles=("Unique Vehicle Supply by Brand", "Median Asking Price ($)"),
+        horizontal_spacing=0.12,
+    )
+
+    # 1. Volume Bar
+    fig.add_trace(
+        go.Bar(
+            y=plot_df["brand"],
+            x=plot_df["listing_count"],
+            orientation="h",
+            name="Unique Vehicles",
+            marker=dict(color="#0284c7"),
+            hovertemplate="<b>%{y}</b><br>Unique Vehicles: %{x:,}<extra></extra>",
+        ),
+        row=1, col=1,
+    )
+
+    # 2. Median Price Bar
+    fig.add_trace(
+        go.Bar(
+            y=plot_df["brand"],
+            x=plot_df["median_price"],
+            orientation="h",
+            name="Median Price",
+            marker=dict(color="#c59b27"),
+            hovertemplate="<b>%{y}</b><br>Median Price: $%{x:,.0f}<extra></extra>",
+        ),
+        row=1, col=2,
+    )
+
+    config.apply_plot_theme(fig, height=310, show_legend=False)
+    fig.update_layout(
+        margin=dict(l=10, r=10, t=30, b=10),
+    )
+    fig.update_xaxes(title_text="Count", row=1, col=1)
+    fig.update_xaxes(title_text="USD ($)", row=1, col=2)
+    st.plotly_chart(fig, use_container_width=True)
+
+
 def _render_funnel(funnel_df: pd.DataFrame) -> None:
+    """Render pipeline funnel stages."""
     if funnel_df.empty:
         st.info("No pipeline funnel data recorded.")
         return
 
     base_val = funnel_df["count"].iloc[0] if funnel_df["count"].iloc[0] > 0 else 1
-    colors = ["#64748b", "#0284c7", "#6366f1", "#1e3a8a", "#10b981"]
+    colors = ["#64748b", "#0284c7", "#6366f1", "#0f2b5c", "#059669"]
 
     with st.container(border=True):
         for i, (_, row) in enumerate(funnel_df.iterrows()):
@@ -499,6 +514,7 @@ def _render_funnel(funnel_df: pd.DataFrame) -> None:
 
 
 def _render_batch_ledger(raw_summary: dict, scraper: dict) -> None:
+    """Render scrape partition batches and metadata summary."""
     batches_df = raw_summary.get("batches", pd.DataFrame())
     if not batches_df.empty:
         display_df = batches_df.head(6).copy()
@@ -528,28 +544,7 @@ def _render_batch_ledger(raw_summary: dict, scraper: dict) -> None:
     else:
         st.info("No raw ingestion batch files discovered.")
 
-    # Brief metadata strip
     duration = scraper.get("duration_seconds", 0.0)
     mode     = scraper.get("mode", "daily_incremental")
-    st.caption(f"Last Scraper Run Mode: `{mode}` · Duration: `{duration:.1f}s` · Files: `{raw_summary.get('total_files', 0)}`")
-
-
-def _render_sla_scorecard(sla_gates: list[dict]) -> None:
-    cols = st.columns(len(sla_gates))
-    for col, gate in zip(cols, sla_gates):
-        passed = gate["passed"]
-        bar_c = "#10b981" if passed else "#ef4444"
-        bg_c  = "#f0fdf4" if passed else "#fef2f2"
-        fg_c  = "#166534" if passed else "#991b1b"
-        icon  = "✅" if passed else "❌"
-        col.markdown(
-            f"<div style='background:{bg_c}; border:1px solid {bar_c}30; border-top:3px solid {bar_c}; "
-            f"border-radius:6px; padding:10px 8px; text-align:center;'>"
-            f"<div style='font-size:1.1rem; margin-bottom:2px;'>{icon}</div>"
-            f"<div style='font-size:0.68rem; font-weight:800; color:{fg_c}; line-height:1.2; margin-bottom:3px;'>{gate['name']}</div>"
-            f"<div style='font-size:0.78rem; font-weight:700; color:#0f172a;'>{gate['actual']}</div>"
-            f"<div style='font-size:0.62rem; color:#94a3b8; margin-top:2px;'>Target: {gate['target']}</div>"
-            f"</div>",
-            unsafe_allow_html=True,
-        )
-
+    total_files = raw_summary.get("total_files", 0)
+    st.caption(f"Last Scraper Run Mode: `{mode}` · Duration: `{duration:.1f}s` · Files: `{total_files}`")

@@ -13,6 +13,7 @@ Architecture:
       - `dashboard.queries.cleaning_queries` (missingness trends, conformed comparison)
       - `dashboard.queries.feature_queries`  (ML feature matrix, distributions, correlation)
       - `dashboard.queries.report_queries`   (executive markdown audit report)
+      - `dashboard.queries.market_queries`   (market intelligence, brand/model, trends)
 
 All results remain cached for 1 hour via @st.cache_data.
 """
@@ -30,7 +31,10 @@ from dashboard.queries.base import (
     GOLD_MART_PATH,
     GOLD_ML_PATH,
     MANIFEST_PATH,
+    MODELS_DIR,
     SILVER_PATH,
+    build_date_filter,
+    build_filter_sql,
 )
 
 # Re-export Core queries
@@ -79,11 +83,28 @@ from dashboard.queries.feature_queries import (
 
 # Re-export Market Intelligence queries
 from dashboard.queries.market_queries import (
+    load_brand_price_trend,
+    load_brand_volume_and_price,
+    load_filter_options,
+    load_market_insights,
     load_market_kpis,
     load_market_share_breakdown,
+    load_mileage_by_brand,
+    load_model_comparison_matrix,
+    load_model_price_range,
+    load_model_vintage_breakdown,
+    load_models_for_brands,
+    load_price_box_plot_data,
+    load_price_distribution_data,
+    load_price_trend_over_time,
+    load_price_vs_mileage_sample,
+    load_price_vs_year,
+    load_province_brand_breakdown,
     load_regional_pricing,
     load_tax_type_comparison,
+    load_vehicle_characteristic_analysis,
     load_vintage_price_curves,
+    load_year_distribution,
 )
 
 # Re-export Reporting queries
@@ -99,8 +120,11 @@ __all__ = [
     "GOLD_ML_PATH",
     "GOLD_MART_PATH",
     "MANIFEST_PATH",
+    "MODELS_DIR",
     "DBT_RUN_RESULTS",
     "CACHE_TTL",
+    "build_date_filter",
+    "build_filter_sql",
     # Core
     "load_manifest",
     "load_dbt_test_status",
@@ -130,6 +154,29 @@ __all__ = [
     "load_categorical_distribution",
     "load_feature_distribution_sample",
     "load_feature_correlation_matrix",
+    # Market Intelligence
+    "load_market_kpis",
+    "load_filter_options",
+    "load_models_for_brands",
+    "load_price_distribution_data",
+    "load_price_box_plot_data",
+    "load_price_trend_over_time",
+    "load_brand_price_trend",
+    "load_brand_volume_and_price",
+    "load_model_comparison_matrix",
+    "load_model_vintage_breakdown",
+    "load_model_price_range",
+    "load_mileage_by_brand",
+    "load_price_vs_year",
+    "load_price_vs_mileage_sample",
+    "load_year_distribution",
+    "load_vintage_price_curves",
+    "load_regional_pricing",
+    "load_province_brand_breakdown",
+    "load_tax_type_comparison",
+    "load_vehicle_characteristic_analysis",
+    "load_market_share_breakdown",
+    "load_market_insights",
     # Reporting
     "generate_markdown_report",
 ]

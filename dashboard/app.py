@@ -1,19 +1,22 @@
 """
 dashboard/app.py
 ================
-Entry point for the Cambodian Car Data Quality Center.
+CARIQ — Cambodia Used-Car Intelligence Platform
+Entry point: navigation shell, sidebar, global CSS, and page router.
 
 Usage:
     uv run streamlit run dashboard/app.py
 
-Pipeline Scope:
-    Bronze (Khmer24 Scraper) → dbt Staging → dbt Intermediate → Silver (Conformed)
+Pipeline Architecture:
+    Khmer24 → Bronze (Parquet) → dbt → Silver (Conformed) → Gold (Analytics + ML)
 
-4 Streamlined Executive Pages:
-    1. Overview & Collection     (executive_pulse.py)
-    2. Cleaning & Transformation (cleaning_transformation.py)
-    3. Data Quality & Anomalies  (data_quality_monitoring.py)
-    4. Feature Profiling         (feature_profiling.py)
+Pages:
+    1. Executive Overview      (views/executive_pulse.py)
+    2. Market Intelligence     (views/market_intelligence.py)   ← primary market BI page
+    3. Pipeline & Ingestion    (views/pipeline.py)
+    4. Data Quality            (views/data_quality_monitoring.py)
+    5. Feature Exploration     (views/feature_profiling.py)
+    6. ML Readiness            (views/ml_readiness.py)
 """
 
 from __future__ import annotations
@@ -30,83 +33,73 @@ import streamlit as st
 
 # ── Page configuration ────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="GDDE Auto Intelligence | Khmer24 Market Center",
+    page_title="CARIQ | Cambodia Used-Car Intelligence",
     page_icon="🚗",
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items={
         "Get Help": "https://github.com/PHALMenghak/car-price-prediction",
         "Report a bug": "https://github.com/PHALMenghak/car-price-prediction/issues",
-        "About": "GDDE — Cambodian Automotive Market Intelligence & Data Pipeline Observability.",
+        "About": "CARIQ — Cambodia Used-Car Intelligence. Built with Streamlit, DuckDB & dbt.",
     },
 )
 
-# ── Professional Word/Report-Style CSS (GDDE Institutional Theme) ─────────────
+# ── Global CSS (light professional theme) ──────────────────────────────────────
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
 html, body, [class*="css"] {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    color: #0f172a;
 }
 
-/* Main content container */
+/* Main content area */
 .block-container {
     padding-top: 1.25rem !important;
     padding-bottom: 2rem !important;
     max-width: 98% !important;
 }
 
-/* Sidebar styling */
+/* Sidebar */
 [data-testid="stSidebar"] {
-    background-color: #f8fafc;
-    border-right: 1px solid #e2e8f0;
+    background: #f8fafc !important;
+    border-right: 1px solid #e2e8f0 !important;
 }
 
-/* Active navigation button styling (GDDE Navy + Royal Gold Indicator) */
+/* Active nav button */
 [data-testid="stSidebar"] button[kind="primary"] {
-    background-color: #0f2b5c !important;
-    color: #ffffff !important;
-    border: 1px solid #0f2b5c !important;
-    border-left: 4px solid #c59b27 !important;
+    background-color: #eff6ff !important;
+    color: #1e3a8a !important;
+    border: 1px solid #bfdbfe !important;
+    border-left: 4px solid #1e3a8a !important;
     font-weight: 700 !important;
-    box-shadow: 0 1px 3px rgba(15, 43, 92, 0.15) !important;
+    box-shadow: 0 1px 3px rgba(15,43,92,0.08) !important;
 }
 
 [data-testid="stSidebar"] button[kind="secondary"] {
     background-color: transparent !important;
-    color: #334155 !important;
     border: 1px solid transparent !important;
     text-align: left !important;
+    color: #334155 !important;
 }
 
 [data-testid="stSidebar"] button[kind="secondary"]:hover {
-    background-color: #e2e8f0 !important;
-    color: #0f2b5c !important;
+    background-color: #f1f5f9 !important;
+    border-color: #e2e8f0 !important;
 }
 
-/* Dataframe table */
+/* Dataframe */
 [data-testid="stDataFrame"] {
-    border: 1px solid #e2e8f0;
     border-radius: 6px;
     overflow: hidden;
 }
 
-/* Section dividers */
-hr {
-    border-color: #e2e8f0;
-    margin: 1.25rem 0;
-}
-
-/* Typography scale */
-h1 { color: #0f2b5c; font-weight: 800; font-size: 1.65rem; }
-h2 { color: #0f2b5c; font-weight: 700; font-size: 1.20rem; }
-h3 { color: #1e293b; font-weight: 700; font-size: 1.02rem; }
+/* Dividers */
+hr { border-color: #e2e8f0; margin: 1.25rem 0; }
 </style>
 """, unsafe_allow_html=True)
 
-# ── Module imports ─────────────────────────────────────────────────────────────
+# ── Imports ───────────────────────────────────────────────────────────────────
 from dashboard.data_loader import (
     generate_markdown_report,
     load_available_dates,
@@ -119,188 +112,235 @@ from dashboard.views import (
     executive_pulse,
     feature_profiling,
     market_intelligence,
+    ml_readiness,
+    pipeline,
 )
 
-# ── Streamlined Catalog ───────────────────────────────────────────────────────
-PAGES = {
-    "Overview & Collection":         "📊",
-    "Data Quality & Lineage":        "🛡️",
-    "Market Intelligence & Pricing": "📈",
-    "Feature Profiling":             "🔬",
-}
 
-# ── Initialize session state ──────────────────────────────────────────────────
-if "active_page" not in st.session_state or st.session_state.active_page not in PAGES:
-    st.session_state.active_page = "Overview & Collection"
+# ── Navigation structure ──────────────────────────────────────────────────────
+NAV_SECTIONS = [
+    ("OVERVIEW", [
+        ("Executive Overview", "🏠", "Executive Overview"),
+    ]),
+    ("MARKET INTELLIGENCE", [
+        ("Market Intelligence", "📈", "Market Intelligence"),
+    ]),
+    ("DATA PIPELINE", [
+        ("Pipeline & Ingestion", "⚙", "Pipeline & Ingestion"),
+        ("Data Quality", "✓", "Data Quality"),
+    ]),
+    ("ANALYTICS & ML", [
+        ("Feature Exploration", "📖", "Feature Exploration"),
+        ("ML Readiness", "🧪", "ML Readiness"),
+    ]),
+]
+
+# Flat lookup: page_key -> icon
+PAGE_ICONS = {key: icon for _, pages in NAV_SECTIONS for key, icon, _ in pages}
+
+# ── Session state ─────────────────────────────────────────────────────────────
+valid_pages = list(PAGE_ICONS.keys())
+if "active_page" not in st.session_state or st.session_state.active_page not in valid_pages:
+    st.session_state.active_page = "Executive Overview"
 if "active_scrape_date" not in st.session_state:
     st.session_state.active_scrape_date = None
 
+# ── Load sidebar data ─────────────────────────────────────────────────────────
+manifest    = load_manifest()
+dbt_status  = load_dbt_test_status()
+quality_df  = load_quality_summary()
+available_dates = load_available_dates()
+
+# Derive sidebar status values
+_ts = manifest.get("timestamp", "") if manifest else ""
+_data_date = _ts[:16].replace("T", " ") + " UTC" if _ts else "No data"
+_dbt_ok = dbt_status.get("available") and dbt_status.get("failed", 1) == 0
+_dbt_label = f"{dbt_status.get('passed', 0)}/{dbt_status.get('total', 0)} tests"
+
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
-    # Brand header (GDDE Institutional)
+    # Product branding
     st.markdown("""
-    <div style='padding:2px 0 12px 0;'>
-        <div style='display:inline-block; background:#0f2b5c; color:#c59b27; font-size:0.62rem; font-weight:800;
-                    padding:2px 7px; border-radius:3px; letter-spacing:0.8px; margin-bottom:5px; border:1px solid rgba(197,155,39,0.3);'>
-            MEF · GDDE INTELLIGENCE
+    <div style='padding: 4px 0 14px 0;'>
+        <div style='font-size: 0.60rem; font-weight: 800; color: #1e3a8a;
+                    text-transform: uppercase; letter-spacing: 1px;
+                    background: #eff6ff; display: inline-block;
+                    padding: 2px 8px; border-radius: 3px; margin-bottom: 6px;
+                    border: 1px solid #bfdbfe;'>
+            CARIQ PLATFORM
         </div>
-        <div style='font-size:1.05rem; font-weight:800; color:#0f2b5c; letter-spacing:-0.3px;'>
-            🚗 Car Data Center
+        <div style='font-size: 1.05rem; font-weight: 800; color: #0f172a;
+                    letter-spacing: -0.3px; line-height: 1.2;'>
+            🚗 Cambodia Used-Car<br>Intelligence
         </div>
-        <div style='font-size:0.75rem; color:#64748b; margin-top:2px; font-weight:500;'>
-            Automotive Pipeline &amp; Governance
+        <div style='font-size: 0.72rem; color: #64748b; margin-top: 4px;'>
+            Khmer24 · Data Pipeline · ML
         </div>
     </div>
     """, unsafe_allow_html=True)
 
     st.divider()
 
-    # 1. Streamlined Navigation Menu
-    st.markdown("<div style='font-size:0.70rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;'>NAVIGATION</div>", unsafe_allow_html=True)
-    for page_name, icon in PAGES.items():
-        is_active = (st.session_state.active_page == page_name)
-        btn_type = "primary" if is_active else "secondary"
-        if st.button(
-            f"{icon}  {page_name}",
-            key=f"nav_{page_name}",
-            use_container_width=True,
-            type=btn_type,
-        ):
-            st.session_state.active_page = page_name
-            st.rerun()
-
-    st.divider()
-
-    # 2. Snapshot Date Filter
-    st.markdown("<div style='font-size:0.70rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;'>SNAPSHOT FILTER</div>", unsafe_allow_html=True)
-
-    available_dates = load_available_dates()
-    selected_snapshot = st.selectbox(
-        "Scrape Partition Date",
-        options=["All Dates (Latest)"] + available_dates,
-        index=0,
-        help="Filter dashboard to a specific daily scrape snapshot, or view aggregated latest state.",
-    )
-    active_date = None if selected_snapshot == "All Dates (Latest)" else selected_snapshot
-    st.session_state.active_scrape_date = active_date
-
-    st.divider()
-
-    # 3. dbt Contract Health Badge
-    dbt_status = load_dbt_test_status()
-    if dbt_status.get("available"):
-        dbt_ok = dbt_status["failed"] == 0
-        dbt_color = "#10b981" if dbt_ok else "#ef4444"
-        dbt_icon = "✅" if dbt_ok else "❌"
+    # Grouped navigation
+    for section_label, pages in NAV_SECTIONS:
         st.markdown(
-            f"""
-            <div style='padding:10px 12px; border-radius:6px; border:1px solid {dbt_color}40;
-                        background:{dbt_color}12; margin-bottom:10px;'>
-                <div style='font-weight:700; font-size:0.80rem; color:{dbt_color};'>
-                    {dbt_icon} dbt Tests: {dbt_status['passed']}/{dbt_status['total']}
-                </div>
-                <div style='font-size:0.72rem; color:#64748b; margin-top:2px;'>
-                    Contract Pass Rate: <b>{dbt_status['pass_rate_pct']}%</b>
-                </div>
-            </div>
-            """,
+            f"<div style='font-size:0.65rem; font-weight:700; color:#94a3b8; "
+            f"text-transform:uppercase; letter-spacing:0.6px; "
+            f"margin: 10px 0 4px 2px;'>{section_label}</div>",
             unsafe_allow_html=True,
         )
+        for page_key, icon, display_name in pages:
+            is_active = st.session_state.active_page == page_key
+            if st.button(
+                f"{icon}  {display_name}",
+                key=f"nav_{page_key}",
+                use_container_width=True,
+                type="primary" if is_active else "secondary",
+            ):
+                st.session_state.active_page = page_key
+                st.rerun()
 
-    # 4. Export & Cache Actions
+    st.divider()
+
+    # Snapshot date filter
+    st.markdown(
+        "<div style='font-size:0.65rem; font-weight:700; color:#94a3b8; "
+        "text-transform:uppercase; letter-spacing:0.6px; margin-bottom:6px;'>DATA FILTER</div>",
+        unsafe_allow_html=True,
+    )
+
+    preset = st.radio(
+        "Time Range",
+        options=["All Partitions", "Latest Snapshot", "Custom Date"],
+        index=0,
+        horizontal=False,
+        label_visibility="collapsed",
+    )
+
+    if preset == "All Partitions":
+        active_date = None
+        st.caption("Showing: full data lake (all partitions)")
+    elif preset == "Latest Snapshot" and available_dates:
+        active_date = available_dates[0]
+        st.caption(f"Showing latest: {active_date}")
+    else:  # Custom Date
+        if available_dates:
+            selected_date = st.selectbox(
+                "Select date",
+                options=available_dates,
+                label_visibility="collapsed",
+            )
+            active_date = selected_date
+        else:
+            active_date = None
+            st.caption("No partitions available")
+
+    st.session_state.active_scrape_date = active_date
+
+    # Export tools
+    st.divider()
+    st.markdown(
+        "<div style='font-size:0.65rem; font-weight:700; color:#94a3b8; "
+        "text-transform:uppercase; letter-spacing:0.6px; margin-bottom:6px;'>TOOLS</div>",
+        unsafe_allow_html=True,
+    )
     report_content = generate_markdown_report(active_date)
     st.download_button(
         label="📑 Export Audit Report",
         data=report_content,
-        file_name=f"dq_audit_report_{active_date or 'latest'}.md",
+        file_name=f"cariq_audit_{active_date or 'full'}.md",
         mime="text/markdown",
         use_container_width=True,
-        help="Download a markdown audit summary for this snapshot.",
+        help="Download a markdown audit summary for the selected snapshot.",
     )
-
-    if st.button("🔄 Refresh Data Cache", use_container_width=True):
+    if st.button("🔄 Refresh Cache", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
 
-    # 5. Technical Attribution Footer
-    st.markdown("""
-    <div style='font-size:0.70rem; color:#94a3b8; line-height:1.5; margin-top:10px;'>
-        ITC Year 4 Internship · Phal Menghak<br>
-        Source: Khmer24 · DuckDB + dbt + Streamlit<br>
-        <a href='https://github.com/PHALMenghak/car-price-prediction' target='_blank' style='color:#3b82f6;'>GitHub Repository ↗</a>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-# ── Global Page Header ────────────────────────────────────────────────────────
-manifest   = load_manifest()
-quality_df = load_quality_summary()
-
-last_update = "—"
-latest_scrape = "—"
-if manifest:
-    ts = manifest.get("timestamp", "")
-    latest_scrape = ts[:10] if ts else "—"
-    last_update = ts[:16].replace("T", " ") + " UTC" if ts else "—"
-elif not quality_df.empty:
-    latest_scrape = str(quality_df.iloc[0]["scrape_date"])
-    last_update = latest_scrape
-
-page = st.session_state.active_page
-icon = PAGES.get(page, "📊")
-
-st.markdown(f"""
-<div style='border-bottom:2px solid #e2e8f0; padding-bottom:12px; margin-bottom:18px;'>
-    <div style='display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:8px;'>
-        <div>
-            <div style='font-size:0.68rem; font-weight:800; color:#0f2b5c; text-transform:uppercase;
-                        letter-spacing:0.8px; background:#eff6ff; display:inline-block;
-                        padding:2px 8px; border-radius:3px; margin-bottom:4px; border:1px solid #bfdbfe;'>
-                GDDE · CAMBODIAN AUTOMOTIVE MARKET INTELLIGENCE
+    # Status footer
+    st.divider()
+    _pipeline_dot = "🟢" if _dbt_ok else "🔴"
+    st.markdown(
+        f"""
+        <div style='font-size:0.68rem; color:#64748b; line-height:1.8;'>
+            <div>🕐 Data: <b style='color:#0f172a;'>{_data_date}</b></div>
+            <div>{_pipeline_dot} Pipeline: <b style='color:#0f172a;'>{_dbt_label}</b></div>
+            <div>🤖 Model: <b style='color:#64748b;'>champion_model.joblib</b></div>
+            <div style='margin-top:6px; color:#94a3b8;'>
+                ITC Year 4 · Phal Menghak<br>
+                <a href='https://github.com/PHALMenghak/car-price-prediction'
+                   target='_blank' style='color:#0f2b5c;'>GitHub ↗</a>
             </div>
-            <h1 style='margin:0; font-size:1.65rem; font-weight:800; color:#0f2b5c; letter-spacing:-0.5px;'>
-                {icon} &nbsp;{page}
-            </h1>
-            <p style='color:#475569; margin:3px 0 0 0; font-size:0.82rem;'>
-                <b>Bronze → Silver → Gold</b> | dbt Pipeline Observability, Data Governance &amp; Market Analytics &nbsp;·&nbsp; Khmer24 Registry
-            </p>
         </div>
-        <div style='display:flex; gap:10px; align-items:center; flex-wrap:wrap;'>
-            <span style='background:#f8fafc; border:1px solid #e2e8f0; padding:4px 10px;
-                         border-radius:20px; font-weight:600; font-size:0.75rem; color:#475569;'>
-                Snapshot: <b style='color:#0f2b5c;'>{selected_snapshot}</b>
-            </span>
-            <span style='background:#f8fafc; border:1px solid #e2e8f0; padding:4px 10px;
-                         border-radius:20px; font-weight:600; font-size:0.75rem; color:#0f2b5c;'>
-                Latest Ingest: <b style='color:#0f2b5c;'>{latest_scrape}</b>
-            </span>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+# ── Page header (slim) ────────────────────────────────────────────────────────
+page = st.session_state.active_page
+icon = PAGE_ICONS.get(page, "📊")
+_snapshot_label = active_date if active_date else "All Partitions"
+_latest_date = _ts[:10] if _ts else "—"
+
+st.markdown(
+    f"""
+    <div style='border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 16px;'>
+        <div style='display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;'>
+            <div>
+                <div style='font-size: 0.68rem; color: #64748b; font-weight: 600;
+                            text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px;'>
+                    CARIQ &rsaquo; {page}
+                </div>
+                <h1 style='margin: 0; font-size: 1.45rem; font-weight: 800;
+                           color: #0f172a; letter-spacing: -0.5px;'>
+                    {icon}&nbsp; {page}
+                </h1>
+            </div>
+            <div style='display: flex; gap: 8px; align-items: center; flex-wrap: wrap;'>
+                <span style='background: #f1f5f9; border: 1px solid #e2e8f0;
+                             padding: 3px 10px; border-radius: 20px;
+                             font-size: 0.72rem; font-weight: 600; color: #64748b;'>
+                    Filter: <b style='color: #0f2b5c;'>{_snapshot_label}</b>
+                </span>
+                <span style='background: #f1f5f9; border: 1px solid #e2e8f0;
+                             padding: 3px 10px; border-radius: 20px;
+                             font-size: 0.72rem; font-weight: 600; color: #64748b;'>
+                    Latest data: <b style='color: #0f2b5c;'>{_latest_date}</b>
+                </span>
+            </div>
         </div>
     </div>
-</div>
-""", unsafe_allow_html=True)
+    """,
+    unsafe_allow_html=True,
+)
 
 
-# ── Page Router ───────────────────────────────────────────────────────────────
-if page == "Overview & Collection":
+# ── Page router ───────────────────────────────────────────────────────────────
+if page == "Executive Overview":
     executive_pulse.render(active_date)
-elif page == "Data Quality & Lineage":
-    data_quality_monitoring.render(active_date)
-elif page == "Market Intelligence & Pricing":
+elif page == "Market Intelligence":
     market_intelligence.render(active_date)
-elif page == "Feature Profiling":
+elif page == "Pipeline & Ingestion":
+    pipeline.render(active_date)
+elif page == "Data Quality":
+    data_quality_monitoring.render(active_date)
+elif page == "Feature Exploration":
     feature_profiling.render(active_date)
+elif page == "ML Readiness":
+    ml_readiness.render(active_date)
 else:
     executive_pulse.render(active_date)
 
 
-# ── Global Footer ─────────────────────────────────────────────────────────────
+# ── Global footer ─────────────────────────────────────────────────────────────
 st.divider()
 st.markdown(
-    "<p style='text-align:center; color:#94a3b8; font-size:0.72rem;'>"
-    "General Department of Digital Economy (GDDE) · Cambodian Automotive Market Intelligence &nbsp;·&nbsp; "
+    "<p style='text-align:center; color:#94a3b8; font-size:0.70rem;'>"
+    "CARIQ &mdash; Cambodia Used-Car Intelligence &nbsp;·&nbsp; "
     "Bronze → Silver → Gold Pipeline &nbsp;·&nbsp; "
-    "Built with Streamlit, DuckDB &amp; dbt Core &nbsp;·&nbsp; "
-    "<a href='https://github.com/PHALMenghak/car-price-prediction' style='color:#0f2b5c;'>GitHub Repository</a>"
+    "Streamlit · DuckDB · dbt Core · Plotly &nbsp;·&nbsp; "
+    "<a href='https://github.com/PHALMenghak/car-price-prediction' style='color:#0f2b5c;'>GitHub</a>"
     "</p>",
     unsafe_allow_html=True,
 )

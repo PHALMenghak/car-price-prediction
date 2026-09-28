@@ -19,7 +19,6 @@ def generate_markdown_report(scrape_date: str | None = None) -> str:
     """
     Generates a structured executive markdown audit report for the active snapshot.
     """
-    import datetime
     q_df = load_quality_summary()
     dbt_status = load_dbt_test_status()
     impact = load_cleaning_impact_stats(scrape_date)

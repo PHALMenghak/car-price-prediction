@@ -43,13 +43,15 @@ def render(active_date: str | None = None) -> None:
     if active_date:
         match = quality_df[quality_df["scrape_date"] == active_date]
         latest = match.iloc[0] if not match.empty else quality_df.iloc[0]
+        total     = int(latest["total"])
+        susp_cnt  = int(latest.get("suspicious", 0))
+        inv_cnt   = int(latest.get("invalid", 0))
+        quar_cnt  = int(latest.get("quarantined", 0))
     else:
-        latest = quality_df.iloc[0]
-
-    total     = int(latest["total"])
-    susp_cnt  = int(latest.get("suspicious", 0))
-    inv_cnt   = int(latest.get("invalid", 0))
-    quar_cnt  = int(latest.get("quarantined", 0))
+        total     = int(quality_df["total"].sum())
+        susp_cnt  = int(quality_df.get("suspicious", pd.Series(0)).sum())
+        inv_cnt   = int(quality_df.get("invalid", pd.Series(0)).sum())
+        quar_cnt  = int(quality_df.get("quarantined", pd.Series(0)).sum())
 
     anomaly_total = susp_cnt + inv_cnt + quar_cnt
     anomaly_pct   = round(100.0 * anomaly_total / total, 2) if total > 0 else 0.0
@@ -139,8 +141,10 @@ def render(active_date: str | None = None) -> None:
         - `[RULE-YR-02] Chronological Year Inversion Healing`: Detects impossible future year typos (e.g. `2026` for a 2006 car) and safely inverts them.
         - `[RULE-DP-03] Down-Payment Installment Detection`: Identifies deposit pricing (e.g. `$3,500` deposit vs. full `$35,000` car value) via regex keywords (`បង់រំលស់`, `down payment`) or abnormal price/year ratios, classifying them under `SUSPICIOUS`.
         - `[RULE-SP-04] Non-Vehicle Spam Quarantine`: Excludes spare parts, tires, and motorbikes, placing them strictly into `QUARANTINED`.
-        - `[RULE-IQR-05] Dynamic Statistical Outlier Fences`: Computes brand-and-vintage specific $1.5\\times\\text{IQR}$ fences, flagging extreme listings for review rather than dropping them.
+        - `[RULE-IQR-05] Dynamic Statistical Outlier Fences`: Computes brand-and-vintage specific $1.5\times\text{IQR}$ fences, flagging extreme listings for review rather than dropping them.
         """)
+
+
 
     st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
@@ -210,39 +214,65 @@ def _render_missingness_bars(detail_df: pd.DataFrame) -> None:
         st.info("No field completeness detail found.")
         return
 
-    df_sorted = detail_df.sort_values("null_pct", ascending=True)
+    tab_c, tab_t = st.tabs(["📊 Missing Rate Chart", "📋 Completeness Matrix"])
 
-    colors = []
-    for pct in df_sorted["null_pct"]:
-        if pct < config.MISSING_THRESHOLDS["good"]:
-            colors.append("#10b981")
-        elif pct <= config.MISSING_THRESHOLDS["warning"]:
-            colors.append("#f59e0b")
-        else:
-            colors.append("#ef4444")
+    with tab_c:
+        df_sorted = detail_df.sort_values("null_pct", ascending=True)
 
-    fig = go.Figure(
-        go.Bar(
-            y=df_sorted["field"],
-            x=df_sorted["null_pct"],
-            orientation="h",
-            marker_color=colors,
-            text=df_sorted["null_pct"].apply(lambda v: f"{v:.1f}%"),
-            textposition="outside",
-            hovertemplate="<b>%{y}</b><br>Missing: %{x:.1f}%<extra></extra>",
+        colors = []
+        for pct in df_sorted["null_pct"]:
+            if pct < config.MISSING_THRESHOLDS["good"]:
+                colors.append("#10b981")
+            elif pct <= config.MISSING_THRESHOLDS["warning"]:
+                colors.append("#f59e0b")
+            else:
+                colors.append("#ef4444")
+
+        fig = go.Figure(
+            go.Bar(
+                y=df_sorted["field"],
+                x=df_sorted["null_pct"],
+                orientation="h",
+                marker_color=colors,
+                text=df_sorted["null_pct"].apply(lambda v: f"{v:.1f}%"),
+                textposition="outside",
+                hovertemplate="<b>%{y}</b><br>Missing: %{x:.1f}%<extra></extra>",
+            )
         )
-    )
 
-    fig.add_vline(x=config.MISSING_THRESHOLDS["good"], line_dash="dot", line_color="#10b981", line_width=1)
-    fig.add_vline(x=config.MISSING_THRESHOLDS["warning"], line_dash="dot", line_color="#f59e0b", line_width=1)
+        fig.add_vline(x=config.MISSING_THRESHOLDS["good"], line_dash="dot", line_color="#10b981", line_width=1)
+        fig.add_vline(x=config.MISSING_THRESHOLDS["warning"], line_dash="dot", line_color="#f59e0b", line_width=1)
 
-    config.apply_plot_theme(fig, height=310, show_legend=False)
-    fig.update_layout(
-        xaxis=dict(title="Missing Rate (%)", range=[0, 108], ticksuffix="%"),
-        yaxis=dict(autorange=True),
-        margin=dict(l=10, r=25, t=10, b=10),
-    )
-    st.plotly_chart(fig, use_container_width=True)
+        config.apply_plot_theme(fig, height=310, show_legend=False)
+        fig.update_layout(
+            xaxis=dict(title="Missing Rate (%)", range=[0, 108], ticksuffix="%"),
+            yaxis=dict(autorange=True),
+            margin=dict(l=10, r=25, t=10, b=10),
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+    with tab_t:
+        t_df = detail_df[["field", "completeness_pct", "priority"]].copy()
+        st.dataframe(
+            t_df.rename(columns={
+                "field": "Attribute",
+                "completeness_pct": "Fill Rate",
+                "priority": "SLA Priority",
+            }),
+            hide_index=True,
+            use_container_width=True,
+            column_config={
+                "Attribute": st.column_config.TextColumn("Attribute", width="medium"),
+                "Fill Rate": st.column_config.ProgressColumn(
+                    "Fill Rate (%)",
+                    format="%.1f%%",
+                    min_value=0.0,
+                    max_value=100.0,
+                    width="medium",
+                ),
+                "SLA Priority": st.column_config.TextColumn("SLA Priority", width="small"),
+            },
+        )
 
 
 def _render_failure_reasons(active_date: str | None) -> None:
@@ -279,7 +309,7 @@ def _render_price_year_scatter(active_date: str | None) -> None:
 
     ctrl_col, _ = st.columns([2, 3])
     with ctrl_col:
-        use_log = st.checkbox("Logarithmic price scale", value=True, help="Compresses extreme price range for clear inspection.")
+        use_log = st.checkbox("Logarithmic price scale", value=False, help="Compresses extreme price range for clear inspection.")
 
     color_map = config.STATUS_COLORS
 
@@ -307,6 +337,8 @@ def _render_price_year_scatter(active_date: str | None) -> None:
         )
         config.apply_plot_theme(fig, height=330, show_legend=True, legend_orientation="h")
         fig.update_traces(marker=dict(size=6))
+        if not use_log:
+            fig.update_layout(yaxis_tickformat="$,.0f")
         fig.update_layout(margin=dict(l=10, r=10, t=10, b=40))
         st.plotly_chart(fig, use_container_width=True)
     except Exception as e:
@@ -325,13 +357,13 @@ def _render_audit_drilldown(active_date: str | None) -> None:
             quar_cnt = int(row_stat.get("quarantined", 0))
             susp_cnt = int(row_stat.get("suspicious", 0))
             inv_cnt = int(row_stat.get("invalid", 0))
-            val_cnt = int(row_stat.get("valid", 0))
+            val_cnt = int(row_stat.get("valid", 0)) + int(row_stat.get("warning", 0))
         else:
             tot_cnt = int(q_df["total"].sum())
             quar_cnt = int(q_df["quarantined"].sum())
             susp_cnt = int(q_df["suspicious"].sum())
             inv_cnt = int(q_df["invalid"].sum())
-            val_cnt = int(q_df["valid"].sum())
+            val_cnt = int(q_df["valid"].sum()) + int(q_df.get("warning", pd.Series(0)).sum())
         flagged_cnt = quar_cnt + susp_cnt + inv_cnt
     else:
         flagged_cnt, quar_cnt, susp_cnt, val_cnt, tot_cnt = 551, 4, 307, 7659, 8210
@@ -354,7 +386,7 @@ def _render_audit_drilldown(active_date: str | None) -> None:
         opt_flagged: ["QUARANTINED", "INVALID", "SUSPICIOUS"],
         opt_quar:    ["QUARANTINED"],
         opt_susp:    ["SUSPICIOUS"],
-        opt_clean:   ["VALID"],
+        opt_clean:   ["VALID", "WARNING"],
         opt_all:     ["ALL"],
     }
     selected_statuses = preset_map.get(preset_choice, ["QUARANTINED", "INVALID", "SUSPICIOUS"])
@@ -442,7 +474,7 @@ def _render_audit_drilldown(active_date: str | None) -> None:
         f"<span style='background:#f1f5f9; padding:3px 10px; border-radius:12px; border:1px solid #e2e8f0; font-weight:600; color:#334155;'>📋 Showing: <b>{total_in_view}</b> records</span>"
         f"<span style='background:#fee2e2; padding:3px 10px; border-radius:12px; border:1px solid #fecaca; font-weight:600; color:#991b1b;'>🔴 Quarantined: <b>{quar_in_view}</b></span>"
         f"<span style='background:#fef3c7; padding:3px 10px; border-radius:12px; border:1px solid #fde68a; font-weight:600; color:#92400e;'>🟡 Suspicious: <b>{susp_in_view}</b></span>"
-        f"<span style='background:#eff6ff; padding:3px 10px; border-radius:12px; border:1px solid #bfdbfe; font-weight:600; color:#1e40af;'>🔄 Years Healed: <b>{healed_in_view}</b></span>"
+        f"<span style='background:#eff6ff; padding:3px 10px; border-radius:12px; border:1px solid #bfdbfe; font-weight:600; color:#0f2b5c;'>🔄 Years Healed: <b>{healed_in_view}</b></span>"
         f"<span style='background:#ecfdf5; padding:3px 10px; border-radius:12px; border:1px solid #a7f3d0; font-weight:600; color:#065f46;'>🔤 Title NLP Models: <b>{nlp_in_view}</b></span>"
         f"</div>",
         unsafe_allow_html=True,
@@ -596,7 +628,7 @@ def _render_audit_drilldown(active_date: str | None) -> None:
                 f"<div style='margin-top:10px; padding:8px 12px; background:#f8fafc; border-left:4px solid {stat_color}; border-radius:4px; font-size:0.80rem;'>"
                 f"<b>Quality Status:</b> <span style='color:{stat_color}; font-weight:700;'>{st_status}</span> &nbsp;·&nbsp; "
                 f"<b>Failure Reasons:</b> <code>{reasons_str}</code> &nbsp;·&nbsp; "
-                f"<a href='{listing_url_str}' target='_blank' style='color:#3b82f6; font-weight:600;'>View on Khmer24 ↗</a>"
+                f"<a href='{listing_url_str}' target='_blank' style='color:#0284c7; font-weight:600;'>View on Khmer24 ↗</a>"
                 f"</div>",
                 unsafe_allow_html=True,
             )

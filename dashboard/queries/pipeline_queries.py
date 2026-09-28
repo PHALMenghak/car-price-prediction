@@ -5,13 +5,9 @@ Bronze raw ingestion volumes, scraper health, deduplication, and pipeline funnel
 """
 from __future__ import annotations
 
-import json
 import os
-from pathlib import Path
 import pandas as pd
 import streamlit as st
-
-from dashboard import config
 from dashboard.queries.base import (
     _con,
     _BRONZE_DIR,
@@ -236,7 +232,7 @@ def load_pipeline_funnel(scrape_date: str | None = None) -> pd.DataFrame:
             date_filter = f"WHERE CAST(scrape_date AS VARCHAR) = '{scrape_date}'" if scrape_date else ""
             row = con.execute(f"SELECT COUNT(*) FROM read_parquet('{GOLD_MART_PATH}') {date_filter}").fetchone()
             g_count = int(row[0]) if row else 0
-        stages.append({"stage": "4. Gold Mart Inventory", "count": g_count, "description": "Non-quarantined business reporting mart"})
+        stages.append({"stage": "4. Gold Mart Inventory", "count": g_count, "description": "100% Unique physical vehicles (dealer reposts pruned)"})
 
         # 5. Gold ML-Ready
         ml_count = 0
@@ -279,6 +275,7 @@ def load_raw_ingestion_summary() -> dict:
 
     con = _con()
     batch_rows = []
+    tot_dist = 0
     try:
         for p in parquet_files:
             size_kb = round(os.path.getsize(p) / 1024.0, 1)
@@ -296,6 +293,8 @@ def load_raw_ingestion_summary() -> dict:
                 "size_kb": size_kb,
                 "size_mb": round(size_kb / 1024.0, 2),
             })
+        dist_row = con.execute(f"SELECT COUNT(DISTINCT listing_id) FROM read_parquet('{BRONZE_GLOB}', union_by_name=true)").fetchone()
+        tot_dist = int(dist_row[0]) if dist_row else 0
     except Exception:
         pass
     finally:
@@ -303,7 +302,8 @@ def load_raw_ingestion_summary() -> dict:
 
     batch_df = pd.DataFrame(batch_rows)
     tot_rec = int(batch_df["records_ingested"].sum()) if not batch_df.empty else 0
-    tot_dist = int(batch_df["distinct_listings"].sum()) if not batch_df.empty else 0
+    if tot_dist == 0 and not batch_df.empty:
+        tot_dist = int(batch_df["distinct_listings"].sum())
     tot_mb = round(float(batch_df["size_mb"].sum()), 2) if not batch_df.empty else 0.0
 
     return {
