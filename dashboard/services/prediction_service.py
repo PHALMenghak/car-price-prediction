@@ -218,9 +218,9 @@ def predict_price(
 
     # Calibrated Valuation Range based on Holdout MAPE (14.3%)
     mape_rate = 0.143
+    fair_price = round(fair_price, -1)
     low_range = round(fair_price * (1.0 - mape_rate), -1)
     high_range = round(fair_price * (1.0 + mape_rate), -1)
-    fair_price = round(fair_price, -1)
 
     return {
         "fair_price": fair_price,
