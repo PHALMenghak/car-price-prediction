@@ -1,0 +1,10 @@
+version: 2
+
+sources:
+  - name: bronze
+    description: "Raw daily scraped car listing snapshots from Khmer24."
+    tables:
+      - name: cars
+        description: "Raw bronze parquet files ingested daily from Khmer24 scraper."
+        meta:
+          external_location: "data/bronze/cars_*.parquet"

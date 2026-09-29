@@ -1,0 +1,133 @@
+version: 2
+
+seeds:
+  # ===========================================================================
+  # REFERENCE DATA / SEED DICTIONARIES (Static reference tables)
+  # ===========================================================================
+  - name: seed_brand_mapping
+    description: "Canonical brand normalization dictionary mapping raw Khmer/English strings to standardized brands and market tiers."
+    columns:
+      - name: raw_value
+        description: "Raw brand string encountered in scraper feeds (case-insensitive primary key)."
+        tests:
+          - unique
+          - not_null
+      - name: standardized_brand
+        description: "Canonical automotive brand name."
+        tests:
+          - not_null
+      - name: brand_tier
+        description: "Automotive market tier ('Luxury', 'Chinese_EV', 'Mass_Market', 'Other')."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Luxury', 'Chinese_EV', 'Mass_Market', 'Other']
+
+  - name: seed_model_alias
+    description: "Model alias mapping dictionary associating brands and raw model tokens to canonical model names."
+    columns:
+      - name: brand
+        description: "Canonical automotive brand name."
+        tests:
+          - not_null
+      - name: raw_alias
+        description: "Raw model token or regex pattern."
+        tests:
+          - not_null
+      - name: standardized_model
+        description: "Canonical model name."
+        tests:
+          - not_null
+
+  - name: seed_location_mapping
+    description: "Cambodian geographic province mapping dictionary and market density tier."
+    columns:
+      - name: raw_value
+        description: "Raw Khmer or English province string (primary key)."
+        tests:
+          - unique
+          - not_null
+      - name: standardized_province
+        description: "Standardized Cambodian province name."
+        tests:
+          - not_null
+      - name: location_tier
+        description: "Economic and geographic tier ('Tier_1', 'Tier_2', 'Tier_3')."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Tier_1', 'Tier_2', 'Tier_3']
+
+  - name: seed_fuel_mapping
+    description: "Vehicle powertrain / fuel type controlled vocabulary."
+    columns:
+      - name: raw_value
+        description: "Raw fuel string from Khmer24."
+        tests:
+          - unique
+          - not_null
+      - name: standardized_fuel
+        tests:
+          - not_null
+
+  - name: seed_transmission_mapping
+    description: "Vehicle gearbox transmission controlled vocabulary."
+    columns:
+      - name: raw_value
+        description: "Raw transmission string from Khmer24."
+        tests:
+          - unique
+          - not_null
+      - name: standardized_transmission
+        tests:
+          - not_null
+
+  - name: seed_tax_mapping
+    description: "Cambodian vehicle registration / tax type mapping dictionary."
+    columns:
+      - name: raw_value
+        description: "Raw tax/paper status."
+        tests:
+          - unique
+          - not_null
+      - name: standardized_tax
+        tests:
+          - not_null
+
+  - name: seed_color_mapping
+    description: "Vehicle exterior color normalization vocabulary."
+    columns:
+      - name: raw_value
+        description: "Raw color string."
+        tests:
+          - unique
+          - not_null
+      - name: standardized_color
+        tests:
+          - not_null
+
+  - name: seed_condition_mapping
+    description: "Vehicle condition mapping dictionary ('used' vs 'new')."
+    columns:
+      - name: raw_value
+        description: "Raw condition string."
+        tests:
+          - unique
+          - not_null
+      - name: standardized_condition
+        tests:
+          - not_null
+
+  - name: seed_body_type_mapping
+    description: "Vehicle chassis / body type classification dictionary."
+    columns:
+      - name: raw_value
+        description: "Raw body type string."
+        tests:
+          - unique
+          - not_null
+      - name: standardized_body_type
+        tests:
+          - not_null

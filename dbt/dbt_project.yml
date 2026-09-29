@@ -5,7 +5,6 @@ config-version: 2
 profile: 'khmer24_duckdb'
 
 model-paths:    ["models"]
-analysis-paths: ["analyses"]
 macro-paths:    ["macros"]
 test-paths:     ["tests"]
 seed-paths:     ["seeds"]

@@ -1,0 +1,98 @@
+[
+  {
+    "Model Architecture": "\ud83c\udfc6 Random Forest (Champion)",
+    "Holdout R\u00b2": "0.908",
+    "Holdout MAE": "$4,725",
+    "Median AE": "$1,387",
+    "MAPE": "14.3%",
+    "Inference Latency": "0.02 ms",
+    "Status": "Certified Champion",
+    "Raw Metrics": {
+      "r2": 0.9077,
+      "mae": 4725.23,
+      "med_ae": 1387.31,
+      "mape": 14.26,
+      "latency_ms": 0.0168
+    }
+  },
+  {
+    "Model Architecture": "HistGradientBoosting",
+    "Holdout R\u00b2": "0.902",
+    "Holdout MAE": "$5,341",
+    "Median AE": "$1,804",
+    "MAPE": "16.0%",
+    "Inference Latency": "0.01 ms",
+    "Status": "Candidate",
+    "Raw Metrics": {
+      "r2": 0.9019,
+      "mae": 5340.9,
+      "med_ae": 1804.4,
+      "mape": 16.01,
+      "latency_ms": 0.0091
+    }
+  },
+  {
+    "Model Architecture": "XGBoost",
+    "Holdout R\u00b2": "0.900",
+    "Holdout MAE": "$5,323",
+    "Median AE": "$1,816",
+    "MAPE": "15.8%",
+    "Inference Latency": "0.01 ms",
+    "Status": "Candidate",
+    "Raw Metrics": {
+      "r2": 0.9002,
+      "mae": 5322.76,
+      "med_ae": 1816.34,
+      "mape": 15.83,
+      "latency_ms": 0.008
+    }
+  },
+  {
+    "Model Architecture": "CatBoost",
+    "Holdout R\u00b2": "0.888",
+    "Holdout MAE": "$6,320",
+    "Median AE": "$2,299",
+    "MAPE": "18.2%",
+    "Inference Latency": "0.00 ms",
+    "Status": "Candidate",
+    "Raw Metrics": {
+      "r2": 0.8877,
+      "mae": 6319.55,
+      "med_ae": 2298.51,
+      "mape": 18.17,
+      "latency_ms": 0.0046
+    }
+  },
+  {
+    "Model Architecture": "Linear (Ridge)",
+    "Holdout R\u00b2": "0.791",
+    "Holdout MAE": "$8,928",
+    "Median AE": "$3,836",
+    "MAPE": "27.3%",
+    "Inference Latency": "0.00 ms",
+    "Status": "Linear Baseline",
+    "Raw Metrics": {
+      "r2": 0.791,
+      "mae": 8927.7,
+      "med_ae": 3835.88,
+      "mape": 27.3,
+      "latency_ms": 0.0044
+    }
+  },
+  {
+    "Model Architecture": "Dummy (Median Floor)",
+    "Holdout R\u00b2": "-0.039",
+    "Holdout MAE": "$17,892",
+    "Median AE": "$9,099",
+    "MAPE": "64.0%",
+    "Inference Latency": "0.00 ms",
+    "Status": "Naive Baseline",
+    "Raw Metrics": {
+      "r2": -0.039,
+      "mae": 17891.91,
+      "med_ae": 9099.2,
+      "mape": 64.02,
+      "latency_ms": 0.0044
+    }
+  }
+]

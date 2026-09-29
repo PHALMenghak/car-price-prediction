@@ -1,56 +1,56 @@
-raw_value,standardized_province
-pp,Phnom Penh
-p.p,Phnom Penh
-p.p.,Phnom Penh
-phnom penh,Phnom Penh
-phnompenh,Phnom Penh
-phnom-penh,Phnom Penh
-ភ្នំពេញ,Phnom Penh
-siem reap,Siem Reap
-siemreap,Siem Reap
-siem-reap,Siem Reap
-sr,Siem Reap
-សៀមរាប,Siem Reap
-battambang,Battambang
-bat dambang,Battambang
-bat tambang,Battambang
-បាត់ដំបង,Battambang
-kandal,Kandal
-កណ្ដាល,Kandal
-kampong cham,Kampong Cham
-kompong cham,Kampong Cham
-kampongcham,Kampong Cham
-kampong speu,Kampong Speu
-kompong speu,Kampong Speu
-kampongspeu,Kampong Speu
-takeo,Takeo
-តាកែវ,Takeo
-preah sihanouk,Preah Sihanouk
-sihanoukville,Preah Sihanouk
-sihanouk,Preah Sihanouk
-kampot,Kampot
-កំពត,Kampot
-kep,Kep
-koh kong,Koh Kong
-kohkong,Koh Kong
-kratie,Kratié
-kratié,Kratié
-mondulkiri,Mondulkiri
-ratanakiri,Ratanakiri
-stung treng,Stung Treng
-svay rieng,Svay Rieng
-prey veng,Prey Veng
-pursat,Pursat
-kampong thom,Kampong Thom
-kompong thom,Kampong Thom
-kampong chhnang,Kampong Chhnang
-kompong chhnang,Kampong Chhnang
-oddar meanchey,Oddar Meanchey
-banteay meanchey,Banteay Meanchey
-pailin,Pailin
-preah vihear,Preah Vihear
-tbong khmum,Tboung Khmum
-tboung khmum,Tboung Khmum
-tboungkhmum,Tboung Khmum
-tbongkhmum,Tboung Khmum
-ត្បូងឃ្មុំ,Tboung Khmum
+raw_value,standardized_province,location_tier
+pp,Phnom Penh,Tier_1
+p.p,Phnom Penh,Tier_1
+p.p.,Phnom Penh,Tier_1
+phnom penh,Phnom Penh,Tier_1
+phnompenh,Phnom Penh,Tier_1
+phnom-penh,Phnom Penh,Tier_1
+ភ្នំពេញ,Phnom Penh,Tier_1
+siem reap,Siem Reap,Tier_2
+siemreap,Siem Reap,Tier_2
+siem-reap,Siem Reap,Tier_2
+sr,Siem Reap,Tier_2
+សៀមរាប,Siem Reap,Tier_2
+battambang,Battambang,Tier_2
+bat dambang,Battambang,Tier_2
+bat tambang,Battambang,Tier_2
+បាត់ដំបង,Battambang,Tier_2
+kandal,Kandal,Tier_2
+កណ្ដាល,Kandal,Tier_2
+kampong cham,Kampong Cham,Tier_2
+kompong cham,Kampong Cham,Tier_2
+kampongcham,Kampong Cham,Tier_2
+kampong speu,Kampong Speu,Tier_3
+kompong speu,Kampong Speu,Tier_3
+kampongspeu,Kampong Speu,Tier_3
+takeo,Takeo,Tier_3
+តាកែវ,Takeo,Tier_3
+preah sihanouk,Preah Sihanouk,Tier_2
+sihanoukville,Preah Sihanouk,Tier_2
+sihanouk,Preah Sihanouk,Tier_2
+kampot,Kampot,Tier_3
+កំពត,Kampot,Tier_3
+kep,Kep,Tier_3
+koh kong,Koh Kong,Tier_3
+kohkong,Koh Kong,Tier_3
+kratie,Kratié,Tier_3
+kratié,Kratié,Tier_3
+mondulkiri,Mondulkiri,Tier_3
+ratanakiri,Ratanakiri,Tier_3
+stung treng,Stung Treng,Tier_3
+svay rieng,Svay Rieng,Tier_3
+prey veng,Prey Veng,Tier_3
+pursat,Pursat,Tier_3
+kampong thom,Kampong Thom,Tier_3
+kompong thom,Kampong Thom,Tier_3
+kampong chhnang,Kampong Chhnang,Tier_3
+kompong chhnang,Kampong Chhnang,Tier_3
+oddar meanchey,Oddar Meanchey,Tier_3
+banteay meanchey,Banteay Meanchey,Tier_3
+pailin,Pailin,Tier_3
+preah vihear,Preah Vihear,Tier_3
+tbong khmum,Tboung Khmum,Tier_3
+tboung khmum,Tboung Khmum,Tier_3
+tboungkhmum,Tboung Khmum,Tier_3
+tbongkhmum,Tboung Khmum,Tier_3
+ត្បូងឃ្មុំ,Tboung Khmum,Tier_3

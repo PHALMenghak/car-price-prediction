@@ -5,6 +5,9 @@ Central configuration: thresholds, colors, chart helpers, and KPI card component
 Imported by all view modules and app.py.
 """
 
+from __future__ import annotations
+import pandas as pd
+
 # ── Data Quality Thresholds ───────────────────────────────────────────────────
 MISSING_THRESHOLDS = {
     "good":     5.0,    # < 5% missing → Good
@@ -424,3 +427,41 @@ LEAKAGE_COLUMNS = [
 
 # Theme Colors dict (legacy alias for THEME)
 THEME_COLORS = THEME
+
+
+# ── Automotive Standard Formatters ───────────────────────────────────────────
+
+def format_currency(val: float | int | None) -> str:
+    """Format numeric value as USD currency: $25,500."""
+    if val is None or pd.isna(val):
+        return "—"
+    return f"${float(val):,.0f}"
+
+
+def format_number(val: float | int | None) -> str:
+    """Format count or integer: 12,450."""
+    if val is None or pd.isna(val):
+        return "0"
+    return f"{int(val):,}"
+
+
+def format_percentage(val: float | int | None, decimals: int = 1) -> str:
+    """Format decimal or percentage: 5.8%."""
+    if val is None or pd.isna(val):
+        return "—"
+    return f"{float(val):.{decimals}f}%"
+
+
+def format_mileage(val: float | int | None) -> str:
+    """Format odometer reading in km: 45,000 km."""
+    if val is None or pd.isna(val) or val <= 0:
+        return "Not Disclosed"
+    return f"{int(val):,} km"
+
+
+def format_engine(val: float | int | None) -> str:
+    """Format engine capacity in cc: 2,500 cc."""
+    if val is None or pd.isna(val) or val <= 0:
+        return "Not Specified"
+    return f"{int(val):,} cc"
+

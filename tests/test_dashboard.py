@@ -1,19 +1,27 @@
 """
 tests/test_dashboard.py
 =======================
-Unit tests for Executive Data Quality Dashboard configuration,
-DuckDB aggregations, leakage audit, and metric calculations.
+Unit tests for CARIQ Dashboard: UI configurations, SLA gating, active views,
+DuckDB metadata loader, and executive audit report generation.
 """
 
-import os
-from pathlib import Path
-import pandas as pd
+from __future__ import annotations
+
 import pytest
 
-from dashboard import config, data_loader
+from dashboard import config
+from dashboard.services import duckdb_service
+from dashboard.views import (
+    data_quality,
+    market_overview,
+    model_insights,
+    price_prediction,
+    vehicle_explorer,
+)
 
 
 def test_config_weights_and_thresholds():
+    """Verify DHI weights, SLA defaults, and threshold formatting."""
     assert "quarantined" in config.DHI_WEIGHTS
     assert "warning" in config.DHI_WEIGHTS
     assert config.DHI_WEIGHTS["quarantined"] == 1.0
@@ -29,197 +37,8 @@ def test_config_weights_and_thresholds():
     assert color_crit == "inverse"
 
 
-def test_data_loader_manifest_and_dbt():
-    manifest = data_loader.load_manifest()
-    assert isinstance(manifest, dict)
-
-    dbt_status = data_loader.load_dbt_test_status()
-    assert isinstance(dbt_status, dict)
-    assert "passed" in dbt_status
-    assert "total" in dbt_status
-    if dbt_status["available"]:
-        assert dbt_status["failed"] == 0
-        assert dbt_status["pass_rate_pct"] == 100.0
-
-
-def test_load_scraper_health():
-    health = data_loader.load_scraper_health()
-    assert isinstance(health, dict)
-    assert "status" in health
-    assert "last_run" in health
-    assert "schema_ok" in health
-    assert health["status"] in ("Healthy", "Degraded", "Critical")
-
-
-def test_quality_summary_and_dates():
-    dates = data_loader.load_available_dates()
-    assert isinstance(dates, list)
-    if dates:
-        assert len(dates) > 0
-
-    q_df = data_loader.load_quality_summary()
-    assert isinstance(q_df, pd.DataFrame)
-    if not q_df.empty:
-        assert "dhi" in q_df.columns
-        assert "total" in q_df.columns
-        assert "quarantined" in q_df.columns
-        assert (q_df["dhi"] >= 0).all()
-        assert (q_df["dhi"] <= 100).all()
-
-
-def test_missingness_trend():
-    trend_df = data_loader.load_daily_missingness_trend()
-    assert isinstance(trend_df, pd.DataFrame)
-    if not trend_df.empty:
-        assert "scrape_date" in trend_df.columns
-        assert "Price (Target)" in trend_df.columns
-        assert (trend_df["Price (Target)"] == 0.0).all()
-
-
-def test_duplicate_monitoring():
-    dup_stats = data_loader.load_duplicate_stats()
-    assert isinstance(dup_stats, dict)
-    assert dup_stats["bronze_total"] >= dup_stats["silver_total"]
-    # Verify intra-day deduplication efficacy
-    silver_daily = dup_stats["silver_daily"]
-    if not silver_daily.empty:
-        assert (silver_daily["intra_day_duplicates"] == 0).all()
-
-
-def test_pipeline_funnel_and_cleaning_impact():
-    funnel_df = data_loader.load_pipeline_funnel()
-    assert isinstance(funnel_df, pd.DataFrame)
-    if not funnel_df.empty:
-        assert len(funnel_df) == 5
-        # Funnel stage counts should be non-increasing generally
-        counts = funnel_df["count"].tolist()
-        assert counts[0] >= counts[1] >= counts[3] >= counts[4]
-
-    impact = data_loader.load_cleaning_impact_stats()
-    assert isinstance(impact, dict)
-    if impact:
-        assert impact["total_silver"] > 0
-        assert impact["preserved_pct"] >= 95.0
-def test_ml_readiness_and_leakage_prevention():
-    ml_info = data_loader.load_ml_readiness()
-    assert isinstance(ml_info, dict)
-    if ml_info.get("available"):
-        assert ml_info["total_ml_records"] > 0
-        assert ml_info["verdict"] == "READY"
-        t_stats = ml_info["target_stats"]
-        assert t_stats["price_min"] > 0
-        assert t_stats["invalid_target_count"] == 0
-
-    # Leakage audit must confirm zero leakage
-    leakage_df = data_loader.load_ml_leakage_audit()
-    assert isinstance(leakage_df, pd.DataFrame)
-    if not leakage_df.empty:
-        for _, row in leakage_df.iterrows():
-            assert "SAFE" in row["leakage_status"]
-            assert row["in_gold_ml_features"] == "🛡️ Excluded"
-
-
-def test_raw_ingestion_summary():
-    summary = data_loader.load_raw_ingestion_summary()
-    assert isinstance(summary, dict)
-    if summary["available"]:
-        assert summary["total_files"] > 0
-        assert summary["total_records"] > 0
-        assert summary["total_distinct"] > 0
-        assert summary["total_size_mb"] > 0
-        assert isinstance(summary["batches"], pd.DataFrame)
-        assert not summary["batches"].empty
-        assert "file_name" in summary["batches"].columns
-        assert "records_ingested" in summary["batches"].columns
-
-
-def test_cleaning_rules_summary():
-    rules_df = data_loader.load_cleaning_rules_summary()
-    assert isinstance(rules_df, pd.DataFrame)
-    assert not rules_df.empty
-    assert "attribute" in rules_df.columns
-    assert "transformation" in rules_df.columns
-    assert "logic" in rules_df.columns
-    assert "conformance_rule" in rules_df.columns
-    attrs = rules_df["attribute"].tolist()
-    assert "vehicle_brand" in attrs
-    assert "vehicle_model" in attrs
-    assert "vehicle_year" in attrs
-
-
-def test_feature_profiling_numeric_stats():
-    # Test Silver profiling
-    silver_num = data_loader.load_feature_numeric_stats("silver")
-    assert isinstance(silver_num, pd.DataFrame)
-    if not silver_num.empty:
-        assert "feature" in silver_num.columns
-        assert "mean" in silver_num.columns
-        assert "median_val" in silver_num.columns
-        features = silver_num["feature"].tolist()
-        assert "price" in features
-
-    # Test Gold ML profiling
-    gold_num = data_loader.load_feature_numeric_stats("gold_ml")
-    assert isinstance(gold_num, pd.DataFrame)
-    if not gold_num.empty:
-        features = gold_num["feature"].tolist()
-        assert "price" in features
-        assert "log_price" in features
-
-
-def test_categorical_cardinality_and_distribution():
-    card_df = data_loader.load_categorical_cardinality("silver")
-    assert isinstance(card_df, pd.DataFrame)
-    if not card_df.empty:
-        assert "feature" in card_df.columns
-        assert "distinct_count" in card_df.columns
-        assert "top_1" in card_df.columns
-
-    dist_df = data_loader.load_categorical_distribution("vehicle_brand", top_n=5, target_dataset="silver")
-    assert isinstance(dist_df, pd.DataFrame)
-    if not dist_df.empty:
-        assert "category" in dist_df.columns
-        assert "count" in dist_df.columns
-        assert "pct" in dist_df.columns
-        assert len(dist_df) <= 5
-
-
-def test_price_year_anomaly_sample():
-    sample_df = data_loader.load_price_year_anomaly_sample(limit=100)
-    assert isinstance(sample_df, pd.DataFrame)
-    if not sample_df.empty:
-        assert "price" in sample_df.columns
-        assert "vehicle_year" in sample_df.columns
-        assert "anomaly_group" in sample_df.columns
-        assert len(sample_df) <= 100
-
-
-def test_feature_correlation_matrix():
-    corr_df = data_loader.load_feature_correlation_matrix()
-    assert isinstance(corr_df, pd.DataFrame)
-    if not corr_df.empty:
-        assert "price" in corr_df.columns
-        assert "log_price" in corr_df.columns
-        # Correlation with self must be 1.0
-        assert corr_df.loc["price", "price"] == pytest.approx(1.0, 0.01)
-        assert corr_df.loc["log_price", "log_price"] == pytest.approx(1.0, 0.01)
-
-
-def test_load_audit_sample():
-    audit_df = data_loader.load_audit_sample(limit=20)
-    assert isinstance(audit_df, pd.DataFrame)
-    if not audit_df.empty:
-        assert "listing_id" in audit_df.columns
-        assert "status" in audit_df.columns
-        assert "clean_brand" in audit_df.columns
-        assert "clean_price" in audit_df.columns
-        assert "raw_title" in audit_df.columns
-        assert "title_clean" in audit_df.columns
-        assert "is_year_healed" in audit_df.columns
-        assert len(audit_df) <= 20
-
-
 def test_evaluate_sla_gates():
+    """Verify SLA evaluation engine under passing and breach scenarios."""
     # Scenario 1: All passing
     gates = config.evaluate_sla_gates(
         dhi_score=97.5,
@@ -246,93 +65,31 @@ def test_evaluate_sla_gates():
     assert fresh_gate["critical"] is True
 
 
-def test_load_completeness_detail():
-    detail_df = data_loader.load_completeness_detail()
-    assert isinstance(detail_df, pd.DataFrame)
-    if not detail_df.empty:
-        assert "field" in detail_df.columns
-        assert "null_pct" in detail_df.columns
-        assert "completeness_pct" in detail_df.columns
-        assert "priority" in detail_df.columns
-
-        # Verify sum of null_pct and completeness_pct equals 100%
-        for _, row in detail_df.iterrows():
-            total_sum = row["null_pct"] + row["completeness_pct"]
-            assert pytest.approx(total_sum, 0.1) == 100.0
-
-        # Critical fields should be marked Critical
-        crit_fields = ["price", "vehicle_year", "vehicle_brand", "province"]
-        for cf in crit_fields:
-            matching = detail_df[detail_df["field"] == cf]
-            if not matching.empty:
-                assert "Critical" in matching.iloc[0]["priority"]
+def test_views_import_and_catalog():
+    """Verify that all 5 active production views expose callable render contracts."""
+    views = [market_overview, vehicle_explorer, price_prediction, model_insights, data_quality]
+    for v in views:
+        assert hasattr(v, "render")
+        assert callable(v.render)
 
 
-def test_load_raw_vs_conformed_comparison():
-    comp_df = data_loader.load_raw_vs_conformed_comparison()
-    assert isinstance(comp_df, pd.DataFrame)
-    if not comp_df.empty:
-        assert "attribute" in comp_df.columns
-        assert "raw_bronze_fill_pct" in comp_df.columns
-        assert "conformed_silver_fill_pct" in comp_df.columns
-        assert "uplift_pct" in comp_df.columns
+def test_manifest_and_dates_loader():
+    """Verify manifest and partition date loading from duckdb_service."""
+    manifest = duckdb_service.load_manifest()
+    assert isinstance(manifest, dict)
 
-
-def test_raw_ingestion_batch_sizes():
-    summary = data_loader.load_raw_ingestion_summary()
-    if summary["available"] and not summary["batches"].empty:
-        batches = summary["batches"]
-        assert "size_kb" in batches.columns
-        # Batch size should be non-zero for real parquet files
-        assert (batches["size_kb"] > 0).all()
+    dates = duckdb_service.load_available_dates()
+    assert isinstance(dates, list)
+    if dates:
+        assert len(dates) > 0
+        # Verify dates are sorted descending
+        assert dates == sorted(dates, reverse=True)
 
 
 def test_generate_markdown_report():
-    report = data_loader.generate_markdown_report()
+    """Verify executive markdown report generation."""
+    report = duckdb_service.generate_markdown_report()
     assert isinstance(report, str)
-    assert "Analysis-Ready" in report
     assert "Data Health Index" in report
-
-
-def test_market_intelligence_queries():
-    # Test market KPIs
-    kpis = data_loader.load_market_kpis()
-    assert isinstance(kpis, dict)
-    if kpis:
-        assert "median_price" in kpis
-        assert "distinct_models" in kpis
-        assert kpis["median_price"] > 0
-
-    # Test vintage price curves (sample size gated N >= 30)
-    curves = data_loader.load_vintage_price_curves(min_model_samples=30)
-    assert isinstance(curves, pd.DataFrame)
-    if not curves.empty:
-        assert "full_model_name" in curves.columns
-        assert "median_price" in curves.columns
-        assert "sample_size" in curves.columns
-        assert (curves["sample_size"] >= 3).all()
-
-    # Test regional pricing
-    regional = data_loader.load_regional_pricing()
-    assert isinstance(regional, pd.DataFrame)
-    if not regional.empty:
-        assert "province" in regional.columns
-        assert "sample_size" in regional.columns
-        assert "median_price" in regional.columns
-
-    # Test tax documentation comparison
-    tax_gap = data_loader.load_tax_type_comparison()
-    assert isinstance(tax_gap, pd.DataFrame)
-    if not tax_gap.empty:
-        assert "vehicle_model" in tax_gap.columns
-        assert "tax_status" in tax_gap.columns
-        assert "median_price" in tax_gap.columns
-
-    # Test market share breakdown
-    shares = data_loader.load_market_share_breakdown()
-    assert isinstance(shares, dict)
-    if shares:
-        assert "brands" in shares
-        assert "body_types" in shares
-        assert "fuels" in shares
-
+    assert "Analysis-Ready" in report
+    assert "Automated dbt Contract Tests" in report

@@ -1,0 +1,109 @@
+version: 2
+
+models:
+  # ===========================================================================
+  # 3. GOLD / BI ANALYTICS MARTS (STAR SCHEMA)
+  # ===========================================================================
+  - name: dim_car_model
+    description: "Vehicle Model Dimension: Normalized vehicle identity and market tier (grain: model_key)."
+    columns:
+      - name: model_key
+        tests:
+          - unique
+          - not_null
+      - name: vehicle_brand
+        tests:
+          - not_null
+      - name: vehicle_model
+        tests:
+          - not_null
+
+  - name: dim_location
+    description: "Geographic Dimension: Cambodian province and district hierarchy (grain: location_key)."
+    columns:
+      - name: location_key
+        tests:
+          - unique
+          - not_null
+      - name: province
+        tests:
+          - not_null
+
+  - name: dim_seller
+    description: "Merchant Dimension: Dealership and private seller profiles (grain: seller_key)."
+    columns:
+      - name: seller_key
+        tests:
+          - unique
+          - not_null
+
+  - name: dim_vehicle_specs
+    description: "Vehicle Specifications Dimension: Standardized powertrain, transmission, tax, and color attributes (grain: spec_key)."
+    columns:
+      - name: spec_key
+        tests:
+          - unique
+          - not_null
+
+  - name: fct_car_listings
+    description: "Gold BI Mart: Curated active car listings for dashboards and market intelligence (grain: listing_id)."
+    columns:
+      - name: listing_id
+        tests:
+          - unique
+          - not_null
+      - name: model_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_car_model')
+                field: model_key
+      - name: location_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_location')
+                field: location_key
+      - name: seller_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_seller')
+                field: seller_key
+      - name: spec_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_vehicle_specs')
+                field: spec_key
+      - name: price
+        tests:
+          - not_null
+      - name: vehicle_brand
+        tests:
+          - not_null
+      - name: vehicle_model
+        tests:
+          - not_null
+      - name: vehicle_year
+        tests:
+          - not_null
+      - name: vehicle_age
+        tests:
+          - not_null
+      - name: brand_tier
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Luxury', 'Chinese_EV', 'Mass_Market', 'Other']
+      - name: data_quality_status
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['VALID', 'WARNING']

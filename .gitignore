@@ -48,3 +48,13 @@ Thumbs.db
 
 # Local documentation & reports
 docs/
+
+# CatBoost temporary artifacts
+catboost_info/
+notebooks/catboost_info/
+
+# Scratch & temporary workspace files
+scratch/
+
+# Agent configurations and skills
+.agents/

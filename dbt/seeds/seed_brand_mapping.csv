@@ -1,116 +1,115 @@
-raw_value,standardized_brand
-toyota,Toyota
-toyota.,Toyota
-toyoda,Toyota
-lexus,Lexus
-mercedes,Mercedes-Benz
-mercedes benz,Mercedes-Benz
-mercedes-benz,Mercedes-Benz
-benz,Mercedes-Benz
-bmw,BMW
-honda,Honda
-ford,Ford
-hyundai,Hyundai
-kia,Kia
-mazda,Mazda
-mitsubishi,Mitsubishi
-nissan,Nissan
-isuzu,Isuzu
-suzuki,Suzuki
-subaru,Subaru
-land rover,Land Rover
-range rover,Land Rover
-landrover,Land Rover
-rangerover,Land Rover
-chevrolet,Chevrolet
-chevy,Chevrolet
-volkswagen,Volkswagen
-vw,Volkswagen
-porsche,Porsche
-audi,Audi
-volvo,Volvo
-cadillac,Cadillac
-jeep,Jeep
-dodge,Dodge
-rolls-royce,Rolls-Royce
-rolls royce,Rolls-Royce
-rollsroyce,Rolls-Royce
-byd,BYD
-mg,MG
-geely,Geely
-haval,Haval
-gac,GAC
-changan,Changan
-jetour,Jetour
-chery,Chery
-xpeng,Xpeng
-nio,NIO
-zeekr,Zeekr
-tesla,Tesla
-vinfast,VinFast
-avatr,AVATR
-avita,AVATR
-denza,Denza
-li auto,Li Auto
-li xiang,Li Auto
-hongqi,Hongqi
-great wall,Great Wall
-greatwall,Great Wall
-aston martin,Aston Martin
-alfa romeo,Alfa Romeo
-peugeot,Peugeot
-lincoln,Lincoln
-gmc,GMC
-deepal,Deepal
-arcfox,Arcfox
-icar,iCar
-ssangyong,SsangYong
-aion,Aion
-xiaomi,Xiaomi
-bestune,Bestune
-gtv,GTV
-bentley,Bentley
-dfsk,DFSK
-kaiyi,Kaiyi
-mini,Mini
-lamborghini,Lamborghini
-maserati,Maserati
-ram,Ram
-aeolus,Aeolus
-foton,Foton
-wuling,Wuling
-aito,AITO
-ora,ORA
-infiniti,Infiniti
-jaguar,Jaguar
-gwm,GWM
-forthing,Forthing
-jmc,JMC
-rivian,Rivian
-hummer,Hummer
-maxus,Maxus
-leapmotor,Leapmotor
-baic,BAIC
-buick,Buick
-jac,JAC
-daewoo,Daewoo
-aston-martin,Aston Martin
-li,Li Auto
-mclaren,McLaren
-aiqar,iCar
-changhe,Changhe
-តូយ៉ូតា,Toyota
-ឡិចស៊ីស,Lexus
-ឡិចស៊ុស,Lexus
-ប៊េន,Mercedes-Benz
-មែរសឺដេស,Mercedes-Benz
-ប៊ីអឹម,BMW
-ហ្វត,Ford
-ហ៊ីយ៉ាន់ដាយ,Hyundai
-គីអា,Kia
-ម៉ាសដា,Mazda
-មីស៊ូប៊ីស៊ី,Mitsubishi
-នីសាន់,Nissan
-ប៊ីវ៉ាយឌី,BYD
-អាវ៉ាតា,AVATR
-ជីលី,Geely
+raw_value,standardized_brand,brand_tier
+toyota,Toyota,Mass_Market
+toyota.,Toyota,Mass_Market
+toyoda,Toyota,Mass_Market
+lexus,Lexus,Luxury
+mercedes,Mercedes-Benz,Luxury
+mercedes benz,Mercedes-Benz,Luxury
+mercedes-benz,Mercedes-Benz,Luxury
+benz,Mercedes-Benz,Luxury
+bmw,BMW,Luxury
+honda,Honda,Mass_Market
+ford,Ford,Mass_Market
+hyundai,Hyundai,Mass_Market
+kia,Kia,Mass_Market
+mazda,Mazda,Mass_Market
+mitsubishi,Mitsubishi,Mass_Market
+nissan,Nissan,Mass_Market
+isuzu,Isuzu,Mass_Market
+suzuki,Suzuki,Mass_Market
+subaru,Subaru,Mass_Market
+land rover,Land Rover,Luxury
+range rover,Land Rover,Luxury
+landrover,Land Rover,Luxury
+rangerover,Land Rover,Luxury
+chevrolet,Chevrolet,Mass_Market
+chevy,Chevrolet,Mass_Market
+volkswagen,Volkswagen,Mass_Market
+vw,Volkswagen,Mass_Market
+porsche,Porsche,Luxury
+audi,Audi,Luxury
+volvo,Volvo,Luxury
+cadillac,Cadillac,Luxury
+jeep,Jeep,Mass_Market
+dodge,Dodge,Other
+rolls-royce,Rolls-Royce,Luxury
+rolls royce,Rolls-Royce,Luxury
+rollsroyce,Rolls-Royce,Luxury
+byd,BYD,Chinese_EV
+mg,MG,Chinese_EV
+geely,Geely,Chinese_EV
+haval,Haval,Chinese_EV
+gac,GAC,Chinese_EV
+changan,Changan,Chinese_EV
+jetour,Jetour,Chinese_EV
+chery,Chery,Chinese_EV
+xpeng,Xpeng,Chinese_EV
+nio,NIO,Chinese_EV
+zeekr,Zeekr,Chinese_EV
+tesla,Tesla,Luxury
+vinfast,VinFast,Other
+avatr,AVATR,Chinese_EV
+avita,AVATR,Chinese_EV
+denza,Denza,Chinese_EV
+li auto,Li Auto,Chinese_EV
+li xiang,Li Auto,Chinese_EV
+hongqi,Hongqi,Chinese_EV
+great wall,Great Wall,Other
+greatwall,Great Wall,Other
+aston martin,Aston Martin,Luxury
+alfa romeo,Alfa Romeo,Other
+peugeot,Peugeot,Mass_Market
+lincoln,Lincoln,Luxury
+gmc,GMC,Other
+deepal,Deepal,Chinese_EV
+arcfox,Arcfox,Other
+icar,iCar,Chinese_EV
+ssangyong,SsangYong,Mass_Market
+aion,Aion,Chinese_EV
+xiaomi,Xiaomi,Chinese_EV
+bestune,Bestune,Chinese_EV
+gtv,GTV,Chinese_EV
+bentley,Bentley,Luxury
+dfsk,DFSK,Chinese_EV
+kaiyi,Kaiyi,Chinese_EV
+mini,Mini,Mass_Market
+lamborghini,Lamborghini,Luxury
+maserati,Maserati,Luxury
+ram,Ram,Mass_Market
+aeolus,Aeolus,Other
+foton,Foton,Other
+wuling,Wuling,Chinese_EV
+aito,AITO,Chinese_EV
+ora,ORA,Chinese_EV
+infiniti,Infiniti,Other
+jaguar,Jaguar,Other
+gwm,GWM,Chinese_EV
+forthing,Forthing,Chinese_EV
+jmc,JMC,Other
+rivian,Rivian,Luxury
+hummer,Hummer,Other
+maxus,Maxus,Other
+leapmotor,Leapmotor,Chinese_EV
+baic,BAIC,Chinese_EV
+buick,Buick,Other
+jac,JAC,Other
+daewoo,Daewoo,Other
+aston-martin,Aston Martin,Luxury
+li,Li Auto,Chinese_EV
+mclaren,McLaren,Luxury
+changhe,Changhe,Other
+តូយ៉ូតា,Toyota,Mass_Market
+ឡិចស៊ីស,Lexus,Luxury
+ឡិចស៊ុស,Lexus,Luxury
+ប៊េន,Mercedes-Benz,Luxury
+មែរសឺដេស,Mercedes-Benz,Luxury
+ប៊ីអឹម,BMW,Luxury
+ហ្វត,Ford,Mass_Market
+ហ៊ីយ៉ាន់ដាយ,Hyundai,Mass_Market
+ម៉ាសដា,Mazda,Mass_Market
+មីស៊ូប៊ីស៊ី,Mitsubishi,Mass_Market
+នីសាន់,Nissan,Mass_Market
+ប៊ីវ៉ាយឌី,BYD,Chinese_EV
+អាវ៉ាតា,AVATR,Chinese_EV
+ជីលី,Geely,Chinese_EV
+i car,iCar,Chinese_EV

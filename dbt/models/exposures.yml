@@ -1,0 +1,27 @@
+version: 2
+
+exposures:
+  - name: streamlit_car_price_dashboard
+    label: "Cambodia Car Price & Market Intelligence Dashboard"
+    type: dashboard
+    maturity: high
+    description: "Interactive Streamlit application for exploratory data analysis, market intelligence reporting, and real-time used car valuation."
+    url: "http://localhost:8501"
+    owner:
+      name: "Phal Menghak"
+      email: "menghakphal4@gmail.com"
+    depends_on:
+      - ref('fct_car_listings')
+      - ref('fct_cars_ml_features')
+      - ref('int_cars_audit_lineage')
+
+  - name: car_price_prediction_ml_pipeline
+    label: "Automated Car Price Prediction Models"
+    type: ml
+    maturity: high
+    description: "Multi-model ensemble regression suite (HistGradientBoosting, LightGBM, XGBoost, CatBoost, RandomForest) trained on Day-0 appraisal features."
+    owner:
+      name: "Phal Menghak"
+      email: "menghakphal4@gmail.com"
+    depends_on:
+      - ref('fct_cars_ml_features')

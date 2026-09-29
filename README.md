@@ -4,15 +4,15 @@
 [![CI Tests](https://github.com/PHALMenghak/car-price-prediction/actions/workflows/run_tests.yml/badge.svg)](https://github.com/PHALMenghak/car-price-prediction/actions/workflows/run_tests.yml)
 [![Daily Scraper](https://github.com/PHALMenghak/car-price-prediction/actions/workflows/daily_scraper.yml/badge.svg)](https://github.com/PHALMenghak/car-price-prediction/actions/workflows/daily_scraper.yml)
 [![Python Version](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/)
-[![Package Manager](https://img.shields.io/badge/uv-fast%20python-purple.svg)](https://github.com/astral-sh/uv)
+[![Package Manager](<https://img.shields.io/badge/uv-fast%20python-purple.svg>)](https://github.com/astral-sh/uv)
 [![dbt DuckDB](https://img.shields.io/badge/dbt--duckdb-1.11.0-orange.svg)](https://docs.getdbt.com/)
-[![Test Suite](https://img.shields.io/badge/pytest-28%2F28%20passing-brightgreen.svg)](https://docs.pytest.org/)
-[![dbt Tests](https://img.shields.io/badge/dbt%20tests-51%2F51%20passing-brightgreen.svg)](https://docs.getdbt.com/)
+[![Test Suite](<https://img.shields.io/badge/pytest-28%2F28%20passing-brightgreen.svg>)](https://docs.pytest.org/)
+[![dbt Tests](<https://img.shields.io/badge/dbt%20tests-107%2F107%20passing-brightgreen.svg>)](https://docs.getdbt.com/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 An automated data pipeline and machine learning project to predict used car prices and analyze automotive market trends in Cambodia.
 
-The system automatically collects car listings from **Khmer24**, cleans multilingual text (Khmer, English, Chinese), standardizes vehicle specifications, and prepares clean datasets for machine learning models and analytics dashboards.
+The system automatically collects car listings from **Khmer24**, cleans multilingual text (Khmer, English, Chinese), standardizes vehicle specifications, enforces data contracts, and prepares clean datasets for machine learning models and analytics dashboards.
 
 > 🌐 **Live Data Quality & Observability Dashboard**: Access the interactive cloud console at **[car-price-prediction-dq.streamlit.app](https://car-price-prediction-dq.streamlit.app/)**.
 
@@ -21,125 +21,129 @@ The system automatically collects car listings from **Khmer24**, cleans multilin
 ## 📌 Table of Contents
 
 - [Project Overview](#-project-overview)
-- [How It Works](#-how-it-works)
-- [Data Architecture (Medallion Standard)](#-data-architecture-medallion-standard)
+- [System Architecture (Medallion Standard)](#-system-architecture-medallion-standard)
 - [Repository Structure](#-repository-structure)
 - [Quick Start](#-quick-start)
-  - [Prerequisites](#prerequisites)
-  - [Installation](#installation)
-  - [Environment Setup](#environment-setup)
 - [How to Run the Pipeline](#-how-to-run-the-pipeline)
   - [1. Scrape Raw Data](#1-scrape-raw-data)
-  - [2. Inspect a Single Car Listing](#2-inspect-a-single-car-listing)
-  - [3. Run Data Cleaning (dbt)](#3-run-data-cleaning-dbt)
-  - [4. Run Automated Tests](#4-run-automated-tests)
-  - [5. Launch Observability Console](#5-launch-observability-console)
-- [Documentation & Data Dictionary](#-documentation--data-dictionary)
-- [Project Roadmap](#-project-roadmap)
-- [Author & Internship Information](#-author--internship-information)
+  - [2. Run Data Transformations &amp; Contract Tests (dbt)](#2-run-data-transformations--contract-tests-dbt)
+  - [3. Run Automated Unit Tests (pytest)](#3-run-automated-unit-tests-pytest)
+  - [4. Launch Observability Console](#4-launch-observability-console)
+- [Key Engineering Deliverables &amp; Documentation](#-key-engineering-deliverables--documentation)
+- [Author &amp; Internship Information](#-author--internship-information)
 
 ---
 
 ## 🌟 Project Overview
 
 In Cambodia, used car pricing can be difficult to predict because:
+
 1. **Multilingual Listings**: Sellers write titles mixing Khmer (`ឡានលក់ Prius 07`), Chinese (`2026年海拉克斯`), and English (`Lexus Rx300 Full Option`).
 2. **Missing Form Data**: Key details like model year, mileage, engine size, and tax status are often written inside the description or title rather than selected in dropdown forms.
 3. **Price Variation**: Newly imported cars with "Tax Paper" (`ក្រដាសពន្ធ`) sell at a premium compared to registered "Plate Number" (`ផ្លាកលេខ`) cars.
+4. **Financing Traps & Typo Outliers**: Installment down payments ($500–$2,000) or extra zero typos ($150,000 for a 2007 Prius) distort pricing models if not cleaned.
 
 ### Our Solution
-This project builds an automated **Extract-Load-Transform (ELT)** data pipeline:
-* **Extract & Load**: Collects 100% of raw listing data without data loss.
-* **Transform**: Uses **dbt** and **DuckDB** to clean, validate, and normalize the data.
-* **Feature Store**: Prepares an analytical Star Schema and a Machine Learning feature matrix for price prediction models.
+
+This project implements an industry-grade **Medallion Architecture (Bronze $\to$ Silver $\to$ Gold)** operating on **dbt Core** and **DuckDB**:
+
+* **Bronze**: 100% immutable raw daily Parquet snapshots.
+* **Staging**: Thin normalization, type casting, and intra-day deduplication (`stg_khmer24_cars.sql`).
+* **Intermediate**: Longitudinal history tracking (`int_listing_history.sql`), multi-source cleaning (`int_cars_cleaned.sql`), and before/after QA lineage (`int_cars_audit_lineage.sql`).
+* **Gold Marts**:
+  - **BI Analytics**: `fct_car_listings.sql` (curated active inventory).
+  - **Machine Learning**: `fct_cars_ml_features.sql` (leakage-free Day-0 appraisal features, target variables, and chronological train/validation/test splits).
 
 ---
 
-## 🔄 How It Works
+## 💎 System Architecture (Medallion Standard)
 
 ```mermaid
 flowchart TD
-    subgraph S1["1. Raw Data Ingestion (Python Scraper)"]
-        A["Khmer24 Feed API"] --> C["Scraper Client\n(src/client.py)"]
-        B["Khmer24 Detail Pages"] --> C
-        C --> D[("Bronze Layer\ndata/bronze/cars_YYYY-MM-DD.parquet\ndata/bronze/khmer24_cars.csv")]
+    subgraph S1["1. Raw Ingestion (Bronze Layer)"]
+        A["Khmer24 Marketplace API"] --> B["Python Scraper\n(src/client.py)"]
+        B --> C[("Bronze Parquet Store\ndata/bronze/cars_*.parquet")]
     end
 
-    subgraph S2["2. Data Cleaning & Validation (dbt + DuckDB)"]
-        D --> E["Staging View\n(stg_khmer24_cars)"]
-        E --> F["Cleaned Intermediate Table\n(int_cars_cleaned)"]
-        F --> G[("Silver Layer\ndata/silver/cars_cleaned.parquet")]
+    subgraph S2["2. Staging Layer (Thin Ingestion)"]
+        C --> D["stg_khmer24_cars.sql\n• Type casting & timestamp normalization\n• Intra-day deduplication\n• Grain: 1 listing_id × 1 scrape_date"]
     end
 
-    subgraph S3["3. Analytics & Machine Learning (Gold Layer)"]
-        F --> H["Star Schema\n• dim_car_model\n• dim_location\n• dim_seller\n• dim_powertrain\n• fct_car_listings"]
-        F --> I["ML Feature Matrix\n• fct_cars_ml_features"]
-        H --> J[("Gold BI Tables\ndata/gold/dim_*.parquet")]
-        I --> K[("Gold ML Dataset\ndata/gold/fct_cars_ml_features.parquet")]
+    subgraph S3["3. Intermediate Transformation Layer"]
+        D --> E["int_listing_history.sql\n• Initial price & price drops\n• Days on market"]
+        D --> F["int_cars_cleaned.sql\n• Multilingual regex & seed mappings\n• Raw vs clean value preservation\n• EV engine_cc = NULL, is_electric = 1\n• Observation-date vehicle age\n• 5-Tier Data Quality Waterfall"]
+        E --> F
+        D --> G["int_cars_audit_lineage.sql\n• Virtual QA audit view"]
+        F --> G
+        F --> H[("Silver Parquet Store\ndata/silver/cars_cleaned.parquet")]
+    end
+
+    subgraph S4["4. Marts Layer (Gold Layer)"]
+        F --> J["marts/analytics/fct_car_listings.sql\n• Active inventory\n• Grain: 1 listing_id"]
+        F --> K["marts/ml/fct_cars_ml_features.sql\n• Leakage-free Day-0 features\n• Chronological train/val/test splits"]
+        J --> L[("data/gold/fct_car_listings.parquet")]
+        K --> M[("data/gold/fct_cars_ml_features.parquet")]
     end
 ```
-
----
-
-## 💎 Data Architecture (Medallion Standard)
-
-| Layer | Storage Location | Description |
-| :--- | :--- | :--- |
-| **🥉 Bronze (Raw)** | `data/bronze/` | Immutable, untouched raw listings collected daily from Khmer24. Preserves 35 standard attributes. |
-| **🥈 Silver (Cleaned)** | `data/silver/` | Deduplicated and conformed records. Fixes brand/model names, normalizes colors/fuels, and enforces valid price bounds ($500 to $300,000 USD). |
-| **🥇 Gold (Analytics & ML)** | `data/gold/` | Dimensional Star Schema for dashboards, and an imputed Feature Store for training price prediction models. |
 
 ---
 
 ## 📂 Repository Structure
 
-```
+```text
 Car_price_prediction/
-├── .github/
-│   └── workflows/
-│       ├── daily_scraper.yml      # Scheduled daily automated scraping
-│       └── run_tests.yml          # Automated CI test suite (pytest + dbt tests)
+├── AUDIT_REPORT.md                 # Complete Senior Engineering Audit Report (10 findings & fixes)
+├── ARCHITECTURE.md                 # System Architecture & Layer Specifications
+├── DATA_QUALITY.md                 # Data Quality Framework (Waterfall, Outliers, 107 Tests)
+├── ML_STRATEGY.md                  # Valuation Strategy & Leakage Prevention Architecture
 │
 ├── data/
-│   ├── bronze/                    # Raw Parquet snapshots (cars_YYYY-MM-DD.parquet)
-│   ├── silver/                    # Cleaned conformed data (cars_cleaned.parquet)
-│   ├── gold/                      # Star schema & ML feature store (fct_cars_ml_features)
-│   └── duckdb/                    # DuckDB analytical database (khmer24.duckdb)
+│   ├── bronze/                     # Raw Parquet snapshots (cars_YYYY-MM-DD.parquet)
+│   ├── silver/                     # Cleaned conformed data (cars_cleaned.parquet)
+│   ├── gold/                       # Star schema & ML feature store (fct_cars_ml_features.parquet)
+│   └── duckdb/                     # DuckDB analytical database (khmer24.duckdb)
 │
-├── dbt/                           # Data Transformation Layer (dbt Core)
-│   ├── dbt_project.yml            # dbt project configuration
-│   ├── profiles.yml               # DuckDB connection profile
-│   ├── macros/                    # SQL normalization and cleaning macros
-│   └── models/
-│       ├── staging/               # Raw data staging models
-│       ├── intermediate/          # Cleaned intermediate models
-│       └── marts/
-│           ├── core/              # Dimensional Star Schema (dim_*, fct_*)
-│           └── ml/                # ML training feature store
+├── dbt/                            # Data Transformation Layer (dbt Core + DuckDB)
+│   ├── dbt_project.yml             # dbt project configuration
+│   ├── profiles.yml                # DuckDB connection profile
+│   ├── macros/
+│   │   ├── text/                   # clean_text.sql
+│   │   ├── parsing/                # parse_mileage.sql, parse_engine.sql, parse_year.sql
+│   │   └── quality/                # detect_spam.sql, detect_down_payment.sql,
+│   │                               # detect_price_outlier.sql, classify_brand_tier.sql,
+│   │                               # extract_nlp_signals.sql
+│   ├── seeds/                      # Canonical controlled vocabularies (brand, model, location...)
+│   ├── models/
+│   │   ├── staging/                # stg_khmer24_cars.sql
+│   │   ├── intermediate/           # int_listing_history.sql, int_cars_cleaned.sql,
+│   │   │                           # int_cars_audit_lineage.sql
+│   │   ├── marts/
+│   │   │   ├── analytics/          # fct_car_listings.sql
+│   │   │   └── ml/                 # fct_cars_ml_features.sql
+│   │   └── schema.yml              # 107 Automated data contract tests & schemas
+│   └── tests/                      # Singular business contract tests
 │
-├── docs/                          # Comprehensive Project Documentation
-│   ├── DATA_DICTIONARY.md         # Full Data Dictionary (35 fields, types, rules)
-│   ├── DBT_TRANSFORMATION_PLAYBOOK.md
-│   └── STAR_SCHEMA_DESIGN.md
+├── dashboard/                      # CARIQ Streamlit Automotive Intelligence Console
+│   ├── app.py                      # Main dashboard application & navigation router
+│   ├── config.py                   # UI tokens, SLA gates & DHI scoring rules
+│   ├── services/                   # High-speed DuckDB analytics & ML inference
+│   │   ├── duckdb_service.py       # DuckDB analytical query layer
+│   │   └── prediction_service.py   # Scikit-learn inference & SHAP explainability
+│   └── views/                      # 5 Production Views (Market Overview, Explorer, Prediction, Insights, DQ)
 │
-├── pipeline/                      # Orchestration & Pipeline Runners
-│   ├── extract_load.py            # Extraction and Bronze storage logic
-│   └── dbt_runner.py              # Programmatic dbt runner
+├── pipeline/                       # Orchestration & Pipeline Runners
+│   ├── extract_load.py             # Extraction and Bronze storage logic
+│   └── dbt_runner.py               # Programmatic dbt runner
 │
-├── src/                           # Python Modules
-│   ├── client.py                  # Khmer24 API and detail page scraper
-│   ├── schemas.py                 # Pydantic data models
-│   ├── storage.py                 # Parquet and CSV file handlers
-│   └── config.py                  # Project settings and paths
+├── src/                            # Core Python Modules
+│   ├── client.py                   # Khmer24 API and detail scraper
+│   ├── schemas.py                  # Pydantic data schemas
+│   └── storage.py                  # Parquet file handlers
 │
-├── tests/                         # Unit Test Suite
-│   ├── test_client.py
-│   ├── test_pipeline.py
-│   └── test_storage.py
-│
-├── main.py                        # Main CLI entrypoint
-├── pyproject.toml                 # Dependencies and project metadata
-└── uv.lock                        # Deterministic dependency lockfile
+├── tests/                          # Unit Test Suite (28 pytest assertions)
+├── notebooks/                      # Jupyter Research & ML Notebooks
+├── pyproject.toml                  # Dependencies & project metadata
+└── uv.lock                         # Deterministic dependency lockfile
 ```
 
 ---
@@ -147,6 +151,7 @@ Car_price_prediction/
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 * **Python 3.11+**
 * **[uv](https://github.com/astral-sh/uv)** (Fast Python package manager)
 
@@ -161,67 +166,45 @@ cd car-price-prediction
 uv sync
 ```
 
-### Environment Setup
-
-Create a `.env` file in the root directory:
-
-```ini
-KHMER24_DEVICE_ID=my-device-id
-TARGET_CATEGORY=cars-for-sale
-MAX_PAGES=20
-ENRICH_DETAILS=true
-PYTHONUTF8=1
-
-# Optional: Cloudflare Worker relay for GitHub Actions or restricted networks
-POSTS_API_BASE=https://my-worker.workers.dev/
-RELAY_KEY=my_secret_key
-```
-
 ---
 
 ## ⚡ How to Run the Pipeline
 
 ### 1. Scrape Raw Data
+
 Scrape car listings with full detail specifications into `data/bronze/`:
 
 ```bash
 # Scrape 20 pages with detail enrichment
 uv run python main.py --max-pages 20 --enrich-details
-
-# Quick scrape (feed only, without detail pages)
-uv run python main.py --max-pages 5 --no-enrich-details
 ```
 
-### 2. Inspect a Single Car Listing
-Fetch and inspect any car listing by its Khmer24 ID directly from the CLI:
+### 2. Run Data Transformations & Contract Tests (dbt)
+
+Run the full Medallion pipeline and validate all 107 data contracts:
 
 ```bash
-uv run python main.py --post-id 13560905
-```
+# Run all transformations + execute all 107 contract tests
+uv run python pipeline/dbt_runner.py all
 
-### 3. Run Data Cleaning (dbt)
-Transform Bronze data into cleaned Silver tables and Gold ML datasets:
-
-```bash
-# Run all data transformations
+# Run transformations only
 uv run python pipeline/dbt_runner.py run
 
-# Run all 51 automated data quality contract tests
+# Run contract tests only
 uv run python pipeline/dbt_runner.py test
-
-# Run build (transformations + tests together)
-uv run python pipeline/dbt_runner.py all
 ```
 
-### 4. Run Automated Tests
-Execute the Python unit test suite:
+### 3. Run Automated Unit Tests (pytest)
+
+Execute the Python test suite:
 
 ```bash
 uv run pytest tests/ -v
 ```
 
-### 5. Launch Observability Console
-Explore the interactive 3-pillar Data Pipeline & Quality Observability Console (Executive Pulse, Pipeline Monitoring, and Data Quality Lineage Audit):
+### 4. Launch Observability Console
+
+Explore the interactive 3-pillar Data Pipeline & Quality Observability Console:
 
 * **🌐 Live Hosted Cloud Deployment**: **[https://car-price-prediction-dq.streamlit.app/](https://car-price-prediction-dq.streamlit.app/)**
 * **💻 Run Locally**:
@@ -231,27 +214,13 @@ Explore the interactive 3-pillar Data Pipeline & Quality Observability Console (
 
 ---
 
-## 📖 Documentation & Data Dictionary
+## 📖 Key Engineering Deliverables & Documentation
 
-For complete documentation on every column, data type, cleaning rule, and formula:
-* 📘 [**Data Dictionary (`docs/DATA_DICTIONARY.md`)**](docs/DATA_DICTIONARY.md) — Comprehensive documentation of all 35 raw attributes, conformed Silver fields, Star Schema dimensions, and ML feature variables.
-* 📗 [**dbt Playbook (`docs/DBT_TRANSFORMATION_PLAYBOOK.md`)**](docs/DBT_TRANSFORMATION_PLAYBOOK.md) — SQL transformation rules and macros.
-* 📙 [**Star Schema Design (`docs/STAR_SCHEMA_DESIGN.md`)**](docs/STAR_SCHEMA_DESIGN.md) — Dimensional modeling architecture.
-
----
-
-## 🗺️ Project Roadmap
-
-| Phase | Milestone | Status |
-| :--- | :--- | :---: |
-| **Phase 1** | Automated raw data collection (Bronze Layer) & daily GitHub Actions | ✅ **Completed** |
-| **Phase 2** | Data cleaning pipeline with dbt + DuckDB (Silver & Gold Layers) | ✅ **Completed** |
-| **Phase 3** | Data quality governance & [3-pillar observability console](https://car-price-prediction-dq.streamlit.app/) (dbt + Streamlit) | ✅ **Completed** ([Live App](https://car-price-prediction-dq.streamlit.app/)) |
-| **Phase 4** | Exploratory data analysis (EDA) & market price trend analysis | 🔄 **In Progress** |
-| **Phase 5** | Machine learning price prediction models (LightGBM, XGBoost, CatBoost) | 🔲 **Next Up** |
-| **Phase 6** | Feature importance and price driver analysis (SHAP values) | 🔲 Planned |
-| **Phase 7** | Real-time car valuation API (FastAPI) | 🔲 Planned |
-| **Phase 8** | Interactive car market dashboard (Streamlit) | 🔲 Planned |
+* 📋 [**Audit Report (`AUDIT_REPORT.md`)**](AUDIT_REPORT.md) — Comprehensive technical audit detailing all 10 problems identified, severities, root causes, implemented refactorings, and interview defenses.
+* 🏛️ [**System Architecture (`ARCHITECTURE.md`)**](ARCHITECTURE.md) — Medallion platform design, layer responsibilities, grain contracts, and data flow.
+* 🛡️ [**Data Quality Framework (`DATA_QUALITY.md`)**](DATA_QUALITY.md) — 5-tier waterfall classification, dual-axis outlier detection, EV displacement semantics, and 107 contract assertions.
+* 🤖 [**ML Strategy & Valuation Architecture (`ML_STRATEGY.md`)**](ML_STRATEGY.md) — Day-0 appraisal feature matrix, target engineering (`log_price`), leakage prevention, and chronological splitting.
+* 📘 [**Data Dictionary (`docs/DATA_DICTIONARY.md`)**](docs/DATA_DICTIONARY.md) — Full dictionary of raw attributes, conformed Silver fields, and ML feature variables.
 
 ---
 

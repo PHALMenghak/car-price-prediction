@@ -1,0 +1,116 @@
+version: 2
+
+models:
+  # ===========================================================================
+  # 2. INTERMEDIATE / SILVER LAYER
+  # ===========================================================================
+  - name: int_listing_history
+    description: "Intermediate: Dedicated longitudinal lifecycle tracking and point-in-time dynamics (grain: listing_id + scrape_date)."
+    columns:
+      - name: listing_id
+        tests:
+          - not_null:
+              config:
+                severity: error
+      - name: scrape_date
+        tests:
+          - not_null:
+              config:
+                severity: error
+      - name: first_seen_date
+        tests:
+          - not_null:
+              config:
+                severity: error
+      - name: initial_price
+        tests:
+          - not_null:
+              config:
+                severity: error
+
+  - name: int_cars_normalized
+    description: "Intermediate: Cleaned text and seed controlled vocabulary mapping (brand, model alias, powertrain, location)."
+
+  - name: int_cars__year_healed
+    description: "Intermediate: Heals chronological year inversions and derives observation-date vehicle age."
+
+  - name: int_cars__specs_imputed
+    description: "Intermediate: Imputes missing attributes via peer consensus modes and extracts physical specs (mileage, engine CC, EV)."
+
+  - name: int_cars__outliers_flagged
+    description: "Intermediate: Flags listing signals, non-car spam, down payments, and computes dynamic 2-tier statistical IQR fences."
+
+  - name: int_cars_cleaned
+    description: "Silver: Normalized specs, provenance tracking, 5-tier quality classification, and acceptance status."
+    columns:
+      - name: listing_id
+        tests:
+          - not_null:
+              config:
+                severity: error
+      - name: scrape_date
+        tests:
+          - not_null:
+              config:
+                severity: error
+      - name: data_quality_status
+        tests:
+          - not_null:
+              config:
+                severity: error
+          - accepted_values:
+              config:
+                severity: error
+              arguments:
+                values: ['VALID', 'WARNING', 'SUSPICIOUS', 'INVALID', 'QUARANTINED']
+      - name: vehicle_fuel_type
+        tests:
+          - accepted_values:
+              config:
+                severity: warn
+              arguments:
+                values: ['Petrol', 'Diesel', 'Hybrid', 'Electric', 'LPG']
+      - name: vehicle_transmission
+        tests:
+          - accepted_values:
+              config:
+                severity: warn
+              arguments:
+                values: ['Automatic', 'Manual']
+      - name: vehicle_tax_type
+        tests:
+          - accepted_values:
+              config:
+                severity: warn
+              arguments:
+                values: ['Plate Number', 'Tax Paper']
+      - name: vehicle_condition
+        tests:
+          - accepted_values:
+              config:
+                severity: warn
+              arguments:
+                values: ['used', 'new']
+      - name: brand_tier
+        tests:
+          - not_null:
+              config:
+                severity: error
+          - accepted_values:
+              config:
+                severity: error
+              arguments:
+                values: ['Luxury', 'Chinese_EV', 'Mass_Market', 'Other']
+      - name: outlier_method
+        tests:
+          - not_null:
+              config:
+                severity: error
+          - accepted_values:
+              config:
+                severity: error
+              arguments:
+                values: ['SEGMENT_IQR', 'HEURISTIC_FALLBACK']
+
+  - name: int_cars_audit_lineage
+    description: "Virtual QA audit view providing full side-by-side raw vs cleaned lineage (Pattern B)."

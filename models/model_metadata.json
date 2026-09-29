@@ -1,0 +1,31 @@
+{
+  "champion_model": "Random Forest",
+  "trained_at": "2026-09-25T03:43:05.488334+00:00",
+  "dataset_rows": 10007,
+  "train_rows": 7005,
+  "test_rows": 1501,
+  "features": [
+    "vehicle_brand",
+    "vehicle_model",
+    "vehicle_body_type",
+    "vehicle_fuel_type",
+    "vehicle_transmission",
+    "vehicle_color",
+    "vehicle_condition",
+    "brand_category",
+    "vehicle_age",
+    "is_plate_number",
+    "has_full_option"
+  ],
+  "smearing_factor": 1.0452333936480216,
+  "conformal_q90_usd": 9420.918783010478,
+  "performance": {
+    "r2_log": 0.9077,
+    "mae_usd": 4725.23,
+    "median_ae_usd": 1387.31,
+    "mape_pct": 14.26,
+    "within_15pct": 73.22,
+    "within_20pct": 81.68,
+    "latency_ms": 0.0168
+  }
+}

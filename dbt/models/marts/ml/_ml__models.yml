@@ -1,0 +1,69 @@
+version: 2
+
+models:
+  # ===========================================================================
+  # 4. GOLD / ML TRAINING & FEATURE STORE MARTS
+  # ===========================================================================
+  - name: fct_cars_ml_features
+    description: "Canonical ML Feature Store: Day-0 appraisal features with explicit target, chronological split_group, and Parquet/CSV exports."
+    columns:
+      - name: listing_id
+        tests:
+          - unique:
+              config:
+                severity: error
+          - not_null:
+              config:
+                severity: error
+      - name: price
+        tests:
+          - not_null:
+              config:
+                severity: error
+      - name: log_price
+        tests:
+          - not_null:
+              config:
+                severity: error
+      - name: vehicle_brand
+        tests:
+          - not_null:
+              config:
+                severity: error
+      - name: vehicle_model
+        tests:
+          - not_null:
+              config:
+                severity: error
+      - name: vehicle_age
+        tests:
+          - not_null:
+              config:
+                severity: error
+      - name: split_group
+        tests:
+          - not_null:
+              config:
+                severity: error
+          - accepted_values:
+              config:
+                severity: error
+              arguments:
+                values: ['train', 'validation', 'test']
+      - name: brand_category
+        tests:
+          - not_null:
+              config:
+                severity: error
+          - accepted_values:
+              config:
+                severity: error
+              arguments:
+                values: ['Luxury', 'Chinese_EV', 'Mass_Market', 'Other']
+      - name: is_plate_number
+        tests:
+          - accepted_values:
+              config:
+                severity: warn
+              arguments:
+                values: [0, 1]

@@ -1,18 +1,20 @@
 -- dbt/models/staging/stg_khmer24_cars.sql
--- Ingests raw Parquet snapshots from Khmer24 while preserving the historical daily snapshot grain (listing_id + scrape_date).
--- Removes only intra-day duplicate scrapes (same listing on the same date).
+-- Thin Bronze-to-Staging Ingestion Model for Khmer24 Car Listings.
+-- Responsibilities: Ingestion, schema casting, timestamp normalization, intra-day deduplication.
+-- Preserves all raw source fields without business transformation or longitudinal calculations.
+-- Grain: 1 listing_id x 1 scrape_date.
 
 WITH raw_snapshots AS (
     SELECT *
-    FROM read_parquet('data/bronze/cars_*.parquet', union_by_name=true)
+    FROM {{ source('bronze', 'cars') }}
 ),
 
 ranked_snapshots AS (
     SELECT
-        listing_id,
+        TRIM(CAST(listing_id AS VARCHAR))                               AS listing_id,
         raw_title,
-        TRY_CAST(raw_price AS DOUBLE)                               AS price,
-        raw_price                                                   AS price_raw,
+        TRY_CAST(raw_price AS DOUBLE)                                   AS price,
+        raw_price                                                       AS price_raw,
         raw_currency,
         raw_spec_brand,
         raw_spec_model,
@@ -35,23 +37,15 @@ ranked_snapshots AS (
         raw_description,
         thumbnail_url,
         listing_url,
-        posted_at,
-        scraped_at,
-        TRY_CAST(scraped_at AS DATE)                                AS scrape_date,
+        TRY_CAST(posted_at AS TIMESTAMPTZ)                              AS posted_at,
+        TRY_CAST(scraped_at AS TIMESTAMPTZ)                             AS scraped_at,
+        TRY_CAST(scraped_at AS DATE)                                    AS scrape_date,
 
         -- Intra-day deduplication: keep latest scrape per day per listing
         ROW_NUMBER() OVER (
             PARTITION BY listing_id, TRY_CAST(scraped_at AS DATE)
             ORDER BY scraped_at DESC
-        ) AS _intra_day_row_num,
-
-        -- Longitudinal initial price & first observed post time across all time
-        MIN(COALESCE(TRY_CAST(posted_at AS TIMESTAMPTZ), TRY_CAST(scraped_at AS TIMESTAMPTZ))) OVER (PARTITION BY listing_id) AS _first_observed_at,
-        FIRST_VALUE(TRY_CAST(raw_price AS DOUBLE) IGNORE NULLS) OVER (
-            PARTITION BY listing_id
-            ORDER BY scraped_at ASC
-            ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
-        ) AS _initial_price
+        ) AS _intra_day_row_num
 
     FROM raw_snapshots
     WHERE listing_id IS NOT NULL
@@ -59,13 +53,14 @@ ranked_snapshots AS (
 
 SELECT
     listing_id,
-    raw_title,
+    scrape_date,
+    scraped_at,
+    posted_at,
     price,
     price_raw,
-    _initial_price                                                  AS initial_price,
-    GREATEST(_initial_price - price, 0.0)                           AS price_drop_amount,
-    CASE WHEN (_initial_price - price) > 0 THEN 1 ELSE 0 END        AS has_price_drop,
-
+    raw_currency,
+    raw_title,
+    raw_description,
     raw_spec_brand,
     raw_spec_model,
     raw_spec_year,
@@ -77,7 +72,6 @@ SELECT
     raw_spec_condition,
     raw_spec_tax_type,
     raw_spec_body_type,
-
     raw_province,
     raw_district,
     seller_id,
@@ -85,22 +79,8 @@ SELECT
     seller_type,
     seller_username,
     seller_phones,
-
-    raw_description,
     thumbnail_url,
-    listing_url,
-
-    ROUND(
-        GREATEST(
-            DATE_DIFF('second', _first_observed_at, TRY_CAST(scraped_at AS TIMESTAMPTZ)) / 86400.0,
-            0.0
-        ),
-        1
-    ) AS days_on_market,
-
-    posted_at,
-    scraped_at,
-    scrape_date
+    listing_url
 
 FROM ranked_snapshots
 WHERE _intra_day_row_num = 1
