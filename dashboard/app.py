@@ -124,6 +124,7 @@ div[data-testid="stDataFrame"] {
 """, unsafe_allow_html=True)
 
 # ── Imports ───────────────────────────────────────────────────────────────────
+from dashboard.services import prediction_service
 from dashboard.services.duckdb_service import (
     generate_markdown_report,
     load_available_dates,
@@ -253,11 +254,14 @@ with st.sidebar:
         st.rerun()
 
     # 5. Production Status Footer
+    _champ_bundle = prediction_service.load_champion_bundle()
+    _champ_name = (_champ_bundle or {}).get("model_name", "HistGradientBoosting")
+
     st.markdown("<hr style='border-color: #e2e8f0; margin: 16px 0 12px 0;'>", unsafe_allow_html=True)
     st.markdown(
         f"""
         <div style='background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px; font-size: 0.72rem; color: #475569; line-height: 1.8; box-shadow: 0 1px 3px rgba(0,0,0,0.03);'>
-            <div>🤖 <b>Model:</b> <span style='color: #2563eb; font-weight: 600;'>Random Forest</span></div>
+            <div>🤖 <b>Model:</b> <span style='color: #2563eb; font-weight: 600;'>{_champ_name}</span></div>
             <div>🏷️ <b>Version:</b> <span style='color: #0f172a; font-weight: 600;'>v1.0 (Certified)</span></div>
             <div>📅 <b>Data:</b> <span style='color: #0f172a;'>{_data_date}</span></div>
             <div>🛡️ <b>dbt Tests:</b> <span style='color: #059669; font-weight: 700;'>101/101 Passed</span></div>

@@ -47,7 +47,8 @@ def render(active_date: str | None = None) -> None:
         except Exception:
             metadata = {}
 
-    champ_name = metadata.get("champion_model", "Random Forest Regressor")
+    bundle = prediction_service.load_champion_bundle()
+    champ_name = (bundle or {}).get("model_name", metadata.get("champion_model", "HistGradientBoosting"))
     perf = metadata.get("performance", {})
     train_rows = metadata.get("train_rows", 7005)
     test_rows = metadata.get("test_rows", 1501)
@@ -95,19 +96,21 @@ def render(active_date: str | None = None) -> None:
     acc_15 = holdout.get("within_15pct", perf.get("within_15pct", 73.2))
     latency_ms = perf.get("latency_ms", 0.017)
 
-    k1, k2, k3, k4, k5, k6 = st.columns(6)
-    with k1:
-        st.markdown(config.kpi_card("R² Score (log)", f"{r2_val:.3f}", "Holdout variance", accent_color="#2563eb", icon="📈"), unsafe_allow_html=True)
-    with k2:
-        st.markdown(config.kpi_card("Median Abs Error", f"${med_ae:,.0f}", "50% error ceiling", accent_color="#10b981", icon="🎯"), unsafe_allow_html=True)
-    with k3:
-        st.markdown(config.kpi_card("Mean Abs Error", f"${mae_val:,.0f}", "Holdout MAE (USD)", accent_color="#0f2b5c", icon="💵"), unsafe_allow_html=True)
-    with k4:
-        st.markdown(config.kpi_card("MAPE", f"{mape_val:.1f}%", "Mean % error", accent_color="#f59e0b", icon="📊"), unsafe_allow_html=True)
-    with k5:
-        st.markdown(config.kpi_card("Within ±15%", f"{acc_15:.1f}%", "Commercial tolerance", accent_color="#059669", icon="✅"), unsafe_allow_html=True)
-    with k6:
-        st.markdown(config.kpi_card("Inference Latency", f"{latency_ms:.2f} ms", "Per-query runtime", accent_color="#6366f1", icon="⚡"), unsafe_allow_html=True)
+    row1_c1, row1_c2, row1_c3 = st.columns(3)
+    with row1_c1:
+        st.markdown(config.kpi_card("R² Score (log)", f"{r2_val:.3f}", "Explained holdout variance", accent_color="#2563eb", icon="📈"), unsafe_allow_html=True)
+    with row1_c2:
+        st.markdown(config.kpi_card("Median Absolute Error", f"${med_ae:,.0f}", "50% error ceiling (USD)", accent_color="#10b981", icon="🎯"), unsafe_allow_html=True)
+    with row1_c3:
+        st.markdown(config.kpi_card("Mean Absolute Error", f"${mae_val:,.0f}", "Holdout MAE (USD)", accent_color="#0f2b5c", icon="💵"), unsafe_allow_html=True)
+
+    row2_c1, row2_c2, row2_c3 = st.columns(3)
+    with row2_c1:
+        st.markdown(config.kpi_card("Mean Absolute % Error", f"{mape_val:.1f}%", "Overall holdout percentage error", accent_color="#f59e0b", icon="📊"), unsafe_allow_html=True)
+    with row2_c2:
+        st.markdown(config.kpi_card("Commercial Tolerance", f"{acc_15:.1f}%", "Predictions within ±15%", accent_color="#059669", icon="✅"), unsafe_allow_html=True)
+    with row2_c3:
+        st.markdown(config.kpi_card("Inference Latency", f"{latency_ms:.2f} ms", "Sub-millisecond query time", accent_color="#6366f1", icon="⚡"), unsafe_allow_html=True)
 
     st.markdown("<div style='height: 14px;'></div>", unsafe_allow_html=True)
 

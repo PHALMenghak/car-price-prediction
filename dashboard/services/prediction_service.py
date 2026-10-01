@@ -68,7 +68,7 @@ def load_champion_bundle() -> dict[str, Any] | None:
                 pass
 
         return {
-            "model_name": bundle.get("model_name", "Random Forest Regressor"),
+            "model_name": bundle.get("model_name", "HistGradientBoosting"),
             "pipeline": pipeline,
             "features": bundle.get("features", FEATURE_COLUMNS),
             "metrics": bundle.get("metrics", {}),
@@ -121,30 +121,31 @@ def get_model_feature_importances() -> pd.DataFrame:
         try:
             prep = bundle["pipeline"].named_steps["prep"]
             reg = bundle["pipeline"].named_steps["reg"]
-            f_names = prep.get_feature_names_out()
-            raw_imps = reg.feature_importances_
+            if hasattr(reg, "feature_importances_"):
+                f_names = prep.get_feature_names_out()
+                raw_imps = reg.feature_importances_
 
-            grouped: dict[str, float] = {}
-            for name, imp in zip(f_names, raw_imps):
-                clean_name = name.split("__")[-1]
-                matched = False
-                for k, (disp_name, _) in impact_map.items():
-                    if clean_name.startswith(k):
-                        grouped[disp_name] = grouped.get(disp_name, 0.0) + float(imp)
-                        matched = True
-                        break
-                if not matched:
-                    grouped["Other"] = grouped.get("Other", 0.0) + float(imp)
+                grouped: dict[str, float] = {}
+                for name, imp in zip(f_names, raw_imps):
+                    clean_name = name.split("__")[-1]
+                    matched = False
+                    for k, (disp_name, _) in impact_map.items():
+                        if clean_name.startswith(k):
+                            grouped[disp_name] = grouped.get(disp_name, 0.0) + float(imp)
+                            matched = True
+                            break
+                    if not matched:
+                        grouped["Other"] = grouped.get("Other", 0.0) + float(imp)
 
-            rows = []
-            for _, (disp_name, impact_text) in impact_map.items():
-                if disp_name in grouped:
-                    rows.append({
-                        "Feature": disp_name,
-                        "Importance": grouped[disp_name],
-                        "Impact": impact_text,
-                    })
-            return pd.DataFrame(rows).sort_values("Importance", ascending=True)
+                rows = []
+                for _, (disp_name, impact_text) in impact_map.items():
+                    if disp_name in grouped:
+                        rows.append({
+                            "Feature": disp_name,
+                            "Importance": grouped[disp_name],
+                            "Impact": impact_text,
+                        })
+                return pd.DataFrame(rows).sort_values("Importance", ascending=True)
         except Exception as e:
             logger.warning(f"Could not compute model feature importances from pipeline: {e}")
 
@@ -178,7 +179,7 @@ def predict_price(
     Run end-to-end inference and return predicted fair market price in USD,
     log-space prediction, calibrated confidence bounds, and Duan's smearing correction.
     """
-    vehicle_age = max(0, 2026 - int(vehicle_year))
+    vehicle_age = max(0, pd.Timestamp.now().year - int(vehicle_year))
     brand_cat = get_brand_category(vehicle_brand)
 
     input_df = pd.DataFrame([{
@@ -252,7 +253,7 @@ def explain_prediction(
     Returns feature attributions in both log-space and converted dollar impact.
     """
     bundle = load_champion_bundle()
-    vehicle_age = max(0, 2026 - int(vehicle_year))
+    vehicle_age = max(0, pd.Timestamp.now().year - int(vehicle_year))
     brand_cat = get_brand_category(vehicle_brand)
 
     input_df = pd.DataFrame([{
@@ -317,23 +318,40 @@ def explain_prediction(
     fair_price = float(np.exp(pred_log))
     total_dollar_delta = fair_price - base_price
 
-    # Feature mapping: Group transformed one-hot/target-enc indices to human features
+    # Feature mapping: Dynamically group transformed feature indices to domain features
     raw_vals = shap_vals.values[0]
+    f_names = prep.get_feature_names_out() if hasattr(prep, "get_feature_names_out") else []
 
-    # Indices breakdown in ColumnTransformer:
-    # 0: vehicle_brand (target-enc)
-    # 1: vehicle_model (target-enc)
-    # 2..36: low_card categoricals (body, fuel, trans, color, condition, brand_category)
-    # 37: vehicle_age (num)
-    # 38: is_plate_number (bin)
-    # 39: has_full_option (bin)
+    shap_brand = 0.0
+    shap_model = 0.0
+    shap_low_card = 0.0
+    shap_age = 0.0
+    shap_plate = 0.0
+    shap_option = 0.0
 
-    shap_brand = float(raw_vals[0])
-    shap_model = float(raw_vals[1])
-    shap_low_card = float(np.sum(raw_vals[2:37])) if len(raw_vals) > 37 else 0.0
-    shap_age = float(raw_vals[37]) if len(raw_vals) > 37 else 0.0
-    shap_plate = float(raw_vals[38]) if len(raw_vals) > 38 else 0.0
-    shap_option = float(raw_vals[39]) if len(raw_vals) > 39 else 0.0
+    if len(f_names) == len(raw_vals):
+        for name, val in zip(f_names, raw_vals):
+            val_flt = float(val)
+            if "vehicle_brand" in name:
+                shap_brand += val_flt
+            elif "vehicle_model" in name:
+                shap_model += val_flt
+            elif "vehicle_age" in name:
+                shap_age += val_flt
+            elif "is_plate_number" in name:
+                shap_plate += val_flt
+            elif "has_full_option" in name:
+                shap_option += val_flt
+            else:
+                shap_low_card += val_flt
+    else:
+        # Fallback index matching if names cannot be retrieved
+        shap_brand = float(raw_vals[0]) if len(raw_vals) > 0 else 0.0
+        shap_model = float(raw_vals[1]) if len(raw_vals) > 1 else 0.0
+        shap_low_card = float(np.sum(raw_vals[2:-3])) if len(raw_vals) > 5 else 0.0
+        shap_age = float(raw_vals[-3]) if len(raw_vals) >= 3 else 0.0
+        shap_plate = float(raw_vals[-2]) if len(raw_vals) >= 2 else 0.0
+        shap_option = float(raw_vals[-1]) if len(raw_vals) >= 1 else 0.0
 
     group_log_deltas = {
         "Vehicle Age": (shap_age, f"{vehicle_age} yrs"),

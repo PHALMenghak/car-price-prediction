@@ -510,20 +510,6 @@ def get_regional_price_distribution(top_n: int = 8, active_date: str | None = No
     """
     return con.execute(query).df()
 
-    query = f"""
-        SELECT
-            COALESCE(NULLIF(vehicle_fuel_type, ''), 'Unknown') AS fuel_type,
-            COUNT(*) AS count,
-            AVG(price) AS avg_price,
-            MEDIAN(price) AS median_price
-        FROM read_parquet('{path_str}')
-        {where_clause}
-        GROUP BY 1
-        HAVING COUNT(*) >= 5
-        ORDER BY count DESC
-    """
-    return con.execute(query).df()
-
 
 # ── Page 4 Additions: Real Holdout ML Evaluation & Governance ────────────────
 
@@ -596,7 +582,7 @@ def get_holdout_evaluation_data() -> dict[str, Any]:
         "residual_log": residuals_log,
         "vehicle_brand": test_df["vehicle_brand"],
         "vehicle_model": test_df["vehicle_model"],
-        "vehicle_year": 2026 - test_df["vehicle_age"],
+        "vehicle_year": pd.Timestamp.now().year - test_df["vehicle_age"],
     })
 
     return {
@@ -685,7 +671,6 @@ def get_target_leakage_audit() -> pd.DataFrame:
 @st.cache_data(ttl=300, show_spinner=False)
 def get_data_quality_metrics() -> dict[str, Any]:
     """Retrieve data pipeline metrics, missingness, and live dbt test status."""
-    import json
     bronze_count = 0
     clean_count = 0
     duplicates_count = 0
@@ -762,6 +747,7 @@ def get_data_quality_metrics() -> dict[str, Any]:
             stats = con.execute(f"""
                 SELECT
                     COUNT(*) AS clean_listings,
+                    COUNT(*) FILTER (WHERE data_quality_status = 'VALID') AS valid_records,
                     COUNT(*) FILTER (WHERE data_quality_status IN ('VALID', 'WARNING')) AS usable_records,
                     COUNT(*) FILTER (WHERE data_quality_status = 'INVALID') AS invalid_records,
                     COUNT(*) FILTER (WHERE data_quality_status = 'QUARANTINED') AS quarantined_records,
@@ -779,6 +765,7 @@ def get_data_quality_metrics() -> dict[str, Any]:
             """).df().iloc[0].to_dict()
 
             clean_count = int(stats["clean_listings"])
+            valid_count = int(stats.get("valid_records", 0))
             usable_count = int(stats["usable_records"])
             invalid_count = int(stats["invalid_records"])
             quarantined_count = int(stats["quarantined_records"])
@@ -797,12 +784,17 @@ def get_data_quality_metrics() -> dict[str, Any]:
 
     total_anomalies = invalid_count + quarantined_count + suspicious_count
     usable_pct = round(100.0 * usable_count / clean_count, 1) if clean_count > 0 else 94.3
+    valid_pct = round(100.0 * valid_count / clean_count, 1) if clean_count > 0 else 88.5
+    dhi_score = round(100.0 * usable_count / clean_count, 2) if clean_count > 0 else 97.2
     anomaly_pct = round(100.0 * total_anomalies / clean_count, 1) if clean_count > 0 else 5.7
 
     return {
         "raw_listings": bronze_count if bronze_count > 0 else 28201,
         "clean_listings": clean_count if clean_count > 0 else 27936,
         "usable_records": usable_count if usable_count > 0 else 26337,
+        "valid_records": valid_count if valid_count > 0 else 24738,
+        "valid_pct": valid_pct,
+        "dhi_score": dhi_score,
         "usable_pct": usable_pct,
         "critical_conformance_pct": critical_conformance_pct,
         "latest_batch_size": latest_batch_size,
@@ -1048,19 +1040,19 @@ def generate_markdown_report(scrape_date: str | None = None) -> str:
     dq = get_data_quality_metrics()
 
     dhi = dq.get("dhi_score", 97.2)
-    total = dq.get("clean_count", 0)
-    usable = dq.get("usable_count", 0)
+    total = dq.get("clean_listings", 0)
+    usable = dq.get("usable_records", 0)
     usable_pct = dq.get("usable_pct", 94.3)
-    valid = dq.get("valid_count", 0)
+    valid = dq.get("valid_records", 0)
     valid_pct = dq.get("valid_pct", 88.5)
-    suspicious = dq.get("suspicious_count", 0)
-    susp_pct = dq.get("suspicious_pct", 4.5)
-    quarantined = dq.get("quarantined_count", 0)
-    quar_pct = dq.get("quarantined_pct", 1.2)
+    suspicious = dq.get("suspicious_records", 0)
+    susp_pct = round(100.0 * suspicious / total, 1) if total > 0 else 4.5
+    quarantined = dq.get("quarantined_records", 0)
+    quar_pct = round(100.0 * quarantined / total, 1) if total > 0 else 1.2
 
-    bronze_total = dq.get("bronze_count", 28201)
-    silver_total = dq.get("clean_count", 27936)
-    duplicates_count = dq.get("duplicates_count", 1438)
+    bronze_total = dq.get("raw_listings", 28201)
+    silver_total = dq.get("clean_listings", 27936)
+    duplicates_count = dq.get("duplicates", 1438)
 
     dbt_status = dq.get("dbt_status", {})
     dbt_passed = dbt_status.get("passed", 101)

@@ -414,19 +414,8 @@ def insight_card(icon: str, text: str, color: str = "#0284c7") -> str:
 
 
 # ── Backward-compatibility aliases ────────────────────────────────────────────
-STATUS_EMOJI = STATUS_DOT  # original name → alias for STATUS_DOT
-
-ML_CRITICAL_FEATURES = [
-    "vehicle_brand", "vehicle_model", "vehicle_year", "vehicle_age",
-    "province", "brand_tier", "seller_type", "price",
-]
-
-LEAKAGE_COLUMNS = [
-    "days_on_market", "price_drop_amount", "initial_price", "has_price_drop",
-]
-
-# Theme Colors dict (legacy alias for THEME)
-THEME_COLORS = THEME
+STATUS_EMOJI = STATUS_DOT  # legacy alias for STATUS_DOT
+THEME_COLORS = THEME       # legacy alias for THEME
 
 
 # ── Automotive Standard Formatters ───────────────────────────────────────────

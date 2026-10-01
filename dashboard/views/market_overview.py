@@ -30,71 +30,73 @@ def render(active_date: str | None = None) -> None:
         unsafe_allow_html=True,
     )
 
-    # ── 1. Top 6 KPI Cards Row ────────────────────────────────────────────────
+    # ── 1. Top KPI Cards (Responsive 3x2 Grid) ───────────────────────────────
     kpis = duckdb_service.get_market_kpis(active_date)
 
-    c1, c2, c3, c4, c5, c6 = st.columns(6)
-    with c1:
+    r1_c1, r1_c2, r1_c3 = st.columns(3)
+    with r1_c1:
         st.markdown(
             config.kpi_card(
-                title="Total Listings",
+                title="Total Verified Inventory",
                 value=config.format_number(kpis["total_listings"]),
-                subtitle="Verified listings",
+                subtitle="Active marketplace listings",
                 accent_color="#2563eb",
                 icon="🚗",
             ),
             unsafe_allow_html=True,
         )
-    with c2:
+    with r1_c2:
         st.markdown(
             config.kpi_card(
-                title="Average Price",
-                value=config.format_currency(kpis["avg_price"]),
-                subtitle="Mean dealer asking",
-                accent_color="#0f2b5c",
-                icon="💵",
-            ),
-            unsafe_allow_html=True,
-        )
-    with c3:
-        st.markdown(
-            config.kpi_card(
-                title="Median Price",
-                value=config.format_currency(kpis["median_price"]),
-                subtitle="Market 50th percentile",
-                accent_color="#10b981",
-                icon="🎯",
-            ),
-            unsafe_allow_html=True,
-        )
-    with c4:
-        st.markdown(
-            config.kpi_card(
-                title="Brands",
+                title="Active Marques",
                 value=config.format_number(kpis["unique_brands"]),
-                subtitle="Active marques",
+                subtitle="Monitored automotive brands",
                 accent_color="#6366f1",
                 icon="🏷️",
             ),
             unsafe_allow_html=True,
         )
-    with c5:
+    with r1_c3:
         st.markdown(
             config.kpi_card(
-                title="Models",
+                title="Model Catalog",
                 value=config.format_number(kpis["unique_models"]),
-                subtitle="Vehicle variants",
+                subtitle="Distinct vehicle models",
                 accent_color="#f59e0b",
                 icon="🚙",
             ),
             unsafe_allow_html=True,
         )
-    with c6:
+
+    r2_c1, r2_c2, r2_c3 = st.columns(3)
+    with r2_c1:
         st.markdown(
             config.kpi_card(
-                title="Average Age",
+                title="Median Asking Price",
+                value=config.format_currency(kpis["median_price"]),
+                subtitle="Market 50th percentile (fair value)",
+                accent_color="#10b981",
+                icon="🎯",
+            ),
+            unsafe_allow_html=True,
+        )
+    with r2_c2:
+        st.markdown(
+            config.kpi_card(
+                title="Average Asking Price",
+                value=config.format_currency(kpis["avg_price"]),
+                subtitle="Mean dealer asking price",
+                accent_color="#0f2b5c",
+                icon="💵",
+            ),
+            unsafe_allow_html=True,
+        )
+    with r2_c3:
+        st.markdown(
+            config.kpi_card(
+                title="Fleet Average Age",
                 value=f"{kpis['avg_age']:.1f} yrs",
-                subtitle="Mean vehicle age",
+                subtitle="Mean Cambodian fleet vintage",
                 accent_color="#64748b",
                 icon="📅",
             ),
